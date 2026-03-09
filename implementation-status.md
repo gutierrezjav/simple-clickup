@@ -11,7 +11,7 @@ The repo is no longer empty. It now contains a working scaffold for the planned 
 - shared types/fixtures package
 - Storybook-first UI surface
 
-The scaffold is intentionally mock-safe. Real production ClickUp reads are planned next. Real production ClickUp writes are still intentionally blocked.
+The scaffold is intentionally mock-safe. Real production ClickUp reads are now implemented behind explicit opt-in. Real production ClickUp writes are still intentionally blocked.
 
 ## What is implemented
 
@@ -40,13 +40,23 @@ The scaffold is intentionally mock-safe. Real production ClickUp reads are plann
   - `/health`
   - `/auth`
   - `/api/clickup`
-- mock-backed endpoints:
+- mock-backed and live-read-capable endpoints:
   - `GET /api/clickup/schema`
   - `GET /api/clickup/planning`
   - `GET /api/clickup/daily`
   - `PATCH /api/clickup/tasks/:taskId/status`
   - `PATCH /api/clickup/tasks/:taskId/fields`
 - write mode guard using `CLICKUP_WRITE_MODE`
+- read mode guard using `CLICKUP_READ_MODE`
+- ClickUp backend client with:
+  - paginated list-task reads
+  - list custom-field metadata fetch
+  - workspace custom task-type fetch
+  - short-lived in-memory caching
+  - request deduplication for concurrent snapshot loads
+  - 429 / `Retry-After` handling
+- live normalization from ClickUp responses into the existing shared planning/daily shapes
+- target-list field validation for the required planning/daily fields
 
 ### Shared package
 
@@ -60,16 +70,14 @@ The scaffold is intentionally mock-safe. Real production ClickUp reads are plann
 
 - real OAuth start/callback flow
 - session encryption / real session lifecycle
-- live read-only ClickUp API client
-- target-list schema validation against ClickUp
-- caching/dedup/backoff behavior for live reads
+- production verification of live read mode against a local backend session
 
 ### UI behavior
 
 - true drag-and-drop for daily board
 - inline field editing in planning
-- loading/error/rate-limited UX states beyond documentation intent
-- environment/banner wiring to live backend mode
+- loading/error/rate-limited UX states in the frontend routes
+- frontend wiring to backend-backed read mode and environment indicators
 
 ### Safe write infrastructure
 
@@ -96,9 +104,25 @@ HOME=/tmp STORYBOOK_DISABLE_TELEMETRY=1 npm run build-storybook
 
 and similarly for local Storybook commands in this environment if needed.
 
+## Stage 1 verification notes
+
+New env surface:
+
+- `CLICKUP_READ_MODE=mock|live`
+- `CLICKUP_ACCESS_TOKEN=<server-side ClickUp token for local verification>`
+- `CLICKUP_TARGET_TEAM_ID=2199933`
+- `CLICKUP_TARGET_LIST_ID=901500224401`
+- `CLICKUP_READ_CACHE_TTL_MS=30000`
+- `CLICKUP_HTTP_TIMEOUT_MS=10000`
+
+Default behavior remains mock-safe:
+
+- if `CLICKUP_READ_MODE` is unset, `/api/clickup/schema`, `/planning`, and `/daily` still serve fixture-backed responses
+- `CLICKUP_WRITE_MODE` still defaults to `mock`
+
 ## Recommended next implementation slice
 
-1. Implement the real read-only ClickUp client in the backend.
-2. Keep `CLICKUP_WRITE_MODE=mock`.
-3. Replace fixture-backed `/api/clickup/schema`, `/planning`, and `/daily` with live read-backed responses.
-4. Preserve the current normalized shapes so Storybook and app integration stay aligned.
+1. Wire the frontend planning and daily routes to the backend read endpoints.
+2. Add frontend loading, empty, error, and rate-limited states around those reads.
+3. Surface the current backend read/write mode in the UI so live-read verification is visible.
+4. Keep `CLICKUP_WRITE_MODE=mock`.

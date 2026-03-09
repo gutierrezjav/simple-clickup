@@ -1,28 +1,73 @@
-import { dailyFixtures, planningFixtures, schemaConfig } from "@custom-clickup/shared";
-import { Router } from "express";
+import { Router, type Response } from "express";
+import { createClickUpReadService } from "../clickup/service.js";
+import { ClickUpServiceError } from "../clickup/errors.js";
 import { config } from "../config.js";
 
 export const clickupRouter = Router();
-
-clickupRouter.get("/schema", (_req, res) => {
-  res.json({
-    schema: schemaConfig,
-    writeMode: config.CLICKUP_WRITE_MODE
-  });
+const clickupReadService = createClickUpReadService({
+  accessToken: config.CLICKUP_ACCESS_TOKEN,
+  baseUrl: config.CLICKUP_API_BASE_URL,
+  cacheTtlMs: config.CLICKUP_READ_CACHE_TTL_MS,
+  listId: config.CLICKUP_TARGET_LIST_ID,
+  readMode: config.CLICKUP_READ_MODE,
+  teamId: config.CLICKUP_TARGET_TEAM_ID,
+  timeoutMs: config.CLICKUP_HTTP_TIMEOUT_MS
 });
 
-clickupRouter.get("/planning", (_req, res) => {
-  res.json({
-    items: planningFixtures,
-    writeMode: config.CLICKUP_WRITE_MODE
-  });
+clickupRouter.use((_req, res, next) => {
+  res.set("x-custom-clickup-read-mode", clickupReadService.getReadMode());
+  next();
 });
 
-clickupRouter.get("/daily", (_req, res) => {
-  res.json({
-    rows: dailyFixtures,
-    writeMode: config.CLICKUP_WRITE_MODE
+function handleRouteError(error: unknown, res: Response) {
+  if (error instanceof ClickUpServiceError) {
+    if (typeof error.retryAfterMs === "number") {
+      res.set("retry-after", String(Math.ceil(error.retryAfterMs / 1000)));
+    }
+
+    res.status(error.statusCode).json({
+      message: error.message
+    });
+    return;
+  }
+
+  console.error(error);
+  res.status(500).json({
+    message: "Unexpected backend error."
   });
+}
+
+clickupRouter.get("/schema", async (_req, res) => {
+  try {
+    res.json({
+      schema: await clickupReadService.getSchema(),
+      writeMode: config.CLICKUP_WRITE_MODE
+    });
+  } catch (error) {
+    handleRouteError(error, res);
+  }
+});
+
+clickupRouter.get("/planning", async (_req, res) => {
+  try {
+    res.json({
+      items: await clickupReadService.getPlanningItems(),
+      writeMode: config.CLICKUP_WRITE_MODE
+    });
+  } catch (error) {
+    handleRouteError(error, res);
+  }
+});
+
+clickupRouter.get("/daily", async (_req, res) => {
+  try {
+    res.json({
+      rows: await clickupReadService.getDailyRows(),
+      writeMode: config.CLICKUP_WRITE_MODE
+    });
+  } catch (error) {
+    handleRouteError(error, res);
+  }
 });
 
 clickupRouter.patch("/tasks/:taskId/status", (req, res) => {

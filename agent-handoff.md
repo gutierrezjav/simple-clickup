@@ -44,8 +44,10 @@ Recommended reading order:
 ### Backend
 
 - [backend/src/app.ts](/data/custom-clickup/backend/src/app.ts): Express app wiring
-- [backend/src/routes/clickup.ts](/data/custom-clickup/backend/src/routes/clickup.ts): schema/planning/daily mock endpoints and guarded write stubs
+- [backend/src/routes/clickup.ts](/data/custom-clickup/backend/src/routes/clickup.ts): schema/planning/daily read endpoints and guarded write stubs
 - [backend/src/config.ts](/data/custom-clickup/backend/src/config.ts): env parsing and write mode
+- [backend/src/clickup/client.ts](/data/custom-clickup/backend/src/clickup/client.ts): ClickUp REST client with pagination and 429 handling
+- [backend/src/clickup/service.ts](/data/custom-clickup/backend/src/clickup/service.ts): cached live snapshot loader and normalization
 
 ### Shared
 
@@ -54,11 +56,17 @@ Recommended reading order:
 
 ## Current safety model
 
-- Live production ClickUp reads are allowed in the plan, but not implemented yet.
+- Live production ClickUp reads are implemented behind explicit `CLICKUP_READ_MODE=live`.
 - Live production ClickUp writes must not be used during development/testing.
 - Default write mode is `mock`.
 - `test-space` is planned but not implemented.
 - `live` is intentionally blocked by default.
+
+Current implementation note:
+
+- live ClickUp reads are now implemented behind explicit `CLICKUP_READ_MODE=live`
+- default local behavior is still mock-safe
+- production-list writes are still blocked
 
 ## Expected environment variables
 
@@ -66,6 +74,13 @@ Currently parsed:
 
 - `PORT`
 - `CLICKUP_WRITE_MODE`
+- `CLICKUP_READ_MODE`
+- `CLICKUP_ACCESS_TOKEN`
+- `CLICKUP_API_BASE_URL`
+- `CLICKUP_TARGET_TEAM_ID`
+- `CLICKUP_TARGET_LIST_ID`
+- `CLICKUP_READ_CACHE_TTL_MS`
+- `CLICKUP_HTTP_TIMEOUT_MS`
 
 Likely next env vars to add in the backend:
 
@@ -73,7 +88,6 @@ Likely next env vars to add in the backend:
 - `CLICKUP_CLIENT_SECRET`
 - `CLICKUP_REDIRECT_URI`
 - `SESSION_SECRET`
-- `CLICKUP_TARGET_LIST_ID`
 - `CLICKUP_TEST_WORKSPACE_ID`
 - `CLICKUP_TEST_LIST_ID`
 
@@ -113,15 +127,11 @@ HOME=/tmp STORYBOOK_DISABLE_TELEMETRY=1 npm run build-storybook
 
 ## Recommended next task
 
-Implement live read-only ClickUp integration in the backend:
+Wire the frontend to the backend read endpoints:
 
+- replace direct fixture imports in the SPA routes with backend fetches
 - keep the current normalized response shapes
+- add loading, error, empty, and rate-limited route states
 - keep `CLICKUP_WRITE_MODE=mock`
-- replace fixture-backed reads with real paginated ClickUp reads
-- add read guardrails:
-  - caching
-  - request deduplication
-  - bounded refresh behavior
-  - 429 / `Retry-After` handling
 
 Do not start real write integration against the production list yet.
