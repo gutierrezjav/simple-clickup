@@ -1,4 +1,5 @@
 import { ClickUpServiceError } from "./errors.js";
+import { resolveClickUpAuthorizationHeader } from "./token.js";
 import type {
   ClickUpCustomTaskTypePayload,
   ClickUpFieldPayload,
@@ -12,12 +13,19 @@ interface ClickUpClientOptions {
   teamId: string;
 }
 
+const clickUpTaskFetchLimit = 500;
+const maxClickUpTimeoutMs = 10_000;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function asArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
+function logClickUp(
+  level: "info" | "warn" | "error",
+  event: string,
+  details: Record<string, unknown>
+): void {
+  console[level](`[clickup] ${event}`, details);
 }
 
 function parseRetryAfterMs(headerValue: string | null): number | undefined {
@@ -127,12 +135,19 @@ export class ClickUpClient {
   constructor(options: ClickUpClientOptions) {
     this.#accessToken = options.accessToken;
     this.#baseUrl = options.baseUrl.replace(/\/+$/, "");
-    this.#timeoutMs = options.timeoutMs;
+    this.#timeoutMs = Math.min(options.timeoutMs, maxClickUpTimeoutMs);
     this.#teamId = options.teamId;
   }
 
   async getListTasks(listId: string): Promise<ClickUpTaskPayload[]> {
     const tasks: ClickUpTaskPayload[] = [];
+    const startedAt = Date.now();
+
+    logClickUp("info", "list-tasks:start", {
+      listId,
+      limit: clickUpTaskFetchLimit,
+      timeoutMs: this.#timeoutMs
+    });
 
     for (let page = 0; page < 100; page += 1) {
       const payload = await this.#getJson(`/list/${listId}/task`, {
@@ -142,14 +157,45 @@ export class ClickUpClient {
         page: String(page),
         subtasks: "true"
       });
+      const pageTasks = parseTaskArray(payload);
+      const remainingSlots = clickUpTaskFetchLimit - tasks.length;
 
-      tasks.push(...parseTaskArray(payload));
+      if (remainingSlots > 0) {
+        tasks.push(...pageTasks.slice(0, remainingSlots));
+      }
 
-      if (parseLastPage(payload) ?? parseTaskArray(payload).length === 0) {
+      logClickUp("info", "list-tasks:page", {
+        listId,
+        page,
+        fetched: pageTasks.length,
+        total: tasks.length
+      });
+
+      if (tasks.length >= clickUpTaskFetchLimit) {
+        logClickUp("warn", "list-tasks:limit-reached", {
+          listId,
+          limit: clickUpTaskFetchLimit,
+          durationMs: Date.now() - startedAt
+        });
+        return tasks;
+      }
+
+      if (parseLastPage(payload) ?? pageTasks.length === 0) {
+        logClickUp("info", "list-tasks:done", {
+          listId,
+          total: tasks.length,
+          durationMs: Date.now() - startedAt
+        });
         return tasks;
       }
     }
 
+    logClickUp("error", "list-tasks:pagination-limit", {
+      listId,
+      total: tasks.length,
+      pageLimit: 100,
+      durationMs: Date.now() - startedAt
+    });
     throw new ClickUpServiceError("ClickUp task pagination exceeded the safety limit.", 502);
   }
 
@@ -179,11 +225,18 @@ export class ClickUpClient {
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.#timeoutMs);
+    const startedAt = Date.now();
+
+    logClickUp("info", "request:start", {
+      pathname,
+      query,
+      timeoutMs: this.#timeoutMs
+    });
 
     try {
       const response = await fetch(url, {
         headers: {
-          Authorization: this.#accessToken,
+          Authorization: resolveClickUpAuthorizationHeader(this.#accessToken),
           "Content-Type": "application/json"
         },
         signal: controller.signal
@@ -192,6 +245,11 @@ export class ClickUpClient {
       if (response.status === 429) {
         const retryAfterMs = parseRetryAfterMs(response.headers.get("retry-after")) ?? 30_000;
         this.#rateLimitedUntil = Date.now() + retryAfterMs;
+        logClickUp("warn", "request:rate-limited", {
+          pathname,
+          durationMs: Date.now() - startedAt,
+          retryAfterMs
+        });
         throw new ClickUpServiceError(
           "ClickUp API rate limit reached.",
           429,
@@ -200,12 +258,24 @@ export class ClickUpClient {
       }
 
       if (!response.ok) {
+        const statusCode =
+          response.status === 401 || response.status === 403 ? 401 : 502;
+        logClickUp("error", "request:failed", {
+          pathname,
+          durationMs: Date.now() - startedAt,
+          responseStatus: response.status
+        });
         throw new ClickUpServiceError(
           `ClickUp API request failed with status ${response.status}.`,
-          502
+          statusCode
         );
       }
 
+      logClickUp("info", "request:success", {
+        pathname,
+        durationMs: Date.now() - startedAt,
+        responseStatus: response.status
+      });
       return await response.json();
     } catch (error) {
       if (error instanceof ClickUpServiceError) {
@@ -213,9 +283,18 @@ export class ClickUpClient {
       }
 
       if (error instanceof Error && error.name === "AbortError") {
+        logClickUp("error", "request:timeout", {
+          pathname,
+          durationMs: Date.now() - startedAt,
+          timeoutMs: this.#timeoutMs
+        });
         throw new ClickUpServiceError("ClickUp API request timed out.", 504);
       }
 
+      logClickUp("error", "request:network-error", {
+        pathname,
+        durationMs: Date.now() - startedAt
+      });
       throw new ClickUpServiceError("Failed to reach the ClickUp API.", 502);
     } finally {
       clearTimeout(timeout);

@@ -90,3 +90,9 @@ export function fetchDailyPageData(): Promise<DailyPageData> {
     "/api/clickup/daily"
   );
 }
+
+export function startClickUpOAuth(returnTo: string): void {
+  const url = new URL("/auth/clickup/start", window.location.origin);
+  url.searchParams.set("returnTo", returnTo);
+  window.location.assign(url.toString());
+}

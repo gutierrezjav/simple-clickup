@@ -6,6 +6,7 @@ import { StatusBanner } from "../components/status-banner";
 import {
   ClickUpApiError,
   fetchDailyPageData,
+  startClickUpOAuth,
   type DailyPageData,
   type ReadMode
 } from "../lib/clickup-api";
@@ -114,6 +115,7 @@ function DailyHeader({
 
 export function DailyPage({ loader = fetchDailyPageData }: DailyPageProps) {
   const { data, error, isLoading, isRefreshing, refresh } = useResourceLoader(loader);
+  const handleConnect = () => startClickUpOAuth("/daily");
 
   if (isLoading && !data) {
     return (
@@ -134,12 +136,24 @@ export function DailyPage({ loader = fetchDailyPageData }: DailyPageProps) {
       <div className="panel">
         <DailyHeader isRefreshing={false} onRefresh={refresh} />
         <ResourceState
-          actionLabel="Retry"
+          actionLabel={
+            error instanceof ClickUpApiError && error.status === 401
+              ? "Connect ClickUp"
+              : "Retry"
+          }
           message={getDailyErrorMessage(error ?? new Error("Daily data could not be loaded."))}
-          onAction={refresh}
+          onAction={
+            error instanceof ClickUpApiError && error.status === 401
+              ? handleConnect
+              : refresh
+          }
           title={
-            error instanceof ClickUpApiError && error.status === 429
-              ? "Rate Limited"
+            error instanceof ClickUpApiError
+              ? error.status === 429
+                ? "Rate Limited"
+                : error.status === 401
+                  ? "ClickUp Connection Required"
+                  : "Daily Board Unavailable"
               : "Daily Board Unavailable"
           }
           tone={
@@ -162,11 +176,23 @@ export function DailyPage({ loader = fetchDailyPageData }: DailyPageProps) {
       />
       {error ? (
         <ResourceState
-          actionLabel="Retry"
+          actionLabel={
+            error instanceof ClickUpApiError && error.status === 401
+              ? "Connect ClickUp"
+              : "Retry"
+          }
           disabled={isRefreshing}
           message={getDailyErrorMessage(error)}
-          onAction={refresh}
-          title="Refresh Failed"
+          onAction={
+            error instanceof ClickUpApiError && error.status === 401
+              ? handleConnect
+              : refresh
+          }
+          title={
+            error instanceof ClickUpApiError && error.status === 401
+              ? "ClickUp Connection Required"
+              : "Refresh Failed"
+          }
           tone={
             error instanceof ClickUpApiError && error.status === 429
               ? "warning"

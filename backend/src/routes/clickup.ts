@@ -1,26 +1,97 @@
-import { Router, type Response } from "express";
-import { createClickUpReadService } from "../clickup/service.js";
-import { ClickUpServiceError } from "../clickup/errors.js";
+import { Router, type Request, type Response } from "express";
 import { config } from "../config.js";
+import { ClickUpServiceError } from "../clickup/errors.js";
+import {
+  clearSession,
+  readSession,
+  type SessionCookieOptions
+} from "../clickup/session.js";
+import { createClickUpReadService, type ClickUpReadService } from "../clickup/service.js";
 
 export const clickupRouter = Router();
-const clickupReadService = createClickUpReadService({
-  accessToken: config.CLICKUP_ACCESS_TOKEN,
-  baseUrl: config.CLICKUP_API_BASE_URL,
-  cacheTtlMs: config.CLICKUP_READ_CACHE_TTL_MS,
-  listId: config.CLICKUP_TARGET_LIST_ID,
-  readMode: config.CLICKUP_READ_MODE,
-  teamId: config.CLICKUP_TARGET_TEAM_ID,
-  timeoutMs: config.CLICKUP_HTTP_TIMEOUT_MS
-});
+
+const readServiceByToken = new Map<string, ClickUpReadService>();
+
+interface RequestToken {
+  source: "env" | "session";
+  value: string;
+}
+
+function getSessionOptions(): SessionCookieOptions | null {
+  if (!config.SESSION_SECRET) {
+    return null;
+  }
+
+  return {
+    secret: config.SESSION_SECRET,
+    secure: config.SESSION_COOKIE_SECURE
+  };
+}
+
+function getRequestToken(req: Request): RequestToken | undefined {
+  const sessionOptions = getSessionOptions();
+  if (sessionOptions) {
+    const session = readSession(req, sessionOptions);
+    if (session?.accessToken) {
+      return {
+        source: "session",
+        value: session.accessToken
+      };
+    }
+  }
+
+  if (config.CLICKUP_ACCESS_TOKEN) {
+    return {
+      source: "env",
+      value: config.CLICKUP_ACCESS_TOKEN
+    };
+  }
+
+  return undefined;
+}
+
+function getReadService(accessToken: string | undefined): ClickUpReadService {
+  const cacheKey = `${config.CLICKUP_READ_MODE}:${accessToken ?? "no-token"}`;
+  const existingService = readServiceByToken.get(cacheKey);
+
+  if (existingService) {
+    return existingService;
+  }
+
+  const nextService = createClickUpReadService({
+    accessToken,
+    baseUrl: config.CLICKUP_API_BASE_URL,
+    cacheTtlMs: config.CLICKUP_READ_CACHE_TTL_MS,
+    listId: config.CLICKUP_TARGET_LIST_ID,
+    readMode: config.CLICKUP_READ_MODE,
+    teamId: config.CLICKUP_TARGET_TEAM_ID,
+    timeoutMs: config.CLICKUP_HTTP_TIMEOUT_MS
+  });
+
+  readServiceByToken.set(cacheKey, nextService);
+  return nextService;
+}
 
 clickupRouter.use((_req, res, next) => {
-  res.set("x-custom-clickup-read-mode", clickupReadService.getReadMode());
+  res.set("x-custom-clickup-read-mode", config.CLICKUP_READ_MODE);
   next();
 });
 
-function handleRouteError(error: unknown, res: Response) {
+function handleRouteError(
+  error: unknown,
+  req: Request,
+  res: Response,
+  tokenSource: "env" | "session" | undefined
+) {
   if (error instanceof ClickUpServiceError) {
+    if (tokenSource === "session" && error.statusCode === 401) {
+      clearSession(res, config.SESSION_COOKIE_SECURE);
+      res.status(401).json({
+        message: "ClickUp session expired or was revoked. Reconnect ClickUp and try again."
+      });
+      return;
+    }
+
     if (typeof error.retryAfterMs === "number") {
       res.set("retry-after", String(Math.ceil(error.retryAfterMs / 1000)));
     }
@@ -37,36 +108,45 @@ function handleRouteError(error: unknown, res: Response) {
   });
 }
 
-clickupRouter.get("/schema", async (_req, res) => {
+clickupRouter.get("/schema", async (req, res) => {
+  const requestToken = getRequestToken(req);
   try {
+    const readService = getReadService(requestToken?.value);
+
     res.json({
-      schema: await clickupReadService.getSchema(),
+      schema: await readService.getSchema(),
       writeMode: config.CLICKUP_WRITE_MODE
     });
   } catch (error) {
-    handleRouteError(error, res);
+    handleRouteError(error, req, res, requestToken?.source);
   }
 });
 
-clickupRouter.get("/planning", async (_req, res) => {
+clickupRouter.get("/planning", async (req, res) => {
+  const requestToken = getRequestToken(req);
   try {
+    const readService = getReadService(requestToken?.value);
+
     res.json({
-      items: await clickupReadService.getPlanningItems(),
+      items: await readService.getPlanningItems(),
       writeMode: config.CLICKUP_WRITE_MODE
     });
   } catch (error) {
-    handleRouteError(error, res);
+    handleRouteError(error, req, res, requestToken?.source);
   }
 });
 
-clickupRouter.get("/daily", async (_req, res) => {
+clickupRouter.get("/daily", async (req, res) => {
+  const requestToken = getRequestToken(req);
   try {
+    const readService = getReadService(requestToken?.value);
+
     res.json({
-      rows: await clickupReadService.getDailyRows(),
+      rows: await readService.getDailyRows(),
       writeMode: config.CLICKUP_WRITE_MODE
     });
   } catch (error) {
-    handleRouteError(error, res);
+    handleRouteError(error, req, res, requestToken?.source);
   }
 });
 

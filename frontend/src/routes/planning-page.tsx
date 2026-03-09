@@ -5,6 +5,7 @@ import { StatusBanner } from "../components/status-banner";
 import {
   ClickUpApiError,
   fetchPlanningPageData,
+  startClickUpOAuth,
   type PlanningPageData,
   type ReadMode
 } from "../lib/clickup-api";
@@ -92,6 +93,7 @@ function PlanningHeader({
 
 export function PlanningPage({ loader = fetchPlanningPageData }: PlanningPageProps) {
   const { data, error, isLoading, isRefreshing, refresh } = useResourceLoader(loader);
+  const handleConnect = () => startClickUpOAuth("/planning");
 
   if (isLoading && !data) {
     return (
@@ -112,14 +114,26 @@ export function PlanningPage({ loader = fetchPlanningPageData }: PlanningPagePro
       <div className="panel">
         <PlanningHeader isRefreshing={false} onRefresh={refresh} />
         <ResourceState
-          actionLabel="Retry"
+          actionLabel={
+            error instanceof ClickUpApiError && error.status === 401
+              ? "Connect ClickUp"
+              : "Retry"
+          }
           message={getPlanningErrorMessage(
             error ?? new Error("Planning data could not be loaded.")
           )}
-          onAction={refresh}
+          onAction={
+            error instanceof ClickUpApiError && error.status === 401
+              ? handleConnect
+              : refresh
+          }
           title={
-            error instanceof ClickUpApiError && error.status === 429
-              ? "Rate Limited"
+            error instanceof ClickUpApiError
+              ? error.status === 429
+                ? "Rate Limited"
+                : error.status === 401
+                  ? "ClickUp Connection Required"
+                  : "Planning Unavailable"
               : "Planning Unavailable"
           }
           tone={
@@ -142,11 +156,23 @@ export function PlanningPage({ loader = fetchPlanningPageData }: PlanningPagePro
       />
       {error ? (
         <ResourceState
-          actionLabel="Retry"
+          actionLabel={
+            error instanceof ClickUpApiError && error.status === 401
+              ? "Connect ClickUp"
+              : "Retry"
+          }
           disabled={isRefreshing}
           message={getPlanningErrorMessage(error)}
-          onAction={refresh}
-          title="Refresh Failed"
+          onAction={
+            error instanceof ClickUpApiError && error.status === 401
+              ? handleConnect
+              : refresh
+          }
+          title={
+            error instanceof ClickUpApiError && error.status === 401
+              ? "ClickUp Connection Required"
+              : "Refresh Failed"
+          }
           tone={
             error instanceof ClickUpApiError && error.status === 429
               ? "warning"

@@ -475,8 +475,8 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
 
   if (!config.accessToken) {
     throw new ClickUpServiceError(
-      "CLICKUP_ACCESS_TOKEN is required when CLICKUP_READ_MODE=live.",
-      500
+      "Live ClickUp reads require either a configured CLICKUP_ACCESS_TOKEN or an authenticated ClickUp session.",
+      401
     );
   }
 
