@@ -37,8 +37,10 @@ Recommended reading order:
 ### Frontend
 
 - [frontend/src/app.tsx](/data/custom-clickup/frontend/src/app.tsx): route shell
-- [frontend/src/routes/planning-page.tsx](/data/custom-clickup/frontend/src/routes/planning-page.tsx): planning mock screen
-- [frontend/src/routes/daily-page.tsx](/data/custom-clickup/frontend/src/routes/daily-page.tsx): daily mock screen
+- [frontend/src/routes/planning-page.tsx](/data/custom-clickup/frontend/src/routes/planning-page.tsx): backend-backed planning screen with manual refresh and route states
+- [frontend/src/routes/daily-page.tsx](/data/custom-clickup/frontend/src/routes/daily-page.tsx): backend-backed daily screen with manual refresh and route states
+- [frontend/src/lib/clickup-api.ts](/data/custom-clickup/frontend/src/lib/clickup-api.ts): frontend fetch layer for planning/daily backend endpoints
+- [frontend/src/lib/use-resource-loader.ts](/data/custom-clickup/frontend/src/lib/use-resource-loader.ts): reusable route loader hook
 - [frontend/.storybook/main.ts](/data/custom-clickup/frontend/.storybook/main.ts): Storybook config
 
 ### Backend
@@ -117,6 +119,8 @@ npm run build
 npm run dev
 ```
 
+The frontend dev server now proxies `/api` and `/auth` to `http://localhost:4000`.
+
 ### Storybook
 
 In this sandboxed environment:
@@ -127,11 +131,11 @@ HOME=/tmp STORYBOOK_DISABLE_TELEMETRY=1 npm run build-storybook
 
 ## Recommended next task
 
-Wire the frontend to the backend read endpoints:
+Implement real ClickUp OAuth/session support in the backend:
 
-- replace direct fixture imports in the SPA routes with backend fetches
-- keep the current normalized response shapes
-- add loading, error, empty, and rate-limited route states
-- keep `CLICKUP_WRITE_MODE=mock`
+- replace `CLICKUP_ACCESS_TOKEN`-only local verification with a real connect/callback/logout flow
+- store the access token in an encrypted HTTP-only session cookie
+- clear the session on revoked/invalid tokens
+- keep production-list writes blocked
 
 Do not start real write integration against the production list yet.

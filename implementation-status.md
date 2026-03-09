@@ -29,9 +29,22 @@ The scaffold is intentionally mock-safe. Real production ClickUp reads are now i
   - `/daily`
   - `/storybook-gate`
 - basic styling and layout
-- initial mock-backed planning screen
-- initial mock-backed daily board screen
+- backend-backed planning screen with:
+  - route-level loading state
+  - retryable error state
+  - rate-limit state using `Retry-After`
+  - empty-state handling
+  - manual refresh
+- backend-backed daily board with:
+  - route-level loading state
+  - retryable error state
+  - rate-limit state using `Retry-After`
+  - empty-state handling
+  - manual refresh
+- visible read/write mode banner in the app routes
+- Vite dev proxy for `/api` and `/auth` to the backend
 - Storybook config and initial stories
+- route stories now use injected fixture loaders instead of backend fetches
 
 ### Backend
 
@@ -76,8 +89,7 @@ The scaffold is intentionally mock-safe. Real production ClickUp reads are now i
 
 - true drag-and-drop for daily board
 - inline field editing in planning
-- loading/error/rate-limited UX states in the frontend routes
-- frontend wiring to backend-backed read mode and environment indicators
+- route-level states beyond the planning/daily screen level
 
 ### Safe write infrastructure
 
@@ -120,9 +132,19 @@ Default behavior remains mock-safe:
 - if `CLICKUP_READ_MODE` is unset, `/api/clickup/schema`, `/planning`, and `/daily` still serve fixture-backed responses
 - `CLICKUP_WRITE_MODE` still defaults to `mock`
 
+## Stage 2 verification notes
+
+Frontend app behavior now:
+
+- `/planning` fetches `/api/clickup/planning`
+- `/daily` fetches `/api/clickup/daily`
+- the app shows backend read/write mode in the status banner after a successful load
+- refresh is manual only; there is no background polling
+- Storybook screen stories still use fixture-backed loaders
+
 ## Recommended next implementation slice
 
-1. Wire the frontend planning and daily routes to the backend read endpoints.
-2. Add frontend loading, empty, error, and rate-limited states around those reads.
-3. Surface the current backend read/write mode in the UI so live-read verification is visible.
+1. Implement real ClickUp OAuth connect/callback/logout in the backend.
+2. Replace `CLICKUP_ACCESS_TOKEN`-only verification with encrypted HTTP-only session state.
+3. Clear the session on invalid or revoked tokens.
 4. Keep `CLICKUP_WRITE_MODE=mock`.

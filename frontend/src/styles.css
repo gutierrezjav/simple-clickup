@@ -61,6 +61,71 @@ a {
   text-transform: uppercase;
 }
 
+.status-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.panel-header-copy p {
+  margin: 8px 0 0;
+  color: #5c655c;
+}
+
+.panel-header-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.toolbar-button {
+  border: 1px solid #a29b87;
+  border-radius: 999px;
+  background: #f4efe0;
+  color: #1e2c24;
+  cursor: pointer;
+  font: inherit;
+  padding: 8px 14px;
+}
+
+.toolbar-button:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+
+.resource-state {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #d9d1be;
+  border-radius: 14px;
+  background: #fbf7eb;
+  margin-bottom: 16px;
+  padding: 16px;
+}
+
+.resource-state p {
+  margin: 0;
+}
+
+.resource-state--warning {
+  border-color: #d5b35c;
+  background: #fff6dc;
+}
+
+.resource-state--error {
+  border-color: #d39d96;
+  background: #fff0ec;
+}
+
 .planning-row,
 .daily-card {
   border: 1px solid #d9d1be;
@@ -82,6 +147,10 @@ a {
   align-items: start;
 }
 
+.table-scroll {
+  overflow-x: auto;
+}
+
 .daily-column-header {
   font-size: 12px;
   text-transform: uppercase;
@@ -96,4 +165,18 @@ a {
   display: grid;
   gap: 8px;
   min-height: 120px;
+}
+
+@media (max-width: 960px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-header {
+    flex-direction: column;
+  }
+
+  .panel-header-actions {
+    align-items: flex-start;
+  }
 }
