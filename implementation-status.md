@@ -1,6 +1,6 @@
 # Implementation Status
 
-Last updated: 2026-03-09
+Last updated: 2026-03-10
 
 ## Overall state
 
@@ -20,6 +20,8 @@ The scaffold is intentionally mock-safe. Real production ClickUp reads are now i
 - npm workspaces configured at the repo root
 - shared TypeScript base config
 - install completed successfully
+- backend now loads `.env` and `.env.local` from the repo root before parsing config
+- blank optional env placeholders are normalized to unset values instead of crashing startup
 
 ### Frontend
 
@@ -42,6 +44,7 @@ The scaffold is intentionally mock-safe. Real production ClickUp reads are now i
   - empty-state handling
   - manual refresh
 - visible read/write mode banner in the app routes
+- `Connect ClickUp` action on planning/daily 401 states
 - Vite dev proxy for `/api` and `/auth` to the backend
 - Storybook config and initial stories
 - route stories now use injected fixture loaders instead of backend fetches
@@ -53,21 +56,32 @@ The scaffold is intentionally mock-safe. Real production ClickUp reads are now i
   - `/health`
   - `/auth`
   - `/api/clickup`
+- real auth routes:
+  - `GET /auth/clickup/start`
+  - `GET /auth/clickup/callback`
+  - `POST /auth/logout`
 - mock-backed and live-read-capable endpoints:
   - `GET /api/clickup/schema`
   - `GET /api/clickup/planning`
   - `GET /api/clickup/daily`
   - `PATCH /api/clickup/tasks/:taskId/status`
   - `PATCH /api/clickup/tasks/:taskId/fields`
+- encrypted HTTP-only cookie session for ClickUp OAuth state and access token
+- request-scoped token resolution:
+  - env token fallback via `CLICKUP_ACCESS_TOKEN`
+  - session-backed OAuth token when authenticated
 - write mode guard using `CLICKUP_WRITE_MODE`
 - read mode guard using `CLICKUP_READ_MODE`
 - ClickUp backend client with:
   - paginated list-task reads
+  - hard cap of 100 fetched tasks per live snapshot
+  - hard cap of 10 seconds per ClickUp HTTP request
   - list custom-field metadata fetch
   - workspace custom task-type fetch
   - short-lived in-memory caching
   - request deduplication for concurrent snapshot loads
   - 429 / `Retry-After` handling
+  - console logging for live request start/success/failure/timeout/rate-limit events
 - live normalization from ClickUp responses into the existing shared planning/daily shapes
 - target-list field validation for the required planning/daily fields
 
@@ -81,9 +95,7 @@ The scaffold is intentionally mock-safe. Real production ClickUp reads are now i
 
 ### ClickUp integration
 
-- real OAuth start/callback flow
-- session encryption / real session lifecycle
-- production verification of live read mode against a local backend session
+- production verification of OAuth and live read mode with real ClickUp app credentials
 
 ### UI behavior
 
@@ -105,6 +117,9 @@ These commands succeeded:
 - `npm run typecheck`
 - `npm run build`
 - `HOME=/tmp STORYBOOK_DISABLE_TELEMETRY=1 npm run build-storybook`
+- backend-only validation after the fetch-guardrail change:
+  - `npm run typecheck --workspace backend`
+  - `npm run build --workspace backend`
 
 ## Known environment caveat
 
@@ -131,6 +146,7 @@ Default behavior remains mock-safe:
 
 - if `CLICKUP_READ_MODE` is unset, `/api/clickup/schema`, `/planning`, and `/daily` still serve fixture-backed responses
 - `CLICKUP_WRITE_MODE` still defaults to `mock`
+- repo-root `.env` and `.env.local` are loaded automatically by the backend config module
 
 ## Stage 2 verification notes
 
@@ -142,9 +158,35 @@ Frontend app behavior now:
 - refresh is manual only; there is no background polling
 - Storybook screen stories still use fixture-backed loaders
 
+## Stage 3 verification notes
+
+New env surface:
+
+- `CLICKUP_OAUTH_AUTHORIZE_URL=https://app.clickup.com/api`
+- `CLICKUP_CLIENT_ID=<ClickUp OAuth app client id>`
+- `CLICKUP_CLIENT_SECRET=<ClickUp OAuth app client secret>`
+- `CLICKUP_REDIRECT_URI=http://localhost:3000/auth/clickup/callback`
+- `SESSION_SECRET=<16+ char secret>`
+- `SESSION_COOKIE_SECURE=false` for local HTTP dev
+
+OAuth behavior now:
+
+- `/auth/clickup/start?returnTo=/planning` sets encrypted cookie state and redirects to ClickUp
+- `/auth/clickup/callback` exchanges the code, validates workspace access, stores the access token in the encrypted session cookie, and redirects back to the requested route
+- live reads can now use either `CLICKUP_ACCESS_TOKEN` or the session-backed OAuth token
+- if a session-backed token becomes invalid, the backend clears the session and returns `401`
+- `SESSION_SECRET` must be at least 16 characters or backend startup will fail
+
+Operational learnings:
+
+- the frontend only shows `Connect ClickUp` after a live read returns `401`
+- `Connect ClickUp` will not appear if `CLICKUP_READ_MODE=mock`
+- `Connect ClickUp` will not appear if `CLICKUP_ACCESS_TOKEN` is set, because the backend will use the env-token fallback instead of returning `401`
+- empty placeholder values in `.env` are allowed now, but partially configured OAuth still requires all OAuth fields to be present together
+
 ## Recommended next implementation slice
 
-1. Implement real ClickUp OAuth connect/callback/logout in the backend.
-2. Replace `CLICKUP_ACCESS_TOKEN`-only verification with encrypted HTTP-only session state.
-3. Clear the session on invalid or revoked tokens.
-4. Keep `CLICKUP_WRITE_MODE=mock`.
+1. Implement safe non-mock mutation adapters with explicit `test-space` allowlisting.
+2. Keep production-list live writes blocked.
+3. Add UI affordances for write-mode clarity and mutation verification.
+4. Keep OAuth/session-backed live reads intact.
