@@ -1,0 +1,344 @@
+# ClickUp Research
+
+Last updated: 2026-03-09
+
+## Purpose
+
+This note compresses the current research for a simple ClickUp client scoped to a single main list, with:
+
+- a planning view
+- a daily view
+- a controlled task/custom-field structure
+
+The research combines:
+
+- live workspace inspection through ClickUp MCP
+- public ClickUp API constraints
+- user decisions made so far in chat
+
+## Target workspace and list
+
+- Workspace ID: `2199933`
+- Main v1 list: `R&D WingtraCloud > All Tasks > Wingtra Cloud Dev`
+- Main list ID: `901500224401`
+
+This list is the current recommended target because it already contains the workflow shape we need:
+
+- parent user stories
+- subtasks for execution work
+- standalone bugs/tasks
+- planning-related fields
+- daily-work statuses
+
+## Live data model findings
+
+### Task types currently in use
+
+Observed from live tasks:
+
+- `custom_item_id = 1005`: epic-like items in the separate `Epics` list
+- `custom_item_id = 1004`: user-story-like parent items in the main list
+- `custom_item_id = 1001`: bug-like standalone items in the main list
+
+Recommended v1 classification rule:
+
+1. Use ClickUp task type first.
+2. Fall back to parent/subtask hierarchy if data is inconsistent.
+
+### Hierarchy currently in use
+
+Observed pattern in `Wingtra Cloud Dev`:
+
+- epics live in a separate list
+- stories live in the main list
+- subtasks represent execution work under stories
+- some bugs/tasks are standalone and do not belong to a story
+
+Examples inspected:
+
+- story with subtasks: `CL-6870` / `Metadata: basic ETL pipeline`
+- story with subtasks: `CL-8143` / `Telemetry setting fixes`
+- standalone bug-like item: `CL-7789` / `WingtraGround processing: unspecified antenna type`
+
+## Relevant custom fields found on the target list
+
+Fields already present and relevant to v1:
+
+- `Prio score` (`number`)
+- `Planning bucket` (`drop_down`)
+- `Swimlane` (`drop_down`)
+- `CL Sprint ID` (`short_text`)
+- `Epic` (`drop_down`)
+- `Epic-Story` (`list_relationship`)
+- `Technical Area` (`drop_down`)
+- `effort` (`drop_down`)
+- `Size (days)` (`number`)
+
+Other workflow-supporting fields also exist, including deployment dates and review/testing metadata, but they are not required for the first client cut.
+
+### Existing option values observed
+
+`Planning bucket`
+
+- `done`
+- `must deliver`
+- `High`
+- `Opportunistic`
+- `Not planned`
+
+`Swimlane`
+
+- `New Features`
+- `Tech debt`
+- `Mixed`
+- `Bugs`
+
+## Public ClickUp API findings
+
+### Relevant API areas
+
+The v1 client will need:
+
+- task listing and filtering
+- task detail fetch
+- task create/update
+- custom field metadata fetch
+- custom field value write/remove
+
+If exact saved-view reproduction is ever needed, ClickUp also has view-related APIs, but the MCP toolset available in this environment does not expose saved private view definitions directly.
+
+### Important API constraints
+
+#### 1. Frontend should not call ClickUp directly
+
+ClickUp documents CORS limitations for frontend requests. The web app should use a backend/server layer that talks to ClickUp on behalf of the UI.
+
+#### 2. Custom field writes are a separate concern
+
+Existing custom field values are not just part of normal task update payloads. The client/backend design should account for dedicated custom-field value update endpoints.
+
+#### 3. Task types matter
+
+The target list uses custom task types in practice, not just free-form custom fields and hierarchy. The app should preserve that model.
+
+#### 4. Saved ClickUp views are only partially inspectable here
+
+From MCP we can inspect:
+
+- workspace hierarchy
+- lists
+- task types
+- task fields
+- sample tasks
+
+From MCP we cannot directly inspect:
+
+- the exact saved filter/group/sort config behind private ClickUp view URLs
+
+That part still depends on screenshots or manual extraction from the ClickUp UI.
+
+#### 5. Live read access is much safer than live write access
+
+For this project, live reads from the production ClickUp list are acceptable in development as long as the backend includes guardrails such as:
+
+- short-lived caching for repeated planning/daily loads
+- request deduplication
+- bounded refresh behavior instead of aggressive polling
+- 429 / `Retry-After` handling
+
+Live writes are a separate risk because they mutate the real planning workflow. Development and test flows should therefore default to mocks or a dedicated ClickUp test space/list until explicit verification gates are in place.
+
+## Product decisions already made
+
+### Platform and architecture
+
+- v1 is a web app
+- local development comes first
+- architecture should remain OAuth-capable
+- data refresh should be manual on load, manual on demand, and after edits
+- use a simple `Express` backend rather than `Next.js`
+- `Fastify` is not needed for v1
+- frontend development should be Storybook-first before full app integration
+
+### Main scope
+
+- single main list only
+- ignore epics in v1
+- update-only client in v1
+- support light editing only
+- require a Storybook verification phase before wiring the full app
+
+### Editing supported in v1
+
+- status
+- assignee
+- planning-related fields such as `Prio score` and `Planning bucket`
+
+No near-full ClickUp editor in v1.
+
+### Edit safety policy
+
+- use live production ClickUp for reads
+- do not use live production ClickUp for write-path development/testing in v1
+- support mocked writes first
+- optionally support real writes only against a dedicated ClickUp test space/list
+- reserve real production writes for a later phase with explicit verification safeguards
+
+## Planning view definition
+
+### Current chosen behavior
+
+- one ranked backlog/list
+- main items are user stories
+- stories are collapsed by default
+- expanding a story shows its non-closed subtasks
+- parent stories are sorted by `Prio score`
+- expanded subtasks are sorted by `Prio score`
+
+### Screenshot-derived filter logic
+
+Current intent is to mirror the ClickUp filter shown in the screenshot:
+
+- `Task Type is User Story` AND `Status is not <7 excluded statuses>`
+- OR `Task Type is Bug` AND `Tags is any of [po prio, qa prio]` AND `Status is not <7 excluded statuses>`
+- OR `Status is SPRINT BACKLOG`
+
+This exact logic is now preferred over the earlier broader interpretation.
+
+### Excluded planning statuses
+
+The excluded statuses are:
+
+- `DEPLOYED TO DEV`
+- `TESTED IN DEV`
+- `DEPLOYED TO STAGING`
+- `TESTED IN STAGING`
+- `DEPLOYED TO PROD`
+- `PROD MINOR ISSUE`
+- `CLOSED`
+
+### Inline editing in planning
+
+Inline editing should support only:
+
+- `Prio score`
+- assignee
+- `Planning bucket`
+
+## Daily view definition
+
+### Current chosen behavior
+
+- board layout with exact ClickUp statuses as columns
+- rows are user stories
+- parent story is row header only, not a draggable/normal card
+- child tasks appear as cards inside status columns
+- status updates happen via drag-and-drop
+
+### Standalone work handling
+
+Standalone items should not appear as many individual rows.
+
+Instead:
+
+- one special row for standalone tasks
+- one special row for standalone bugs
+
+### Daily-active statuses provided so far
+
+- `Blocked`
+- `SPRINT BACKLOG`
+- `In Progress`
+- `In Review`
+- `Deployed to Dev`
+- `Tested in Dev`
+
+If the actual ClickUp capitalization/spelling differs, the app should use the real status strings from the list configuration.
+
+### Full status set confirmed from ClickUp
+
+`Not started`
+
+- `BACKLOG`
+- `BUGS / ISSUES`
+- `IN UX DESIGN`
+- `READY TO REFINE`
+- `SPRINT READY`
+- `BLOCKED`
+- `SPRINT BACKLOG`
+
+`Active`
+
+- `IN PROGRESS`
+- `IN CODE REVIEW`
+- `DEPLOYED TO DEV`
+- `TESTED IN DEV`
+- `DEPLOYED TO STAGING`
+- `TESTED IN STAGING`
+
+`Done`
+
+- `DEPLOYED TO PROD`
+- `PROD MINOR ISSUE`
+
+`Closed`
+
+- `CLOSED`
+
+## Current implementation direction
+
+### Proposed system shape
+
+- browser SPA for planning and daily screens
+- simple TypeScript `Express` backend for auth + API calls
+- list-scoped data layer for `Wingtra Cloud Dev`
+- normalized internal model for:
+  - stories
+  - subtasks
+  - standalone tasks
+  - standalone bugs
+
+### Auth and session direction
+
+- real ClickUp OAuth in v1
+- no database in v1
+- use ephemeral encrypted cookie session state
+- if the app restarts or the session is lost, re-authentication is acceptable
+- keep the backend simple; no `Fastify` migration in v1
+
+### Frontend delivery sequence
+
+- build reusable components and screen compositions in Storybook first
+- review the planning and daily UI there with mocked data and mocked writes
+- only after Storybook verification, wire the SPA to the real backend read flows
+
+### ClickUp access modes
+
+The backend should support explicit write modes:
+
+- `mock`: default for local development and automated tests
+- `test-space`: real writes, but only to an explicit allowlisted ClickUp test workspace/list
+- `live`: blocked by default in v1
+
+### Normalized item handling
+
+- use ClickUp task type as the primary classification signal
+- use parent/subtask relationships as fallback
+- do not make epic support a v1 feature
+
+### Planning screen
+
+- fetch relevant tasks from the target list
+- apply planning filter logic
+- rank by `Prio score`
+- render stories collapsed by default
+- render standalone bugs/tasks in the same planning list
+
+### Daily screen
+
+- fetch relevant tasks from the target list
+- filter to the chosen daily-active statuses
+- render status columns using the real ClickUp statuses
+- render one row per story
+- render one `Tasks` row and one `Bugs` row for standalone work
+- support drag-and-drop for status changes only

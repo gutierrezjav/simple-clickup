@@ -1,0 +1,20 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowSyntheticDefaultImports": true,
+    "paths": {
+      "@custom-clickup/shared": [
+        "../shared/src/index.ts"
+      ]
+    },
+    "noEmit": true
+  },
+  "include": [
+    "src",
+    ".storybook"
+  ]
+}
