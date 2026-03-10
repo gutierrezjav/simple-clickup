@@ -30,7 +30,7 @@ The scaffold is intentionally mock-safe. Real production ClickUp reads are now i
   - `/planning`
   - `/daily`
   - `/storybook-gate`
-- basic styling and layout
+- basic styling and layout scaffold
 - backend-backed planning screen with:
   - route-level loading state
   - retryable error state
@@ -96,9 +96,17 @@ The scaffold is intentionally mock-safe. Real production ClickUp reads are now i
 ### ClickUp integration
 
 - production verification of OAuth and live read mode with real ClickUp app credentials
+- view-specific live-query shaping to reduce overfetch, especially for the daily board:
+  - `include_closed=false` for daily reads
+  - explicit daily-status filtering to the six board columns
+  - `include_timl=false` by default unless cross-listed tasks must appear
 
 ### UI behavior
 
+- ClickUp-inspired UI alignment pass for the shell and task surfaces:
+  - lighter neutral workspace shell with denser header and view tabs
+  - slimmer state/banner treatments
+  - tighter planning rows and daily cards that feel closer to ClickUp list/board density
 - true drag-and-drop for daily board
 - inline field editing in planning
 - route-level states beyond the planning/daily screen level
@@ -183,10 +191,27 @@ Operational learnings:
 - `Connect ClickUp` will not appear if `CLICKUP_READ_MODE=mock`
 - `Connect ClickUp` will not appear if `CLICKUP_ACCESS_TOKEN` is set, because the backend will use the env-token fallback instead of returning `401`
 - empty placeholder values in `.env` are allowed now, but partially configured OAuth still requires all OAuth fields to be present together
+- `include_timl` means "include tasks in multiple lists"; it pulls in tasks added to the target list whose home list is elsewhere
+- for the daily board, the intended live-read query should exclude closed tasks and request only these statuses:
+  - `BLOCKED`
+  - `SPRINT BACKLOG`
+  - `IN PROGRESS`
+  - `IN CODE REVIEW`
+  - `DEPLOYED TO DEV`
+  - `TESTED IN DEV`
+- planning can stay broader for now; the immediate overfetch issue is on daily
 
 ## Recommended next implementation slice
 
-1. Implement safe non-mock mutation adapters with explicit `test-space` allowlisting.
-2. Keep production-list live writes blocked.
-3. Add UI affordances for write-mode clarity and mutation verification.
-4. Keep OAuth/session-backed live reads intact.
+1. Tighten the daily live-read query:
+   - set `include_closed=false`
+   - pass the six daily board statuses explicitly
+   - keep `include_timl=false` unless cross-listed tasks are explicitly required
+2. Validate that the existing list-task endpoint status filter is sufficient; only switch to the filtered team-task endpoint if list-task filtering proves too loose.
+3. Run a ClickUp-inspired UI alignment pass:
+   - move the shell toward a lighter neutral workspace layout with denser header chrome and view tabs
+   - slim down banners and route-level state treatments
+   - tighten planning rows and daily cards toward ClickUp-like list/board density without copying branding
+4. After UI alignment, implement safe non-mock mutation adapters with explicit `test-space` allowlisting.
+5. Keep production-list live writes blocked.
+6. Connect mutation verification and write-mode clarity into the new shell/banner treatment.

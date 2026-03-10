@@ -19,8 +19,8 @@ Recommended reading order:
   - screen/component stories
 - `backend/`
   - `Express` server scaffold
-  - auth placeholders
-  - mock-safe API routes
+  - ClickUp OAuth/session flow
+  - mock-safe and live-read-capable API routes
 - `shared/`
   - normalized domain types
   - canonical status constants
@@ -79,6 +79,8 @@ Current implementation note:
 - live ClickUp reads now emit console logs for request lifecycle and fetch limits
 - default local behavior is still mock-safe
 - production-list writes are still blocked
+- daily live reads still need view-specific query shaping to avoid overfetch
+- frontend styling is still a scaffold and has not yet gone through the planned ClickUp-inspired shell/density pass
 
 ## Expected environment variables
 
@@ -113,6 +115,13 @@ Likely next env vars to add in the backend:
 - `SESSION_SECRET` must be at least 16 characters.
 - Empty placeholder values in `.env` are normalized to unset now, but partially configured OAuth still fails validation until all OAuth fields are present.
 - The current live-read backend cache is keyed by resolved token, so env-token reads and session-token reads maintain separate cached snapshots.
+- `include_timl` means "include tasks in multiple lists". It should stay off by default for Daily unless the board must include tasks whose home list is elsewhere.
+- The immediate read-optimization target is Daily, not Planning.
+- The intended Daily live query is:
+  - `include_closed=false`
+  - status filter limited to `BLOCKED`, `SPRINT BACKLOG`, `IN PROGRESS`, `IN CODE REVIEW`, `DEPLOYED TO DEV`, and `TESTED IN DEV`
+  - `include_timl=false` unless cross-listed tasks are required
+- Start with the existing list-task endpoint plus status filtering. Only move Daily to the filtered team-task endpoint if list-task filtering is not precise enough.
 
 ## Working commands
 
@@ -163,11 +172,21 @@ HOME=/tmp STORYBOOK_DISABLE_TELEMETRY=1 npm run build-storybook
 
 ## Recommended next task
 
-Implement safe non-mock write adapters:
+Tighten the Daily live-read query before starting write work:
 
-- add explicit allowlisting for `test-space`
+- add `include_closed=false`
+- pass the six Daily board statuses explicitly
+- keep `include_timl=false` by default
+- verify the list-task endpoint gives the expected reduction before considering the filtered team-task endpoint
+
+After that:
+
+- run a ClickUp-inspired UI alignment pass before drag-and-drop, inline editing, and non-mock write work:
+  - lighter neutral workspace shell with denser header and view tabs
+  - slimmer route-state and banner treatment
+  - planning rows and daily cards tightened toward ClickUp-like density without copying branding
+- implement safe non-mock write adapters with explicit allowlisting for `test-space`
 - keep production-list writes blocked
-- connect mutation verification to the existing write-mode banner
-- keep OAuth/session-backed live reads intact
+- connect mutation verification to the new shell/banner treatment
 
 Do not start real write integration against the production list yet.

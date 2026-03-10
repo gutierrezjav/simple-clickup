@@ -1,6 +1,6 @@
 # ClickUp Client V1 Plan
 
-Last updated: 2026-03-09
+Last updated: 2026-03-10
 
 ## Goal
 
@@ -85,6 +85,14 @@ Safety rule for v1:
 - After Storybook review, wire the approved components into the SPA routes and `Express` backend.
 - Keep the same component contracts used in Storybook so integration is mostly data wiring rather than UI redesign.
 
+### Phase 3: ClickUp-inspired UI alignment
+
+- After Daily query shaping is correct, run one focused frontend-only design pass before drag-and-drop, inline editing, and non-mock write work.
+- Refresh the shell toward a denser ClickUp-like workspace layout with a lighter neutral canvas, compact header chrome, view tabs, and slimmer status/state treatments.
+- Tighten the planning rows and daily cards so they feel more like ClickUp list/board surfaces through density, metadata hierarchy, and compact pills rather than large standalone cards.
+- Keep the data model, backend routes, and shared types unchanged for this phase.
+- Use ClickUp as inspiration for structure and density, not for exact branding, logos, or distinctive trade dress.
+
 ## Core implementation changes
 
 ### 1. App shell and auth
@@ -100,6 +108,7 @@ Safety rule for v1:
 - Centralize ClickUp API calls in one server-side client module.
 - Validate the target list id and required schema on first authenticated load.
 - Fetch tasks from the target list with pagination and normalize server-side.
+- Shape live-read queries per screen instead of always loading the broadest possible snapshot.
 - Fetch custom-field metadata for the target list.
 - Update standard fields and custom fields through the correct ClickUp endpoints.
 - Add server-side read guardrails:
@@ -127,6 +136,7 @@ Safety rule for v1:
 ### 4. Storybook and component system
 
 - Add Storybook to the frontend workspace as a first-class development surface.
+- Add a shared visual token layer for neutral workspace surfaces, compact spacing, slimmer radii, subdued borders, and restrained accent usage.
 - Build core reusable components in Storybook first:
   - planning list row
   - story expand/collapse control
@@ -136,6 +146,11 @@ Safety rule for v1:
   - story row header
   - standalone row variants
   - app mode/status banner for `mock`, `test-space`, or disabled writes
+- Add a workspace shell and header pattern shared by the app routes and Storybook screen compositions:
+  - utility rail / sidebar treatment
+  - compact location header
+  - view tabs
+  - slimmer loading/error/rate-limit state presentation
 - Build screen-level Storybook stories for:
   - planning screen composition
   - daily board composition
@@ -182,6 +197,9 @@ Safety rule for v1:
 - Render one row per story.
 - The story itself is the row header only, not a board card.
 - Render child tasks inside the matching status columns.
+- The live backend query for Daily should exclude closed tasks.
+- The live backend query for Daily should request only tasks in these six statuses.
+- `include_timl` should default to `false` for Daily because it means "include tasks in multiple lists"; only enable it if the board must show cross-listed tasks whose home list is elsewhere.
 - Add two extra rows:
   - `Tasks` for standalone tasks
   - `Bugs` for standalone bugs
@@ -227,10 +245,12 @@ Safety rule for v1:
 - component fixtures and fixture builders for planning and daily states
 - mocked mutation adapters for Storybook interaction stories
 - screen-level stories that mirror the intended `/planning` and `/daily` routes
+- shell/header stories and route-state stories that exercise the ClickUp-inspired visual system before interaction work continues
 
 ## Test plan
 
 - Storybook review of the planning and daily compositions before app integration
+- Storybook review of the ClickUp-inspired shell, planning-row density, and daily-card density before drag-and-drop and inline editing work continues
 - interaction coverage in Storybook for inline edits, expand/collapse, and drag-and-drop with mocked handlers
 - OAuth connect/callback/logout and invalid-session handling
 - schema validation against the target list and required fields
@@ -239,6 +259,7 @@ Safety rule for v1:
 - `Prio score` ordering for stories and subtasks
 - daily row grouping for stories, standalone tasks, and standalone bugs
 - daily column mapping using exact ClickUp status names
+- daily live-query filtering excludes closed work and limits reads to board statuses
 - drag-and-drop status mutation flow in `mock` mode
 - custom-field update flow for `Prio score` and `Planning bucket` in `mock` mode
 - integration coverage for real writes only against a dedicated test ClickUp space/list, never the live production list
@@ -258,3 +279,4 @@ Safety rule for v1:
 - Live production reads are acceptable in v1.
 - Live production writes are intentionally deferred until verification and safety gates exist.
 - Storybook approval is a required phase before full app integration.
+- The UI should move closer to ClickUp in structure and density without copying exact brand assets or trade dress.
