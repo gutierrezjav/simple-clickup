@@ -45,15 +45,14 @@ What already exists in the repo:
 
 What is still needed for this read project:
 
-- read-only contract cleanup in the frontend/backend surface
-- daily client-side filters and filtered totals
-- ClickUp-like visual polish for planning and daily
 - optional planning filters at the end of the roadmap
 - production verification that the list-task endpoint filters are precise enough for planning and daily
+- any further density/alignment refinements discovered during live verification
 
 Current validation status:
 
 - workspace install completed
+- `npm run test` passes
 - `npm run test --workspace backend` passes
 - `npm run typecheck` passes
 - `npm run build` passes
@@ -61,7 +60,7 @@ Current validation status:
 
 ## Delivery phases
 
-### Phase 1: Read-only contract cleanup
+### Phase 1: Read-only contract cleanup (completed)
 
 - Remove write-mode concepts from the read product surface.
 - Keep the current read endpoints, but stop treating `writeMode` as part of the planning/daily contract.
@@ -69,7 +68,7 @@ Current validation status:
 - Update docs so this repo’s next implementation slices are read-only only.
 - Add [clickup-write-project-plan.md](/data/simple-clickup/clickup-write-project-plan.md) as the separate future write roadmap.
 
-### Phase 2: Daily read UX improvements
+### Phase 2: Daily read UX improvements (completed)
 
 - Add client-side daily filters only:
   - search
@@ -83,12 +82,13 @@ Current validation status:
 - Add a filtered-empty state distinct from the backend-empty state.
 - Keep the existing six columns, backend query shape, and normalization rules.
 
-### Phase 3: Read visual refresh
+### Phase 3: Read visual refresh (initial pass completed)
 
 - Push both screens closer to ClickUp visually without copying exact branding or trade dress.
 - Use a lighter neutral canvas, denser spacing, compact toolbar/filter chrome, stronger chips, and clearer hierarchy.
 - Daily gets the larger visual change because it also gains filters and totals.
 - Planning gets the same visual language, but no new filters in required scope.
+- Treat any additional density tweaks as follow-up work driven by live verification, not as a blocked unfinished phase.
 
 ### Phase 4: Optional planning filters
 
@@ -204,6 +204,10 @@ Current validation status:
 - Planning required scope:
   - existing sorting and expand/collapse behavior stays intact
   - visual-only refactor does not change planning data behavior
+- Validation already completed in repo:
+  - `npm run test`
+  - `npm run typecheck`
+  - `npm run build`
 - Planning optional scope, only if implemented:
   - child title/custom ID search keeps the parent story visible
   - assignee/status filters are descendant-aware

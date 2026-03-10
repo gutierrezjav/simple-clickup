@@ -11,13 +11,9 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Mock: Story = {
-  args: { readMode: "mock", writeMode: "mock" }
-};
-
-export const TestSpace: Story = {
-  args: { readMode: "live", writeMode: "test-space" }
+  args: { readMode: "mock" }
 };
 
 export const Live: Story = {
-  args: { readMode: "live", writeMode: "live" }
+  args: { readMode: "live" }
 };

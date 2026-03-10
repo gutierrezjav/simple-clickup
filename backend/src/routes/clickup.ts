@@ -124,8 +124,7 @@ clickupRouter.get("/schema", async (req, res) => {
     const readService = getReadService(requestToken);
 
     res.json({
-      schema: await readService.getSchema(),
-      writeMode: config.CLICKUP_WRITE_MODE
+      schema: await readService.getSchema()
     });
   } catch (error) {
     handleRouteError(error, res, requestToken?.source);
@@ -138,8 +137,7 @@ clickupRouter.get("/planning", async (req, res) => {
     const readService = getReadService(requestToken);
 
     res.json({
-      items: await readService.getPlanningItems(),
-      writeMode: config.CLICKUP_WRITE_MODE
+      items: await readService.getPlanningItems()
     });
   } catch (error) {
     handleRouteError(error, res, requestToken?.source);
@@ -152,8 +150,7 @@ clickupRouter.get("/daily", async (req, res) => {
     const readService = getReadService(requestToken);
 
     res.json({
-      rows: await readService.getDailyRows(),
-      writeMode: config.CLICKUP_WRITE_MODE
+      rows: await readService.getDailyRows()
     });
   } catch (error) {
     handleRouteError(error, res, requestToken?.source);

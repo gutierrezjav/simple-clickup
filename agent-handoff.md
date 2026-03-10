@@ -42,6 +42,8 @@ Recommended reading order:
 - [frontend/src/routes/planning-page.tsx](/data/simple-clickup/frontend/src/routes/planning-page.tsx): backend-backed planning screen with manual refresh and route states
 - [frontend/src/routes/daily-page.tsx](/data/simple-clickup/frontend/src/routes/daily-page.tsx): backend-backed daily screen with manual refresh and route states
 - [frontend/src/lib/clickup-api.ts](/data/simple-clickup/frontend/src/lib/clickup-api.ts): frontend fetch layer for planning/daily backend endpoints
+- [frontend/src/lib/daily-board.ts](/data/simple-clickup/frontend/src/lib/daily-board.ts): pure client-side daily filtering and count logic
+- [frontend/src/lib/assignee.ts](/data/simple-clickup/frontend/src/lib/assignee.ts): shared avatar/assignee display helpers for planning and daily
 - [frontend/src/lib/use-resource-loader.ts](/data/simple-clickup/frontend/src/lib/use-resource-loader.ts): reusable route loader hook
 - [frontend/.storybook/main.ts](/data/simple-clickup/frontend/.storybook/main.ts): Storybook config
 
@@ -57,6 +59,7 @@ Recommended reading order:
 - [backend/src/clickup/session.ts](/data/simple-clickup/backend/src/clickup/session.ts): encrypted cookie session storage
 - [backend/src/clickup/token.ts](/data/simple-clickup/backend/src/clickup/token.ts): Authorization header normalization for env tokens and OAuth tokens
 - [backend/test/clickup-service.test.ts](/data/simple-clickup/backend/test/clickup-service.test.ts): `vitest` coverage for daily row normalization and nested story hierarchies
+- [frontend/src/lib/daily-board.test.ts](/data/simple-clickup/frontend/src/lib/daily-board.test.ts): `vitest` coverage for daily client-side filtering and count behavior
 
 ### Shared
 
@@ -83,12 +86,14 @@ Current implementation note:
 - live ClickUp reads now emit structured one-line `pino` logs
 - live reads now use workspace-plan-aware local rate budgeting with upstream rate-limit header handling
 - backend unit tests now cover nested daily story hierarchies
+- frontend unit tests now cover daily search/assignee filtering and filtered counts
 - nested stories now render as their own daily rows rather than board cards
 - ancestor story rows remain visible when descendant active work exists deeper in the hierarchy
 - default local behavior is still mock-safe
 - production-list writes are still blocked, but that work is now outside this project’s roadmap
 - frontend styling now includes the ClickUp-inspired shell/density pass with swimlane-aligned daily layout
-- current code still includes write stubs and write-mode UI, but the next read-only slice removes those concepts from the planning/daily surface
+- the read UI no longer exposes `writeMode`; planning and daily use a read-only status badge
+- daily now supports local search and assignee filters plus filtered totals and a filtered-empty state
 
 ## Expected environment variables
 
@@ -159,6 +164,12 @@ npm run typecheck
 npm run test --workspace backend
 ```
 
+### Frontend tests
+
+```bash
+npm run test --workspace frontend
+```
+
 ### Build app
 
 ```bash
@@ -196,10 +207,8 @@ HOME=/tmp STORYBOOK_DISABLE_TELEMETRY=1 npm run build-storybook
 
 Stay on the read-only project:
 
-- remove write-mode concepts from the planning/daily product surface
-- add daily client-side filters for search and assignee
-- add daily filtered totals for page, row, and column headers
-- run the denser ClickUp-like visual pass for planning and daily
-- leave planning filters until the end; they are optional
+- verify the current live planning/daily query shapes against real ClickUp output and close any remaining board/count mismatches
+- decide whether another read-only visual density pass is still needed after using the current UI against live data
+- leave planning filters until the end; they remain optional
 
 Only switch to [clickup-write-project-plan.md](/data/simple-clickup/clickup-write-project-plan.md) if the task is explicitly about mutations.

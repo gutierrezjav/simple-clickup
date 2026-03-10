@@ -1,7 +1,6 @@
 import {
   planningFixtures,
-  type PlanningItem,
-  type WriteMode
+  type PlanningItem
 } from "@custom-clickup/shared";
 import { useEffect, useState } from "react";
 import { PlanningRow } from "../components/planning/planning-row";
@@ -43,8 +42,7 @@ function sortPlanningItems(items: PlanningItem[]): PlanningItem[] {
 function createMockPlanningPageData(): PlanningPageData {
   return {
     items: planningFixtures,
-    readMode: "mock",
-    writeMode: "mock"
+    readMode: "mock"
   };
 }
 
@@ -68,7 +66,7 @@ function renderPlanningContent(
   if (items.length === 0) {
     return (
       <ResourceState
-        message="The backend returned no planning items for the current filters."
+        message="The backend returned no planning items for the current read snapshot."
         title="No Planning Items"
       />
     );
@@ -92,14 +90,12 @@ function PlanningHeader({
   itemCount,
   isRefreshing,
   onRefresh,
-  readMode,
-  writeMode
+  readMode
 }: {
   itemCount?: number;
   isRefreshing: boolean;
   onRefresh: () => void;
   readMode?: ReadMode;
-  writeMode?: WriteMode;
 }) {
   return (
     <div className="panel-header">
@@ -112,12 +108,7 @@ function PlanningHeader({
         </p>
       </div>
       <div className="panel-header-actions">
-        {writeMode ? (
-          <StatusBanner
-            {...(readMode ? { readMode } : {})}
-            writeMode={writeMode}
-          />
-        ) : null}
+        {readMode ? <StatusBanner readMode={readMode} /> : null}
         <button
           className="toolbar-button"
           disabled={isRefreshing}
@@ -211,7 +202,6 @@ export function PlanningPage({ loader = fetchPlanningPageData }: PlanningPagePro
         isRefreshing={isRefreshing}
         onRefresh={refresh}
         readMode={data.readMode}
-        writeMode={data.writeMode}
       />
       {error ? (
         <ResourceState

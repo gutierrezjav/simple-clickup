@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
@@ -23,6 +25,7 @@
     "@vitejs/plugin-react": "^4.4.1",
     "storybook": "^8.6.0",
     "typescript": "^5.8.2",
+    "vitest": "^4.0.18",
     "vite": "^6.2.0"
   }
 }

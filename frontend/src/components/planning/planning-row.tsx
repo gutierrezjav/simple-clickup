@@ -1,4 +1,9 @@
 import type { PlanningItem } from "@custom-clickup/shared";
+import {
+  getAssigneeClassName,
+  getAssigneeDisplayName,
+  getAssigneeInitials
+} from "../../lib/assignee";
 
 interface PlanningRowProps {
   item: PlanningItem;
@@ -23,6 +28,8 @@ function formatKindLabel(kind: PlanningItem["kind"]) {
 
 export function PlanningRow({ item, expanded = false, onToggle }: PlanningRowProps) {
   const isExpandable = Boolean(item.children?.length);
+  const assigneeLabel = getAssigneeDisplayName(item.assignee);
+  const assigneeInitials = getAssigneeInitials(item.assignee);
 
   return (
     <div className="planning-row">
@@ -52,7 +59,12 @@ export function PlanningRow({ item, expanded = false, onToggle }: PlanningRowPro
         <dl className="planning-row__stats">
           <div>
             <dt>Assignee</dt>
-            <dd>{item.assignee ?? "—"}</dd>
+            <dd className="planning-row__assignee">
+              <span className={getAssigneeClassName(item.assignee)}>
+                {assigneeInitials || " "}
+              </span>
+              <span className="planning-row__assignee-name">{assigneeLabel}</span>
+            </dd>
           </div>
           <div>
             <dt>Priority</dt>
@@ -76,7 +88,12 @@ export function PlanningRow({ item, expanded = false, onToggle }: PlanningRowPro
                 </div>
               </div>
               <div className="planning-child-row__meta">
-                <span>{child.assignee ?? "—"}</span>
+                <span className="planning-child-row__assignee">
+                  <span className={getAssigneeClassName(child.assignee)}>
+                    {getAssigneeInitials(child.assignee) || " "}
+                  </span>
+                  <span>{getAssigneeDisplayName(child.assignee)}</span>
+                </span>
                 <span>{child.prioScore ?? "—"}</span>
               </div>
             </div>

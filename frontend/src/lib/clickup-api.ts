@@ -1,10 +1,9 @@
-import type { DailyRow, PlanningItem, WriteMode } from "@custom-clickup/shared";
+import type { DailyRow, PlanningItem } from "@custom-clickup/shared";
 
 export type ReadMode = "mock" | "live";
 
 export interface ResourceMetadata {
   readMode: ReadMode;
-  writeMode: WriteMode;
 }
 
 export interface PlanningPageData extends ResourceMetadata {
@@ -52,9 +51,7 @@ async function parseErrorPayload(response: Response): Promise<ApiErrorPayload> {
   }
 }
 
-async function fetchClickUpResource<T extends { writeMode: WriteMode }>(
-  path: string
-): Promise<T & { readMode: ReadMode }> {
+async function fetchClickUpResource<T>(path: string): Promise<T & { readMode: ReadMode }> {
   const response = await fetch(path, {
     headers: {
       Accept: "application/json"
@@ -80,15 +77,11 @@ async function fetchClickUpResource<T extends { writeMode: WriteMode }>(
 }
 
 export function fetchPlanningPageData(): Promise<PlanningPageData> {
-  return fetchClickUpResource<{ items: PlanningItem[]; writeMode: WriteMode }>(
-    "/api/clickup/planning"
-  );
+  return fetchClickUpResource<{ items: PlanningItem[] }>("/api/clickup/planning");
 }
 
 export function fetchDailyPageData(): Promise<DailyPageData> {
-  return fetchClickUpResource<{ rows: DailyRow[]; writeMode: WriteMode }>(
-    "/api/clickup/daily"
-  );
+  return fetchClickUpResource<{ rows: DailyRow[] }>("/api/clickup/daily");
 }
 
 export function startClickUpOAuth(returnTo: string): void {

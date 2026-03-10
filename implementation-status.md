@@ -39,6 +39,8 @@ The scaffold is intentionally mock-safe. Real production ClickUp reads are now i
   - manual refresh
   - story rows are collapsible with no toggle for tasks/bugs
   - `Prio score` sorting uses ascending order (0 is highest priority)
+  - read-only status badge using backend read mode only
+  - denser list presentation with avatar-style assignee treatment
 - backend-backed daily board with:
   - route-level loading state
   - retryable error state
@@ -50,11 +52,15 @@ The scaffold is intentionally mock-safe. Real production ClickUp reads are now i
   - ancestor story rows kept visible when descendant daily work exists
   - cards show `Prio score` and hide status (status implied by column)
   - swimlanes and cards sorted by lowest `Prio score`
-- visible read/write mode banner in the app routes
+  - client-side search and assignee filters over the fetched snapshot
+  - filtered totals at page, row, and column level
+  - filtered-empty state distinct from backend-empty state
+  - read-only status badge using backend read mode only
 - `Connect ClickUp` action on planning/daily 401 states
 - Vite dev proxy for `/api` and `/auth` to the backend
 - Storybook config and initial stories
 - route stories now use injected fixture loaders instead of backend fetches
+- frontend `vitest` coverage for pure daily filter/count behavior
 
 ### Backend
 
@@ -100,8 +106,8 @@ The scaffold is intentionally mock-safe. Real production ClickUp reads are now i
 
 Read-only roadmap note:
 
-- the current code still exposes write stubs and a write-mode banner
-- the next read-only slice removes write-mode concepts from the planning/daily product surface
+- the current code still exposes guarded write stubs, but they are outside the active read-only roadmap
+- the read product surface no longer exposes write-mode concepts
 - write-path work is now tracked separately in [clickup-write-project-plan.md](/data/simple-clickup/clickup-write-project-plan.md)
 
 ### Shared package
@@ -119,12 +125,8 @@ Read-only roadmap note:
 
 ### Read UX
 
-- daily client-side filters for search and assignee
-- daily filtered totals at page, row, and column level
-- filtered-empty states distinct from backend-empty states
-- denser ClickUp-like visual refresh for planning and daily
-- removal of write-mode concepts from the read product surface
 - optional planning filters as a final, non-blocking slice
+- further ClickUp-like refinement if the current density/count treatment still differs too much from the source board
 
 ### Separate write project
 
@@ -142,6 +144,10 @@ These commands succeeded:
   - `npm run test --workspace backend`
   - `npm run typecheck --workspace backend`
   - `npm run build --workspace backend`
+- read-only UI validation after the contract/filter refresh:
+  - `npm run test`
+  - `npm run typecheck`
+  - `npm run build`
 
 ## Known environment caveat
 
@@ -176,10 +182,13 @@ Frontend app behavior now:
 
 - `/planning` fetches `/api/clickup/planning`
 - `/daily` fetches `/api/clickup/daily`
-- the app currently shows backend read/write mode in the status banner after a successful load
+- the app now shows only backend read mode in the route status badge
 - refresh is manual only; there is no background polling
 - Storybook screen stories still use fixture-backed loaders
-- the planned next read-only slice replaces the read/write banner with a read-only status badge
+- planning remains read-only with denser list styling and avatar-style assignee display
+- daily now supports client-side search and assignee filters without changing backend requests
+- daily now shows filtered totals in the page header, row headers, and column headers
+- daily filtered-empty state is distinct from the backend-empty state
 
 ## Stage 3 verification notes
 
@@ -244,8 +253,6 @@ Backend read behavior now:
 
 ## Recommended next implementation slice
 
-1. Split the write roadmap out of the current read project surface and replace the read/write banner with a read-only status badge.
-2. Add daily client-side filters for search and assignee without changing backend APIs.
-3. Add filtered totals for the daily page header, row headers, and column headers.
-4. Run the denser ClickUp-like visual pass for planning and daily.
-5. Treat planning filters as optional and last.
+1. Verify the current live daily/planning list-task query shapes against real ClickUp board/list output and adjust only if filtering still misses visible work.
+2. Decide whether the current read visual pass is sufficient or whether another density pass is needed to match the real board more closely.
+3. Keep planning filters as the only remaining optional UI extension, and only do them after the live-read verification work.

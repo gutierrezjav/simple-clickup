@@ -2,9 +2,9 @@ import {
   dailyFixtures,
   dailyStatuses,
   type DailyCard as DailyCardModel,
-  type DailyRow,
-  type WriteMode
+  type DailyRow
 } from "@custom-clickup/shared";
+import { useState } from "react";
 import { DailyCard } from "../components/daily/daily-card";
 import { ResourceState } from "../components/resource-state";
 import { StatusBanner } from "../components/status-banner";
@@ -15,6 +15,11 @@ import {
   type DailyPageData,
   type ReadMode
 } from "../lib/clickup-api";
+import {
+  filterDailyBoard,
+  type DailyBoardCounts,
+  type DailyBoardFilters
+} from "../lib/daily-board";
 import { useResourceLoader } from "../lib/use-resource-loader";
 
 export interface DailyPageProps {
@@ -74,8 +79,7 @@ function sortDailyRows(rows: DailyRow[]): DailyRow[] {
 function createMockDailyPageData(): DailyPageData {
   return {
     rows: dailyFixtures,
-    readMode: "mock",
-    writeMode: "mock"
+    readMode: "mock"
   };
 }
 
@@ -91,15 +95,37 @@ function getDailyErrorMessage(error: Error): string {
   return error.message || "Daily board data could not be loaded.";
 }
 
-function renderDailyGrid(data: DailyPageData) {
-  const rows = sortDailyRows(data.rows);
-  const hasCards = rows.some((row) => row.cards.length > 0);
+function formatCount(value: number, total: number, filtersActive: boolean): string {
+  return filtersActive ? `${value} / ${total}` : String(total);
+}
 
-  if (!hasCards) {
+function renderDailyGrid({
+  counts,
+  filtersActive,
+  onClearFilters,
+  rows
+}: {
+  counts: DailyBoardCounts;
+  filtersActive: boolean;
+  onClearFilters: () => void;
+  rows: ReturnType<typeof filterDailyBoard>["rows"];
+}) {
+  if (!filtersActive && !counts.totalCards) {
     return (
       <ResourceState
         message="The backend returned no cards for the tracked daily statuses."
         title="No Daily Work Items"
+      />
+    );
+  }
+
+  if (filtersActive && rows.length === 0) {
+    return (
+      <ResourceState
+        actionLabel="Clear filters"
+        message="No daily cards match the current filters."
+        onAction={onClearFilters}
+        title="No Matching Daily Cards"
       />
     );
   }
@@ -111,7 +137,10 @@ function renderDailyGrid(data: DailyPageData) {
           <div className="daily-board__header-label">Swimlane</div>
           {dailyStatuses.map((status) => (
             <div className="daily-column-header" key={status}>
-              {status}
+              <span className="daily-column-header__label">{status}</span>
+              <span className="daily-column-header__count">
+                {formatCount(counts.visibleByStatus[status], counts.totalByStatus[status], filtersActive)}
+              </span>
             </div>
           ))}
         </div>
@@ -119,22 +148,26 @@ function renderDailyGrid(data: DailyPageData) {
           {rows.map((row) => (
             <section className={`daily-swimlane daily-swimlane--${row.type}`} key={row.id}>
               <div className="daily-swimlane__header">
-                <span
-                  className={`pill pill--kind pill--${
-                    row.type === "story"
-                      ? "story"
-                      : row.type === "tasks"
-                        ? "standalone-task"
-                        : "standalone-bug"
-                  }`}
-                >
-                  {row.type === "story" ? "Story" : row.type === "tasks" ? "Tasks" : "Bugs"}
-                </span>
-                <strong>{row.title}</strong>
+                <div className="daily-swimlane__header-top">
+                  <span
+                    className={`pill pill--kind pill--${
+                      row.type === "story"
+                        ? "story"
+                        : row.type === "tasks"
+                          ? "standalone-task"
+                          : "standalone-bug"
+                    }`}
+                  >
+                    {row.type === "story" ? "Story" : row.type === "tasks" ? "Tasks" : "Bugs"}
+                  </span>
+                  <span className="daily-swimlane__count">
+                    {formatCount(row.cards.length, row.totalCardCount, filtersActive)} cards
+                  </span>
+                </div>
+                <strong className="daily-swimlane__title">{row.title}</strong>
                 {typeof row.prioScore === "number" ? (
                   <span className="daily-swimlane__prio">Prio {row.prioScore}</span>
                 ) : null}
-                <span className="daily-swimlane__count">{row.cards.length} cards</span>
               </div>
               {dailyStatuses.map((status) => (
                 <div className="daily-column" key={`${row.id}-${status}`}>
@@ -154,18 +187,25 @@ function renderDailyGrid(data: DailyPageData) {
 }
 
 function DailyHeader({
-  cardCount,
+  counts,
+  filtersActive,
   isRefreshing,
   onRefresh,
-  readMode,
-  writeMode
+  readMode
 }: {
-  cardCount?: number;
+  counts?: DailyBoardCounts;
+  filtersActive: boolean;
   isRefreshing: boolean;
   onRefresh: () => void;
   readMode?: ReadMode;
-  writeMode?: WriteMode;
 }) {
+  const cardSummary =
+    counts && filtersActive
+      ? `${counts.visibleCards} / ${counts.totalCards} active cards visible.`
+      : counts
+        ? `${counts.totalCards} active cards loaded.`
+        : undefined;
+
   return (
     <div className="panel-header">
       <div className="panel-header-copy">
@@ -173,16 +213,11 @@ function DailyHeader({
         <h2>Daily</h2>
         <p>
           Delivery board snapshot with fixed workflow columns.
-          {typeof cardCount === "number" ? ` ${cardCount} active cards loaded.` : ""}
+          {cardSummary ? ` ${cardSummary}` : ""}
         </p>
       </div>
       <div className="panel-header-actions">
-        {writeMode ? (
-          <StatusBanner
-            {...(readMode ? { readMode } : {})}
-            writeMode={writeMode}
-          />
-        ) : null}
+        {readMode ? <StatusBanner readMode={readMode} /> : null}
         <button
           className="toolbar-button"
           disabled={isRefreshing}
@@ -198,12 +233,37 @@ function DailyHeader({
 
 export function DailyPage({ loader = fetchDailyPageData }: DailyPageProps) {
   const { data, error, isLoading, isRefreshing, refresh } = useResourceLoader(loader);
+  const [filters, setFilters] = useState<DailyBoardFilters>({
+    search: "",
+    assignee: ""
+  });
   const handleConnect = () => startClickUpOAuth("/daily");
+
+  function handleSearchChange(search: string) {
+    setFilters((current) => ({
+      ...current,
+      search
+    }));
+  }
+
+  function handleAssigneeChange(assignee: string) {
+    setFilters((current) => ({
+      ...current,
+      assignee
+    }));
+  }
+
+  function handleClearFilters() {
+    setFilters({
+      search: "",
+      assignee: ""
+    });
+  }
 
   if (isLoading && !data) {
     return (
       <div className="panel panel--route">
-        <DailyHeader isRefreshing={false} onRefresh={refresh} />
+        <DailyHeader filtersActive={false} isRefreshing={false} onRefresh={refresh} />
         <ResourceState
           actionLabel="Retry"
           message="Loading daily board data from the backend."
@@ -217,7 +277,7 @@ export function DailyPage({ loader = fetchDailyPageData }: DailyPageProps) {
   if (!data) {
     return (
       <div className="panel panel--route">
-        <DailyHeader isRefreshing={false} onRefresh={refresh} />
+        <DailyHeader filtersActive={false} isRefreshing={false} onRefresh={refresh} />
         <ResourceState
           actionLabel={
             error instanceof ClickUpApiError && error.status === 401
@@ -249,15 +309,60 @@ export function DailyPage({ loader = fetchDailyPageData }: DailyPageProps) {
     );
   }
 
+  const sortedRows = sortDailyRows(data.rows);
+  const filteredBoard = filterDailyBoard(sortedRows, filters);
+
   return (
     <div className="panel panel--route">
       <DailyHeader
-        cardCount={data.rows.reduce((count, row) => count + row.cards.length, 0)}
+        counts={filteredBoard.counts}
+        filtersActive={filteredBoard.filtersActive}
         isRefreshing={isRefreshing}
         onRefresh={refresh}
         readMode={data.readMode}
-        writeMode={data.writeMode}
       />
+      <div className="filter-toolbar" role="group" aria-label="Daily filters">
+        <label className="filter-field">
+          <span className="filter-field__label">Search</span>
+          <input
+            className="filter-input"
+            onChange={(event) => handleSearchChange(event.target.value)}
+            placeholder="Story, card title, or custom ID"
+            type="search"
+            value={filters.search}
+          />
+        </label>
+        <label className="filter-field">
+          <span className="filter-field__label">Assignee</span>
+          <select
+            className="filter-select"
+            onChange={(event) => handleAssigneeChange(event.target.value)}
+            value={filters.assignee}
+          >
+            <option value="">All assignees</option>
+            {filteredBoard.assigneeOptions.map((assignee) => (
+              <option key={assignee} value={assignee}>
+                {assignee}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="filter-toolbar__actions">
+          <div className="filter-toolbar__summary">
+            {filteredBoard.filtersActive
+              ? `${filteredBoard.counts.visibleCards} of ${filteredBoard.counts.totalCards} cards visible`
+              : `${filteredBoard.counts.totalCards} cards in snapshot`}
+          </div>
+          <button
+            className="toolbar-button"
+            disabled={!filteredBoard.filtersActive}
+            onClick={handleClearFilters}
+            type="button"
+          >
+            Clear filters
+          </button>
+        </div>
+      </div>
       {error ? (
         <ResourceState
           actionLabel={
@@ -284,7 +389,12 @@ export function DailyPage({ loader = fetchDailyPageData }: DailyPageProps) {
           }
         />
       ) : null}
-      {renderDailyGrid(data)}
+      {renderDailyGrid({
+        counts: filteredBoard.counts,
+        filtersActive: filteredBoard.filtersActive,
+        onClearFilters: handleClearFilters,
+        rows: filteredBoard.rows
+      })}
     </div>
   );
 }
