@@ -1,19 +1,21 @@
 import { Router, type Request, type Response } from "express";
 import { config } from "../config.js";
 import { ClickUpServiceError } from "../clickup/errors.js";
+import type { ClickUpTokenSource } from "../clickup/types.js";
 import {
   clearSession,
   readSession,
   type SessionCookieOptions
 } from "../clickup/session.js";
 import { createClickUpReadService, type ClickUpReadService } from "../clickup/service.js";
+import { logger } from "../logging.js";
 
 export const clickupRouter = Router();
 
 const readServiceByToken = new Map<string, ClickUpReadService>();
 
 interface RequestToken {
-  source: "env" | "session";
+  source: Exclude<ClickUpTokenSource, "none">;
   value: string;
 }
 
@@ -50,8 +52,10 @@ function getRequestToken(req: Request): RequestToken | undefined {
   return undefined;
 }
 
-function getReadService(accessToken: string | undefined): ClickUpReadService {
-  const cacheKey = `${config.CLICKUP_READ_MODE}:${accessToken ?? "no-token"}`;
+function getReadService(requestToken: RequestToken | undefined): ClickUpReadService {
+  const tokenSource = requestToken?.source ?? "none";
+  const accessToken = requestToken?.value;
+  const cacheKey = `${config.CLICKUP_READ_MODE}:${tokenSource}:${accessToken ?? "no-token"}`;
   const existingService = readServiceByToken.get(cacheKey);
 
   if (existingService) {
@@ -65,7 +69,8 @@ function getReadService(accessToken: string | undefined): ClickUpReadService {
     listId: config.CLICKUP_TARGET_LIST_ID,
     readMode: config.CLICKUP_READ_MODE,
     teamId: config.CLICKUP_TARGET_TEAM_ID,
-    timeoutMs: config.CLICKUP_HTTP_TIMEOUT_MS
+    timeoutMs: config.CLICKUP_HTTP_TIMEOUT_MS,
+    tokenSource
   });
 
   readServiceByToken.set(cacheKey, nextService);
@@ -79,7 +84,6 @@ clickupRouter.use((_req, res, next) => {
 
 function handleRouteError(
   error: unknown,
-  req: Request,
   res: Response,
   tokenSource: "env" | "session" | undefined
 ) {
@@ -102,7 +106,13 @@ function handleRouteError(
     return;
   }
 
-  console.error(error);
+  logger.error(
+    {
+      err: error,
+      route: "api/clickup"
+    },
+    "Unexpected ClickUp route error."
+  );
   res.status(500).json({
     message: "Unexpected backend error."
   });
@@ -111,42 +121,42 @@ function handleRouteError(
 clickupRouter.get("/schema", async (req, res) => {
   const requestToken = getRequestToken(req);
   try {
-    const readService = getReadService(requestToken?.value);
+    const readService = getReadService(requestToken);
 
     res.json({
       schema: await readService.getSchema(),
       writeMode: config.CLICKUP_WRITE_MODE
     });
   } catch (error) {
-    handleRouteError(error, req, res, requestToken?.source);
+    handleRouteError(error, res, requestToken?.source);
   }
 });
 
 clickupRouter.get("/planning", async (req, res) => {
   const requestToken = getRequestToken(req);
   try {
-    const readService = getReadService(requestToken?.value);
+    const readService = getReadService(requestToken);
 
     res.json({
       items: await readService.getPlanningItems(),
       writeMode: config.CLICKUP_WRITE_MODE
     });
   } catch (error) {
-    handleRouteError(error, req, res, requestToken?.source);
+    handleRouteError(error, res, requestToken?.source);
   }
 });
 
 clickupRouter.get("/daily", async (req, res) => {
   const requestToken = getRequestToken(req);
   try {
-    const readService = getReadService(requestToken?.value);
+    const readService = getReadService(requestToken);
 
     res.json({
       rows: await readService.getDailyRows(),
       writeMode: config.CLICKUP_WRITE_MODE
     });
   } catch (error) {
-    handleRouteError(error, req, res, requestToken?.source);
+    handleRouteError(error, res, requestToken?.source);
   }
 });
 

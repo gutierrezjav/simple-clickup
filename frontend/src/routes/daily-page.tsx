@@ -58,11 +58,15 @@ function sortDailyRows(rows: DailyRow[]): DailyRow[] {
 
   const extraRows = [tasksRow, bugsRow]
     .filter((row): row is DailyRow => Boolean(row))
-    .map((row) => ({
-      ...row,
-      prioScore: pickRowPriority(row),
-      cards: sortCards(row.cards)
-    }));
+    .map((row) => {
+      const prioScore = pickRowPriority(row);
+
+      return {
+        ...row,
+        ...(typeof prioScore === "number" ? { prioScore } : {}),
+        cards: sortCards(row.cards)
+      };
+    });
 
   return [...storyRows, ...extraRows].sort(compareByPriority);
 }

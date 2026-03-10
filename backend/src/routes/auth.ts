@@ -11,6 +11,7 @@ import {
   writeSession,
   type SessionCookieOptions
 } from "../clickup/session.js";
+import { logger } from "../logging.js";
 
 export const authRouter = Router();
 
@@ -58,7 +59,13 @@ function handleAuthError(error: unknown, res: Response) {
     return;
   }
 
-  console.error(error);
+  logger.error(
+    {
+      err: error,
+      route: "auth"
+    },
+    "Unexpected auth route error."
+  );
   res.status(500).json({
     message: "Unexpected auth error."
   });

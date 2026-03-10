@@ -33,16 +33,20 @@ What already exists in the repo:
 - Storybook config plus initial component/screen stories
 - `Express` backend scaffold with:
   - health route
-  - auth route placeholders
+  - real ClickUp OAuth start/callback/logout flows
   - mock-safe ClickUp API routes
+  - live-read-capable ClickUp API routes behind explicit opt-in
+  - separate schema, planning, and daily live loaders
+  - structured `pino` logging for ClickUp reads
+  - workspace-plan-aware local rate budgeting
+  - daily normalization that preserves nested story rows and visible ancestors
 - shared normalized types and fixtures
+- backend `vitest` coverage for daily row normalization and nested story hierarchies
 - safe write-mode contract with `mock`, `test-space`, and `live`
 
 What is still stubbed:
 
-- real ClickUp OAuth flow
-- real live-read ClickUp API client
-- schema validation against the real target list
+- production verification that the list-task endpoint filters are precise enough for planning and daily
 - drag-and-drop implementation
 - inline editing implementation
 - test-space write adapter
@@ -50,6 +54,7 @@ What is still stubbed:
 Current validation status:
 
 - workspace install completed
+- `npm run test --workspace backend` passes
 - `npm run typecheck` passes
 - `npm run build` passes
 - Storybook static build passes
@@ -85,7 +90,19 @@ Safety rule for v1:
 - After Storybook review, wire the approved components into the SPA routes and `Express` backend.
 - Keep the same component contracts used in Storybook so integration is mostly data wiring rather than UI redesign.
 
-### Phase 3: ClickUp-inspired UI alignment
+### Phase 3: ClickUp read optimization and observability
+
+- Split the live-read path into separate `schema`, `planning`, and `daily` loads instead of one broad shared snapshot.
+- Keep the existing list-task endpoint for this slice, but shape queries aggressively per view:
+  - `schema` should fetch metadata only
+  - `planning` should use explicit allowed statuses, `include_closed=false`, and `include_timl=false`
+  - `daily` should use the six board statuses, `include_closed=false`, and `include_timl=false`
+- Keep the filtered team-task endpoint as a fallback only if list-task filtering proves insufficient during verification.
+- Add structured backend logging with `pino` so every outbound ClickUp request is one line with URL/path, start time, duration, status, and item counts.
+- Add proactive per-token rate budgeting with reactive `Retry-After` / `X-RateLimit-*` handling so the backend avoids hitting ClickUp `429`s where possible.
+- Keep API-usage visibility backend-only in this phase; no frontend indicators or new metrics endpoint.
+
+### Phase 4: ClickUp-inspired UI alignment
 
 - After Daily query shaping is correct, run one focused frontend-only design pass before drag-and-drop, inline editing, and non-mock write work.
 - Refresh the shell toward a denser ClickUp-like workspace layout with a lighter neutral canvas, compact header chrome, view tabs, and slimmer status/state treatments.
@@ -108,14 +125,22 @@ Safety rule for v1:
 - Centralize ClickUp API calls in one server-side client module.
 - Validate the target list id and required schema on first authenticated load.
 - Fetch tasks from the target list with pagination and normalize server-side.
+- Split live reads into separate schema, planning, and daily loaders instead of one shared snapshot.
 - Shape live-read queries per screen instead of always loading the broadest possible snapshot.
-- Fetch custom-field metadata for the target list.
+- Fetch custom-field metadata for the target list separately from task data so `/api/clickup/schema` does not overfetch tasks.
 - Update standard fields and custom fields through the correct ClickUp endpoints.
 - Add server-side read guardrails:
   - short-lived response caching for planning/daily reads
+  - longer-lived metadata caching for fields, task types, and workspace plan
   - request deduplication for concurrent identical reads
   - bounded polling/manual refresh only, no aggressive background sync
+  - proactive per-token sliding-window rate budgeting before dispatch
   - 429 handling with backoff and `Retry-After` support
+  - capture of `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset` when present
+- Add structured observability:
+  - `pino` one-line logs for outbound ClickUp requests
+  - one-line logical read summaries for `schema`, `planning`, and `daily`
+  - sanitized request context only, with no secrets in logs
 - Add server-side write guardrails:
   - mutation adapter with `mock`, `test-space`, and `live` modes
   - default mode for local dev and automated tests is `mock`
@@ -195,7 +220,10 @@ Safety rule for v1:
   - `TESTED IN DEV`
 - Render one row per story.
 - The story itself is the row header only, not a board card.
+- Nested stories should also render as story rows, not as cards.
+- Ancestor stories should remain visible if any descendant non-story work is visible in the daily statuses, even when the ancestor row itself has no direct cards.
 - Render child tasks inside the matching status columns.
+- Only non-story children should render as board cards for a given story row.
 - Render swimlanes as full-width horizontal bands so each story is visually grouped.
 - Sort swimlanes by lowest `Prio score` (tasks/bugs rows inherit the lowest card priority).
 - Show `Prio score` on cards and do not repeat status on cards since the column already indicates it.
@@ -241,6 +269,9 @@ Safety rule for v1:
 - `DailyCard`
 - `InlineEditableField`
 - `WriteMode`
+- `ClickUpTaskQueryOptions`
+- `ClickUpRateLimitState`
+- `ClickUpRequestSummary`
 
 ### Storybook support
 
@@ -256,12 +287,19 @@ Safety rule for v1:
 - interaction coverage in Storybook for inline edits, expand/collapse, and drag-and-drop with mocked handlers
 - OAuth connect/callback/logout and invalid-session handling
 - schema validation against the target list and required fields
+- schema reads fetch metadata without task overfetch
 - planning filter inclusion/exclusion logic
+- planning live-query filtering limits reads to the allowed planning statuses
 - story collapse/expand behavior
 - `Prio score` ordering for stories and subtasks
 - daily row grouping for stories, standalone tasks, and standalone bugs
+- nested story rows stay rows rather than cards
+- ancestor story rows remain visible when descendant board work exists
 - daily column mapping using exact ClickUp status names
 - daily live-query filtering excludes closed work and limits reads to board statuses
+- structured request logging for URL/path, start time, duration, status, and item counts
+- workspace-plan lookup and rate-limit budget mapping
+- local rate-budget enforcement before upstream `429`s
 - drag-and-drop status mutation flow in `mock` mode
 - custom-field update flow for `Prio score` and `Planning bucket` in `mock` mode
 - integration coverage for real writes only against a dedicated test ClickUp space/list, never the live production list
@@ -280,5 +318,7 @@ Safety rule for v1:
 - `Express` is the chosen backend; `Fastify` is intentionally deferred.
 - Live production reads are acceptable in v1.
 - Live production writes are intentionally deferred until verification and safety gates exist.
+- If workspace plan lookup fails, rate budgeting falls back to `100 rpm` as the conservative default.
+- The existing list-task endpoint should remain the first choice for planning/daily query shaping.
 - Storybook approval is a required phase before full app integration.
 - The UI should move closer to ClickUp in structure and density without copying exact brand assets or trade dress.

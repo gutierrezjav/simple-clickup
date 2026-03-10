@@ -20,6 +20,7 @@ The scaffold is intentionally mock-safe. Real production ClickUp reads are now i
 - npm workspaces configured at the repo root
 - shared TypeScript base config
 - install completed successfully
+- backend `vitest` test harness with workspace-aware path resolution
 - backend now loads `.env` and `.env.local` from the repo root before parsing config
 - blank optional env placeholders are normalized to unset values instead of crashing startup
 
@@ -45,6 +46,8 @@ The scaffold is intentionally mock-safe. Real production ClickUp reads are now i
   - empty-state handling
   - manual refresh
   - horizontal swimlanes with story headers only (no story cards)
+  - nested stories rendered as story rows, not cards
+  - ancestor story rows kept visible when descendant daily work exists
   - cards show `Prio score` and hide status (status implied by column)
   - swimlanes and cards sorted by lowest `Prio score`
 - visible read/write mode banner in the app routes
@@ -78,16 +81,22 @@ The scaffold is intentionally mock-safe. Real production ClickUp reads are now i
 - read mode guard using `CLICKUP_READ_MODE`
 - ClickUp backend client with:
   - paginated list-task reads
-  - hard cap of 100 fetched tasks per live snapshot
+  - hard cap of 500 fetched tasks per live task query
   - hard cap of 10 seconds per ClickUp HTTP request
   - list custom-field metadata fetch
   - workspace custom task-type fetch
-  - short-lived in-memory caching
-  - request deduplication for concurrent snapshot loads
+  - workspace-plan lookup with conservative fallback to `100 rpm`
+  - metadata-only schema reads
+  - view-specific query shaping for planning and daily
+  - short-lived in-memory per-view caching plus longer-lived metadata caching
+  - request deduplication for concurrent identical reads
+  - proactive local rate budgeting before upstream `429`s
   - 429 / `Retry-After` handling
-  - console logging for live request start/success/failure/timeout/rate-limit events
+  - structured one-line `pino` logging for ClickUp requests and logical backend reads
 - live normalization from ClickUp responses into the existing shared planning/daily shapes
+- daily normalization now preserves nested story rows and empty ancestor story headers when descendant work is active
 - target-list field validation for the required planning/daily fields
+- backend unit coverage for daily row normalization, including nested-story hierarchies
 
 ### Shared package
 
@@ -100,10 +109,7 @@ The scaffold is intentionally mock-safe. Real production ClickUp reads are now i
 ### ClickUp integration
 
 - production verification of OAuth and live read mode with real ClickUp app credentials
-- view-specific live-query shaping to reduce overfetch, especially for the daily board:
-  - `include_closed=false` for daily reads
-  - explicit daily-status filtering to the six board columns
-  - `include_timl=false` by default unless cross-listed tasks must appear
+- validation that list-task filtering is sufficient before considering the filtered team-task endpoint
 
 ### UI behavior
 
@@ -126,6 +132,7 @@ These commands succeeded:
 - `npm run build`
 - `HOME=/tmp STORYBOOK_DISABLE_TELEMETRY=1 npm run build-storybook`
 - backend-only validation after the fetch-guardrail change:
+  - `npm run test --workspace backend`
   - `npm run typecheck --workspace backend`
   - `npm run build --workspace backend`
 
@@ -192,22 +199,45 @@ Operational learnings:
 - `Connect ClickUp` will not appear if `CLICKUP_ACCESS_TOKEN` is set, because the backend will use the env-token fallback instead of returning `401`
 - empty placeholder values in `.env` are allowed now, but partially configured OAuth still requires all OAuth fields to be present together
 - `include_timl` means "include tasks in multiple lists"; it pulls in tasks added to the target list whose home list is elsewhere
-- for the daily board, the intended live-read query should exclude closed tasks and request only these statuses:
+
+## Stage 4 verification notes
+
+New env surface:
+
+- `LOG_FORMAT=pretty|json`
+- `LOG_LEVEL=info|debug|warn|error|fatal|trace|silent`
+
+Backend read behavior now:
+
+- `GET /api/clickup/schema` fetches metadata only and no longer fetches task data
+- live reads are split into dedicated schema, planning, and daily loaders instead of one broad shared snapshot
+- metadata caching is longer-lived than planning/daily task caching
+- planning live reads use `include_closed=false`, `include_timl=false`, and these statuses:
+  - `BACKLOG`
+  - `BUGS / ISSUES`
+  - `IN UX DESIGN`
+  - `READY TO REFINE`
+  - `SPRINT READY`
+  - `BLOCKED`
+  - `SPRINT BACKLOG`
+  - `IN PROGRESS`
+  - `IN CODE REVIEW`
+- daily live reads use `include_closed=false`, `include_timl=false`, and these statuses:
   - `BLOCKED`
   - `SPRINT BACKLOG`
   - `IN PROGRESS`
   - `IN CODE REVIEW`
   - `DEPLOYED TO DEV`
   - `TESTED IN DEV`
-- planning can stay broader for now; the immediate overfetch issue is on daily
+- backend logging now uses one-line structured `pino` logs per outbound ClickUp request and per logical backend read
+- the backend resolves workspace plan on first live use, falls back to `100 rpm` if that lookup fails, and locally throttles at `90%` of the detected limit before dispatching more requests
+- upstream `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset` are captured when present and fed into the local limiter state
+- daily normalization treats nested user stories as rows rather than cards and keeps ancestor rows visible if any descendant non-story work is still on the board
 
 ## Recommended next implementation slice
 
-1. Tighten the daily live-read query:
-   - set `include_closed=false`
-   - pass the six daily board statuses explicitly
-   - keep `include_timl=false` unless cross-listed tasks are explicitly required
-2. Validate that the existing list-task endpoint status filter is sufficient; only switch to the filtered team-task endpoint if list-task filtering proves too loose.
-3. After query shaping, implement safe non-mock mutation adapters with explicit `test-space` allowlisting.
-4. Keep production-list live writes blocked.
-5. Connect mutation verification and write-mode clarity into the existing shell/banner treatment.
+1. Implement safe non-mock mutation adapters with explicit `test-space` allowlisting.
+2. Keep production-list live writes blocked.
+3. Connect mutation verification and write-mode clarity into the existing shell/banner treatment.
+4. Add drag-and-drop status mutation wiring for the daily board in `mock` mode first.
+5. Add inline planning edits for `Prio score`, assignee, and `Planning bucket`.

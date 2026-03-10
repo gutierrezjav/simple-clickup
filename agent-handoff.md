@@ -6,10 +6,10 @@ Last updated: 2026-03-10
 
 Recommended reading order:
 
-1. [clickup-v1-plan.md](/data/custom-clickup/clickup-v1-plan.md)
-2. [implementation-status.md](/data/custom-clickup/implementation-status.md)
-3. [clickup-reference.md](/data/custom-clickup/clickup-reference.md)
-4. [clickup-research.md](/data/custom-clickup/clickup-research.md)
+1. [clickup-v1-plan.md](/data/simple-clickup/clickup-v1-plan.md)
+2. [implementation-status.md](/data/simple-clickup/implementation-status.md)
+3. [clickup-reference.md](/data/simple-clickup/clickup-reference.md)
+4. [clickup-research.md](/data/simple-clickup/clickup-research.md)
 
 ## Repo layout
 
@@ -30,35 +30,36 @@ Recommended reading order:
 
 ### Root
 
-- [package.json](/data/custom-clickup/package.json): workspace scripts
-- [clickup-v1-plan.md](/data/custom-clickup/clickup-v1-plan.md): target implementation plan
-- [implementation-status.md](/data/custom-clickup/implementation-status.md): current delivery status
+- [package.json](/data/simple-clickup/package.json): workspace scripts
+- [clickup-v1-plan.md](/data/simple-clickup/clickup-v1-plan.md): target implementation plan
+- [implementation-status.md](/data/simple-clickup/implementation-status.md): current delivery status
 
 ### Frontend
 
-- [frontend/src/app.tsx](/data/custom-clickup/frontend/src/app.tsx): route shell
-- [frontend/src/routes/planning-page.tsx](/data/custom-clickup/frontend/src/routes/planning-page.tsx): backend-backed planning screen with manual refresh and route states
-- [frontend/src/routes/daily-page.tsx](/data/custom-clickup/frontend/src/routes/daily-page.tsx): backend-backed daily screen with manual refresh and route states
-- [frontend/src/lib/clickup-api.ts](/data/custom-clickup/frontend/src/lib/clickup-api.ts): frontend fetch layer for planning/daily backend endpoints
-- [frontend/src/lib/use-resource-loader.ts](/data/custom-clickup/frontend/src/lib/use-resource-loader.ts): reusable route loader hook
-- [frontend/.storybook/main.ts](/data/custom-clickup/frontend/.storybook/main.ts): Storybook config
+- [frontend/src/app.tsx](/data/simple-clickup/frontend/src/app.tsx): route shell
+- [frontend/src/routes/planning-page.tsx](/data/simple-clickup/frontend/src/routes/planning-page.tsx): backend-backed planning screen with manual refresh and route states
+- [frontend/src/routes/daily-page.tsx](/data/simple-clickup/frontend/src/routes/daily-page.tsx): backend-backed daily screen with manual refresh and route states
+- [frontend/src/lib/clickup-api.ts](/data/simple-clickup/frontend/src/lib/clickup-api.ts): frontend fetch layer for planning/daily backend endpoints
+- [frontend/src/lib/use-resource-loader.ts](/data/simple-clickup/frontend/src/lib/use-resource-loader.ts): reusable route loader hook
+- [frontend/.storybook/main.ts](/data/simple-clickup/frontend/.storybook/main.ts): Storybook config
 
 ### Backend
 
-- [backend/src/app.ts](/data/custom-clickup/backend/src/app.ts): Express app wiring
-- [backend/src/routes/clickup.ts](/data/custom-clickup/backend/src/routes/clickup.ts): schema/planning/daily read endpoints and guarded write stubs
-- [backend/src/routes/auth.ts](/data/custom-clickup/backend/src/routes/auth.ts): ClickUp OAuth start/callback/logout routes
-- [backend/src/config.ts](/data/custom-clickup/backend/src/config.ts): env parsing for read mode, OAuth, and session cookie settings
-- [backend/src/clickup/client.ts](/data/custom-clickup/backend/src/clickup/client.ts): ClickUp REST client with pagination and 429 handling
-- [backend/src/clickup/service.ts](/data/custom-clickup/backend/src/clickup/service.ts): cached live snapshot loader and normalization
-- [backend/src/clickup/oauth.ts](/data/custom-clickup/backend/src/clickup/oauth.ts): OAuth token exchange and authorized user/workspace fetches
-- [backend/src/clickup/session.ts](/data/custom-clickup/backend/src/clickup/session.ts): encrypted cookie session storage
-- [backend/src/clickup/token.ts](/data/custom-clickup/backend/src/clickup/token.ts): Authorization header normalization for env tokens and OAuth tokens
+- [backend/src/app.ts](/data/simple-clickup/backend/src/app.ts): Express app wiring
+- [backend/src/routes/clickup.ts](/data/simple-clickup/backend/src/routes/clickup.ts): schema/planning/daily read endpoints and guarded write stubs
+- [backend/src/routes/auth.ts](/data/simple-clickup/backend/src/routes/auth.ts): ClickUp OAuth start/callback/logout routes
+- [backend/src/config.ts](/data/simple-clickup/backend/src/config.ts): env parsing for read mode, OAuth, and session cookie settings
+- [backend/src/clickup/client.ts](/data/simple-clickup/backend/src/clickup/client.ts): ClickUp REST client with pagination and 429 handling
+- [backend/src/clickup/service.ts](/data/simple-clickup/backend/src/clickup/service.ts): cached live loaders and normalization, including nested-story daily row handling
+- [backend/src/clickup/oauth.ts](/data/simple-clickup/backend/src/clickup/oauth.ts): OAuth token exchange and authorized user/workspace fetches
+- [backend/src/clickup/session.ts](/data/simple-clickup/backend/src/clickup/session.ts): encrypted cookie session storage
+- [backend/src/clickup/token.ts](/data/simple-clickup/backend/src/clickup/token.ts): Authorization header normalization for env tokens and OAuth tokens
+- [backend/test/clickup-service.test.ts](/data/simple-clickup/backend/test/clickup-service.test.ts): `vitest` coverage for daily row normalization and nested story hierarchies
 
 ### Shared
 
-- [shared/src/types.ts](/data/custom-clickup/shared/src/types.ts): normalized types and status constants
-- [shared/src/fixtures.ts](/data/custom-clickup/shared/src/fixtures.ts): Storybook/mock data
+- [shared/src/types.ts](/data/simple-clickup/shared/src/types.ts): normalized types and status constants
+- [shared/src/fixtures.ts](/data/simple-clickup/shared/src/fixtures.ts): Storybook/mock data
 
 ## Current safety model
 
@@ -74,12 +75,17 @@ Current implementation note:
 - OAuth start/callback/logout are now implemented
 - live reads can use either the env token fallback or the OAuth session token
 - repo-root `.env` and `.env.local` are now loaded by the backend before config parsing
-- live task fetch is capped at 100 tasks per snapshot
+- live task fetch is capped at 500 tasks per live task query
 - live ClickUp HTTP requests are capped at 10 seconds each
-- live ClickUp reads now emit console logs for request lifecycle and fetch limits
+- live reads are now split into dedicated schema, planning, and daily loaders
+- `/api/clickup/schema` is now metadata-only and no longer fetches task data
+- live ClickUp reads now emit structured one-line `pino` logs
+- live reads now use workspace-plan-aware local rate budgeting with upstream rate-limit header handling
+- backend unit tests now cover nested daily story hierarchies
+- nested stories now render as their own daily rows rather than board cards
+- ancestor story rows remain visible when descendant active work exists deeper in the hierarchy
 - default local behavior is still mock-safe
 - production-list writes are still blocked
-- daily live reads still need view-specific query shaping to avoid overfetch
 - frontend styling now includes the ClickUp-inspired shell/density pass with swimlane-aligned daily layout
 
 ## Expected environment variables
@@ -87,6 +93,8 @@ Current implementation note:
 Currently parsed:
 
 - `PORT`
+- `LOG_FORMAT`
+- `LOG_LEVEL`
 - `CLICKUP_WRITE_MODE`
 - `CLICKUP_READ_MODE`
 - `CLICKUP_ACCESS_TOKEN`
@@ -114,14 +122,20 @@ Likely next env vars to add in the backend:
 - If `CLICKUP_ACCESS_TOKEN` is set, the backend uses that token as a fallback and the connect flow is usually bypassed.
 - `SESSION_SECRET` must be at least 16 characters.
 - Empty placeholder values in `.env` are normalized to unset now, but partially configured OAuth still fails validation until all OAuth fields are present.
-- The current live-read backend cache is keyed by resolved token, so env-token reads and session-token reads maintain separate cached snapshots.
-- `include_timl` means "include tasks in multiple lists". It should stay off by default for Daily unless the board must include tasks whose home list is elsewhere.
-- The immediate read-optimization target is Daily, not Planning.
-- The intended Daily live query is:
+- The current live-read backend cache is keyed by resolved token and token source, so env-token reads and session-token reads maintain separate cached state.
+- `GET /api/clickup/schema` now fetches metadata only and no longer overfetches tasks.
+- `include_timl` means "include tasks in multiple lists". It should stay off by default for both Planning and Daily unless cross-listed tasks are explicitly required.
+- The Planning live query is:
+  - `include_closed=false`
+  - status filter limited to `BACKLOG`, `BUGS / ISSUES`, `IN UX DESIGN`, `READY TO REFINE`, `SPRINT READY`, `BLOCKED`, `SPRINT BACKLOG`, `IN PROGRESS`, and `IN CODE REVIEW`
+  - `include_timl=false`
+- The Daily live query is:
   - `include_closed=false`
   - status filter limited to `BLOCKED`, `SPRINT BACKLOG`, `IN PROGRESS`, `IN CODE REVIEW`, `DEPLOYED TO DEV`, and `TESTED IN DEV`
-  - `include_timl=false` unless cross-listed tasks are required
-- Start with the existing list-task endpoint plus status filtering. Only move Daily to the filtered team-task endpoint if list-task filtering is not precise enough.
+  - `include_timl=false`
+- Start with the existing list-task endpoint plus status filtering. Only move to the filtered team-task endpoint if list-task filtering is not precise enough.
+- Logging now uses one-line structured `pino` logs for outbound ClickUp requests and logical backend reads.
+- The backend now resolves workspace plan on first live use, falls back to `100 rpm` if needed, and locally throttles at `90%` of the detected limit while still honoring upstream `Retry-After` and `X-RateLimit-*` headers.
 
 ## Working commands
 
@@ -135,6 +149,12 @@ npm install
 
 ```bash
 npm run typecheck
+```
+
+### Backend tests
+
+```bash
+npm run test --workspace backend
 ```
 
 ### Build app
@@ -172,17 +192,15 @@ HOME=/tmp STORYBOOK_DISABLE_TELEMETRY=1 npm run build-storybook
 
 ## Recommended next task
 
-Tighten the Daily live-read query before starting write work:
+Start safe write-path work without touching the production list:
 
-- add `include_closed=false`
-- pass the six Daily board statuses explicitly
-- keep `include_timl=false` by default
-- verify the list-task endpoint gives the expected reduction before considering the filtered team-task endpoint
+- implement safe non-mock mutation adapters with explicit allowlisting for `test-space`
+- keep production-list writes blocked
+- connect mutation verification to the shell/banner treatment
 
 After that:
 
-- implement safe non-mock write adapters with explicit allowlisting for `test-space`
-- keep production-list writes blocked
-- connect mutation verification to the new shell/banner treatment
+- wire drag-and-drop status updates on the daily board in `mock` mode first
+- add inline planning edits for `Prio score`, assignee, and `Planning bucket`
 
 Do not start real write integration against the production list yet.

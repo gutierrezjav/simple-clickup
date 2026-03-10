@@ -1,6 +1,6 @@
 # ClickUp Research
 
-Last updated: 2026-03-09
+Last updated: 2026-03-10
 
 ## Purpose
 
@@ -148,6 +148,33 @@ For this project, live reads from the production ClickUp list are acceptable in 
 
 Live writes are a separate risk because they mutate the real planning workflow. Development and test flows should therefore default to mocks or a dedicated ClickUp test space/list until explicit verification gates are in place.
 
+#### 6. Rate limits are per token and plan-dependent
+
+From the current ClickUp rate-limit documentation:
+
+- `Free Forever`, `Unlimited`, and `Business`: `100` requests per minute
+- `Business Plus`: `1,000` requests per minute
+- `Enterprise`: `10,000` requests per minute
+
+The docs also state that `429` responses include:
+
+- `X-RateLimit-Limit`
+- `X-RateLimit-Remaining`
+- `X-RateLimit-Reset`
+
+This means the backend should not rely on `429` as the first signal. It should maintain a local per-token request budget and still honor the upstream reset headers when ClickUp rate-limits anyway.
+
+#### 7. List-task query shaping is the first optimization path
+
+The list-task endpoint already supports the parameters this project needs for the next optimization slice:
+
+- `statuses[]`
+- `include_closed`
+- `include_timl`
+- `subtasks`
+
+That makes it the right first step for both planning and daily optimization. The filtered team-task endpoint should remain a fallback only if list-task filtering proves too loose during validation.
+
 ## Product decisions already made
 
 ### Platform and architecture
@@ -232,7 +259,10 @@ Inline editing should support only:
 - board layout with exact ClickUp statuses as columns
 - rows are user stories
 - parent story is row header only, not a draggable/normal card
+- nested stories are also row headers, not cards
 - child tasks appear as cards inside status columns
+- only non-story children become cards for a story row
+- ancestor stories stay visible if any descendant execution work is still active on the board
 - status updates happen via drag-and-drop
 
 ### Standalone work handling
@@ -311,6 +341,47 @@ If the actual ClickUp capitalization/spelling differs, the app should use the re
 - build reusable components and screen compositions in Storybook first
 - review the planning and daily UI there with mocked data and mocked writes
 - only after Storybook verification, wire the SPA to the real backend read flows
+
+### Read optimization direction
+
+- split live reads into separate `schema`, `planning`, and `daily` loaders
+- stop using one broad shared task snapshot for all backend routes
+- make `/api/clickup/schema` metadata-only
+- keep the existing list-task endpoint as the first implementation path
+- planning should request only:
+  - `BACKLOG`
+  - `BUGS / ISSUES`
+  - `IN UX DESIGN`
+  - `READY TO REFINE`
+  - `SPRINT READY`
+  - `BLOCKED`
+  - `SPRINT BACKLOG`
+  - `IN PROGRESS`
+  - `IN CODE REVIEW`
+- daily should request only:
+  - `BLOCKED`
+  - `SPRINT BACKLOG`
+  - `IN PROGRESS`
+  - `IN CODE REVIEW`
+  - `DEPLOYED TO DEV`
+  - `TESTED IN DEV`
+- both planning and daily should use `include_closed=false`
+- both planning and daily should use `include_timl=false` unless cross-listed tasks are explicitly required
+
+### Observability direction
+
+- use `pino` for structured one-line backend logs
+- emit one log line per outbound ClickUp request with URL/path, start time, duration, response status, and item count
+- emit one log line per logical backend read for `schema`, `planning`, and `daily`
+- keep usage visibility backend-only for this slice
+
+### Rate-limit direction
+
+- fetch workspace plan once per token/team and map it to the documented per-minute request budget
+- if plan lookup fails, fall back to `100 rpm` as the conservative default
+- maintain a local per-token sliding 60-second request window
+- start blocking locally at `90%` of the detected limit instead of waiting for upstream `429`
+- on upstream `429`, honor `Retry-After` first and fall back to `X-RateLimit-Reset`
 
 ### ClickUp access modes
 

@@ -9,6 +9,7 @@ import {
   type PlanningItem,
   type SchemaConfig
 } from "@custom-clickup/shared";
+import { clickupLogger } from "../logging.js";
 import { ClickUpClient } from "./client.js";
 import { ClickUpServiceError } from "./errors.js";
 import type {
@@ -16,9 +17,10 @@ import type {
   ClickUpCustomFieldPayload,
   ClickUpCustomTaskTypePayload,
   ClickUpFieldPayload,
-  ClickUpLiveSnapshot,
   ClickUpStatusPayload,
   ClickUpTaskPayload,
+  ClickUpTaskQueryOptions,
+  ClickUpTokenSource,
   ClickUpUserPayload
 } from "./types.js";
 
@@ -32,12 +34,55 @@ export interface ClickUpReadServiceConfig {
   readMode: ClickUpReadMode;
   teamId: string;
   timeoutMs: number;
+  tokenSource: ClickUpTokenSource;
 }
 
 interface AsyncCacheEntry<T> {
   expiresAt: number;
   value: T;
 }
+
+interface CachedLoadResult<T> {
+  cacheHit: boolean;
+  value: T;
+}
+
+interface ClickUpMetadataSnapshot {
+  fieldCount: number;
+  schema: SchemaConfig;
+  taskTypeMap: Map<number, string>;
+}
+
+type ReadTarget = "schema" | "planning" | "daily";
+
+const metadataCacheTtlMultiplier = 5;
+const planningQueryStatuses = [
+  "BACKLOG",
+  "BUGS / ISSUES",
+  "IN UX DESIGN",
+  "READY TO REFINE",
+  "SPRINT READY",
+  "BLOCKED",
+  "SPRINT BACKLOG",
+  "IN PROGRESS",
+  "IN CODE REVIEW"
+] as const;
+
+const planningTaskQuery: ClickUpTaskQueryOptions = {
+  archived: false,
+  includeClosed: false,
+  includeTiml: false,
+  statuses: [...planningQueryStatuses],
+  subtasks: true
+};
+
+const dailyTaskQuery: ClickUpTaskQueryOptions = {
+  archived: false,
+  includeClosed: false,
+  includeTiml: false,
+  statuses: [...dailyStatuses],
+  subtasks: true
+};
 
 const requiredFieldNames = [
   "Prio score",
@@ -50,10 +95,6 @@ const requiredFieldNames = [
   "effort",
   "Size (days)"
 ] as const;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
 
 function normalizeName(value: string): string {
   return value.trim().toLowerCase();
@@ -212,10 +253,6 @@ function classifyTask(
   childIdsByParentId: Map<string, string[]>,
   taskTypeMap: Map<number, string>
 ): PlanningItem["kind"] {
-  if (task.parent) {
-    return "subtask";
-  }
-
   const normalizedTaskTypeName = normalizeName(taskTypeMap.get(task.custom_item_id ?? Number.NaN) ?? "");
   const hasChildren = childIdsByParentId.has(task.id ?? "");
   const hasPriorityBugTag = (task.tags ?? []).some((tag) => {
@@ -228,10 +265,10 @@ function classifyTask(
   }
 
   if (normalizedTaskTypeName.includes("bug") || hasPriorityBugTag) {
-    return "standalone-bug";
+    return task.parent ? "subtask" : "standalone-bug";
   }
 
-  return "standalone-task";
+  return task.parent ? "subtask" : "standalone-task";
 }
 
 function toPlanningItem(
@@ -281,7 +318,7 @@ function buildPlanningItems(
     childIdsByParentId.set(task.parent, currentChildren);
   }
 
-  const items = flatTasks
+  return flatTasks
     .filter((task) => !task.parent)
     .map((task) => {
       const kind = classifyTask(task, childIdsByParentId, taskTypeMap);
@@ -293,7 +330,8 @@ function buildPlanningItems(
 
       const includeInPlanning =
         status === "SPRINT BACKLOG" ||
-        (kind === "story" && !planningExcludedStatuses.includes(status as (typeof planningExcludedStatuses)[number])) ||
+        (kind === "story" &&
+          !planningExcludedStatuses.includes(status as (typeof planningExcludedStatuses)[number])) ||
         (kind === "standalone-bug" &&
           hasPriorityBugTag &&
           !planningExcludedStatuses.includes(status as (typeof planningExcludedStatuses)[number]));
@@ -331,8 +369,6 @@ function buildPlanningItems(
     )
     .sort(compareByTaskMetrics)
     .map((entry) => entry.item);
-
-  return items;
 }
 
 function toDailyCard(task: ClickUpTaskPayload): DailyCard {
@@ -349,13 +385,14 @@ function toDailyCard(task: ClickUpTaskPayload): DailyCard {
   };
 }
 
-function buildDailyRows(
+export function buildDailyRows(
   tasks: ClickUpTaskPayload[],
   taskTypeMap: Map<number, string>
 ): DailyRow[] {
   const flatTasks = flattenTasks(tasks);
   const taskById = new Map<string, ClickUpTaskPayload>();
   const childIdsByParentId = new Map<string, string[]>();
+  const taskKindById = new Map<string, PlanningItem["kind"]>();
   const allowedStatuses = new Set<string>(dailyStatuses);
 
   for (const task of flatTasks) {
@@ -375,10 +412,44 @@ function buildDailyRows(
     childIdsByParentId.set(task.parent, currentChildren);
   }
 
+  for (const task of flatTasks) {
+    const taskId = task.id;
+    if (!taskId) {
+      continue;
+    }
+
+    taskKindById.set(taskId, classifyTask(task, childIdsByParentId, taskTypeMap));
+  }
+
+  const hasVisibleDailyContent = (taskId: string): boolean => {
+    const childIds = childIdsByParentId.get(taskId) ?? [];
+
+    for (const childId of childIds) {
+      const child = taskById.get(childId);
+      if (!child) {
+        continue;
+      }
+
+      const kind = taskKindById.get(childId);
+      if (kind === "story") {
+        if (hasVisibleDailyContent(childId)) {
+          return true;
+        }
+
+        continue;
+      }
+
+      if (allowedStatuses.has(normalizeStatus(child.status))) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
   const storyRows = flatTasks
-    .filter((task) => !task.parent)
     .map((task) => ({
-      kind: classifyTask(task, childIdsByParentId, taskTypeMap),
+      kind: taskKindById.get(task.id ?? ""),
       task
     }))
     .filter((entry) => entry.kind === "story")
@@ -387,6 +458,7 @@ function buildDailyRows(
       const cards = (childIdsByParentId.get(entry.task.id ?? "") ?? [])
         .map((childId) => taskById.get(childId))
         .filter((child): child is ClickUpTaskPayload => Boolean(child))
+        .filter((child) => taskKindById.get(child.id ?? "") !== "story")
         .filter((child) => allowedStatuses.has(normalizeStatus(child.status)))
         .map((child) => ({
           card: toDailyCard(child),
@@ -408,7 +480,7 @@ function buildDailyRows(
         orderindex: entry.task.orderindex
       };
     })
-    .filter((entry) => entry.row.cards.length > 0)
+    .filter((entry) => hasVisibleDailyContent(entry.row.id))
     .sort(compareByTaskMetrics)
     .map((entry) => entry.row);
 
@@ -453,6 +525,44 @@ function buildDailyRows(
   return [...storyRows, tasksRow, bugsRow];
 }
 
+function createCachedLoader<T>(
+  cacheTtlMs: number,
+  load: () => Promise<T>
+): () => Promise<CachedLoadResult<T>> {
+  let cachedEntry: AsyncCacheEntry<T> | undefined;
+  let inflight: Promise<T> | undefined;
+
+  return async (): Promise<CachedLoadResult<T>> => {
+    const now = Date.now();
+    if (cachedEntry && cachedEntry.expiresAt > now) {
+      return {
+        cacheHit: true,
+        value: cachedEntry.value
+      };
+    }
+
+    if (!inflight) {
+      inflight = (async () => {
+        const value = await load();
+        cachedEntry = {
+          expiresAt: Date.now() + cacheTtlMs,
+          value
+        };
+        return value;
+      })();
+    }
+
+    try {
+      return {
+        cacheHit: false,
+        value: await inflight
+      };
+    } finally {
+      inflight = undefined;
+    }
+  };
+}
+
 export interface ClickUpReadService {
   getDailyRows(): Promise<DailyRow[]>;
   getPlanningItems(): Promise<PlanningItem[]>;
@@ -489,65 +599,106 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
     accessToken: config.accessToken,
     baseUrl: config.baseUrl,
     teamId: config.teamId,
-    timeoutMs: config.timeoutMs
+    timeoutMs: config.timeoutMs,
+    tokenSource: config.tokenSource
   });
 
-  let cachedSnapshot: AsyncCacheEntry<ClickUpLiveSnapshot> | undefined;
-  let inflightSnapshot: Promise<ClickUpLiveSnapshot> | undefined;
+  const logger = clickupLogger.child({
+    component: "clickup-read-service",
+    list_id: config.listId,
+    token_source: config.tokenSource
+  });
+  const metadataCacheTtlMs = Math.max(config.cacheTtlMs * metadataCacheTtlMultiplier, config.cacheTtlMs);
 
-  const loadSnapshot = async (): Promise<ClickUpLiveSnapshot> => {
-    const now = Date.now();
-    if (cachedSnapshot && cachedSnapshot.expiresAt > now) {
-      return cachedSnapshot.value;
-    }
+  const loadMetadata = createCachedLoader(metadataCacheTtlMs, async (): Promise<ClickUpMetadataSnapshot> => {
+    const [fields, taskTypes] = await Promise.all([
+      client.getListFields(config.listId),
+      client.getCustomTaskTypes()
+    ]);
 
-    if (inflightSnapshot) {
-      return inflightSnapshot;
-    }
+    validateFields(fields);
 
-    inflightSnapshot = (async () => {
-      const [fields, taskTypes, tasks] = await Promise.all([
-        client.getListFields(config.listId),
-        client.getCustomTaskTypes(),
-        client.getListTasks(config.listId)
-      ]);
+    return {
+      fieldCount: fields.length,
+      schema: buildSchema(config.teamId, config.listId),
+      taskTypeMap: buildTaskTypeMap(taskTypes)
+    };
+  });
 
-      validateFields(fields);
+  const loadPlanning = createCachedLoader(config.cacheTtlMs, async (): Promise<PlanningItem[]> => {
+    const [metadata, tasks] = await Promise.all([
+      loadMetadata(),
+      client.getListTasks(config.listId, planningTaskQuery)
+    ]);
 
-      const taskTypeMap = buildTaskTypeMap(taskTypes);
-      const snapshot: ClickUpLiveSnapshot = {
-        schema: buildSchema(config.teamId, config.listId),
-        planning: buildPlanningItems(tasks, taskTypeMap),
-        daily: buildDailyRows(tasks, taskTypeMap)
-      };
+    return buildPlanningItems(tasks, metadata.value.taskTypeMap);
+  });
 
-      cachedSnapshot = {
-        expiresAt: Date.now() + config.cacheTtlMs,
-        value: snapshot
-      };
+  const loadDaily = createCachedLoader(config.cacheTtlMs, async (): Promise<DailyRow[]> => {
+    const [metadata, tasks] = await Promise.all([
+      loadMetadata(),
+      client.getListTasks(config.listId, dailyTaskQuery)
+    ]);
 
-      return snapshot;
-    })();
+    return buildDailyRows(tasks, metadata.value.taskTypeMap);
+  });
+
+  const runLogicalRead = async <T>(
+    readTarget: ReadTarget,
+    load: () => Promise<CachedLoadResult<T>>,
+    getItemCount: (value: T) => number
+  ): Promise<T> => {
+    const startedAt = Date.now();
+    const beforeCount = client.getRequestCountSnapshot();
 
     try {
-      return await inflightSnapshot;
-    } finally {
-      inflightSnapshot = undefined;
+      const result = await load();
+      const value = result.value;
+
+      logger.info(
+        {
+          cache_hit: result.cacheHit,
+          clickup_request_count: client.getRequestCountSnapshot() - beforeCount,
+          duration_ms: Date.now() - startedAt,
+          event: "read:complete",
+          item_count: getItemCount(value),
+          rate_limit: client.getRateLimitState(),
+          read_target: readTarget
+        },
+        "ClickUp logical read completed."
+      );
+
+      return value;
+    } catch (error) {
+      logger.error(
+        {
+          clickup_request_count: client.getRequestCountSnapshot() - beforeCount,
+          duration_ms: Date.now() - startedAt,
+          err: error,
+          event: "read:failed",
+          rate_limit: client.getRateLimitState(),
+          read_target: readTarget
+        },
+        "ClickUp logical read failed."
+      );
+
+      throw error;
     }
   };
 
   return {
     async getDailyRows() {
-      return (await loadSnapshot()).daily;
+      return runLogicalRead("daily", loadDaily, (rows) => rows.length);
     },
     async getPlanningItems() {
-      return (await loadSnapshot()).planning;
+      return runLogicalRead("planning", loadPlanning, (items) => items.length);
     },
     getReadMode() {
       return "live";
     },
     async getSchema() {
-      return (await loadSnapshot()).schema;
+      const metadata = await runLogicalRead("schema", loadMetadata, (value) => value.fieldCount);
+      return metadata.schema;
     }
   };
 }

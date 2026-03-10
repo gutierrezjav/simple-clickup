@@ -139,6 +139,8 @@ const optionalSecretSchema = z.preprocess((value) => {
 
 const envSchema = z.object({
   PORT: z.coerce.number().default(4000),
+  LOG_FORMAT: z.enum(["pretty", "json"]).default("pretty"),
+  LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
   CLICKUP_WRITE_MODE: z.enum(["mock", "test-space", "live"]).default("mock"),
   CLICKUP_READ_MODE: z.enum(["mock", "live"]).default("mock"),
   CLICKUP_ACCESS_TOKEN: optionalNonEmptyStringSchema,
