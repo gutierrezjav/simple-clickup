@@ -85,7 +85,8 @@ function compareByTaskMetrics(
   left: { prioScore: number | undefined; orderindex: string | null | undefined },
   right: { prioScore: number | undefined; orderindex: string | null | undefined }
 ): number {
-  const scoreDelta = (right.prioScore ?? Number.NEGATIVE_INFINITY) - (left.prioScore ?? Number.NEGATIVE_INFINITY);
+  const scoreDelta =
+    (left.prioScore ?? Number.POSITIVE_INFINITY) - (right.prioScore ?? Number.POSITIVE_INFINITY);
   if (scoreDelta !== 0) {
     return scoreDelta;
   }
@@ -336,12 +337,14 @@ function buildPlanningItems(
 
 function toDailyCard(task: ClickUpTaskPayload): DailyCard {
   const assignee = firstAssigneeName(task.assignees);
+  const prioScore = parseNumberField(getCustomField(task, "Prio score"));
 
   return {
     id: task.id ?? "unknown-task",
     customId: task.custom_id ?? task.id ?? "unknown-task",
     title: task.name?.trim() || "Untitled ClickUp task",
     status: normalizeStatus(task.status) as DailyCard["status"],
+    ...(prioScore !== undefined ? { prioScore } : {}),
     ...(assignee ? { assignee } : {})
   };
 }
@@ -380,6 +383,7 @@ function buildDailyRows(
     }))
     .filter((entry) => entry.kind === "story")
     .map((entry) => {
+      const prioScore = parseNumberField(getCustomField(entry.task, "Prio score"));
       const cards = (childIdsByParentId.get(entry.task.id ?? "") ?? [])
         .map((childId) => taskById.get(childId))
         .filter((child): child is ClickUpTaskPayload => Boolean(child))
@@ -397,9 +401,10 @@ function buildDailyRows(
           id: entry.task.id ?? "unknown-story",
           title: entry.task.name?.trim() || "Untitled story",
           type: "story" as const,
+          ...(prioScore !== undefined ? { prioScore } : {}),
           cards
         },
-        prioScore: parseNumberField(getCustomField(entry.task, "Prio score")),
+        prioScore,
         orderindex: entry.task.orderindex
       };
     })

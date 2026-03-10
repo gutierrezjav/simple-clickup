@@ -29,20 +29,24 @@ The scaffold is intentionally mock-safe. Real production ClickUp reads are now i
 - routes:
   - `/planning`
   - `/daily`
-  - `/storybook-gate`
-- basic styling and layout scaffold
+- ClickUp-inspired layout alignment with no left sidebar and a single header shell
 - backend-backed planning screen with:
   - route-level loading state
   - retryable error state
   - rate-limit state using `Retry-After`
   - empty-state handling
   - manual refresh
+  - story rows are collapsible with no toggle for tasks/bugs
+  - `Prio score` sorting uses ascending order (0 is highest priority)
 - backend-backed daily board with:
   - route-level loading state
   - retryable error state
   - rate-limit state using `Retry-After`
   - empty-state handling
   - manual refresh
+  - horizontal swimlanes with story headers only (no story cards)
+  - cards show `Prio score` and hide status (status implied by column)
+  - swimlanes and cards sorted by lowest `Prio score`
 - visible read/write mode banner in the app routes
 - `Connect ClickUp` action on planning/daily 401 states
 - Vite dev proxy for `/api` and `/auth` to the backend
@@ -103,10 +107,6 @@ The scaffold is intentionally mock-safe. Real production ClickUp reads are now i
 
 ### UI behavior
 
-- ClickUp-inspired UI alignment pass for the shell and task surfaces:
-  - lighter neutral workspace shell with denser header and view tabs
-  - slimmer state/banner treatments
-  - tighter planning rows and daily cards that feel closer to ClickUp list/board density
 - true drag-and-drop for daily board
 - inline field editing in planning
 - route-level states beyond the planning/daily screen level
@@ -208,10 +208,6 @@ Operational learnings:
    - pass the six daily board statuses explicitly
    - keep `include_timl=false` unless cross-listed tasks are explicitly required
 2. Validate that the existing list-task endpoint status filter is sufficient; only switch to the filtered team-task endpoint if list-task filtering proves too loose.
-3. Run a ClickUp-inspired UI alignment pass:
-   - move the shell toward a lighter neutral workspace layout with denser header chrome and view tabs
-   - slim down banners and route-level state treatments
-   - tighten planning rows and daily cards toward ClickUp-like list/board density without copying branding
-4. After UI alignment, implement safe non-mock mutation adapters with explicit `test-space` allowlisting.
-5. Keep production-list live writes blocked.
-6. Connect mutation verification and write-mode clarity into the new shell/banner treatment.
+3. After query shaping, implement safe non-mock mutation adapters with explicit `test-space` allowlisting.
+4. Keep production-list live writes blocked.
+5. Connect mutation verification and write-mode clarity into the existing shell/banner treatment.

@@ -1,5 +1,10 @@
-import { Fragment } from "react";
-import { dailyFixtures, dailyStatuses, type WriteMode } from "@custom-clickup/shared";
+import {
+  dailyFixtures,
+  dailyStatuses,
+  type DailyCard as DailyCardModel,
+  type DailyRow,
+  type WriteMode
+} from "@custom-clickup/shared";
 import { DailyCard } from "../components/daily/daily-card";
 import { ResourceState } from "../components/resource-state";
 import { StatusBanner } from "../components/status-banner";
@@ -14,6 +19,52 @@ import { useResourceLoader } from "../lib/use-resource-loader";
 
 export interface DailyPageProps {
   loader?: () => Promise<DailyPageData>;
+}
+
+function compareByPriority(
+  left: { prioScore?: number },
+  right: { prioScore?: number }
+): number {
+  return (left.prioScore ?? Number.POSITIVE_INFINITY) - (right.prioScore ?? Number.POSITIVE_INFINITY);
+}
+
+function sortCards(cards: DailyCardModel[]): DailyCardModel[] {
+  return [...cards].sort(compareByPriority);
+}
+
+function sortDailyRows(rows: DailyRow[]): DailyRow[] {
+  const storyRows = rows
+    .filter((row) => row.type === "story")
+    .map((row) => ({
+      ...row,
+      cards: sortCards(row.cards)
+    }))
+    .sort(compareByPriority);
+  const tasksRow = rows.find((row) => row.type === "tasks");
+  const bugsRow = rows.find((row) => row.type === "bugs");
+
+  const pickRowPriority = (row?: DailyRow) => {
+    if (!row) {
+      return undefined;
+    }
+
+    if (typeof row.prioScore === "number") {
+      return row.prioScore;
+    }
+
+    const lowestCard = [...row.cards].sort(compareByPriority)[0];
+    return lowestCard?.prioScore;
+  };
+
+  const extraRows = [tasksRow, bugsRow]
+    .filter((row): row is DailyRow => Boolean(row))
+    .map((row) => ({
+      ...row,
+      prioScore: pickRowPriority(row),
+      cards: sortCards(row.cards)
+    }));
+
+  return [...storyRows, ...extraRows].sort(compareByPriority);
 }
 
 function createMockDailyPageData(): DailyPageData {
@@ -37,7 +88,8 @@ function getDailyErrorMessage(error: Error): string {
 }
 
 function renderDailyGrid(data: DailyPageData) {
-  const hasCards = data.rows.some((row) => row.cards.length > 0);
+  const rows = sortDailyRows(data.rows);
+  const hasCards = rows.some((row) => row.cards.length > 0);
 
   if (!hasCards) {
     return (
@@ -49,39 +101,62 @@ function renderDailyGrid(data: DailyPageData) {
   }
 
   return (
-    <div className="table-scroll">
-      <div className="daily-grid">
-        <div />
-        {dailyStatuses.map((status) => (
-          <div className="daily-column-header" key={status}>
-            {status}
-          </div>
-        ))}
-        {data.rows.map((row) => (
-          <Fragment key={row.id}>
-            <div className="daily-row-title">{row.title}</div>
-            {dailyStatuses.map((status) => (
-              <div className="daily-column" key={`${row.id}-${status}`}>
-                {row.cards
-                  .filter((card) => card.status === status)
-                  .map((card) => (
-                    <DailyCard card={card} key={card.id} />
-                  ))}
+    <div className="table-scroll table-scroll--board">
+      <div className="daily-board">
+        <div className="daily-board__header">
+          <div className="daily-board__header-label">Swimlane</div>
+          {dailyStatuses.map((status) => (
+            <div className="daily-column-header" key={status}>
+              {status}
+            </div>
+          ))}
+        </div>
+        <div className="daily-board__body">
+          {rows.map((row) => (
+            <section className={`daily-swimlane daily-swimlane--${row.type}`} key={row.id}>
+              <div className="daily-swimlane__header">
+                <span
+                  className={`pill pill--kind pill--${
+                    row.type === "story"
+                      ? "story"
+                      : row.type === "tasks"
+                        ? "standalone-task"
+                        : "standalone-bug"
+                  }`}
+                >
+                  {row.type === "story" ? "Story" : row.type === "tasks" ? "Tasks" : "Bugs"}
+                </span>
+                <strong>{row.title}</strong>
+                {typeof row.prioScore === "number" ? (
+                  <span className="daily-swimlane__prio">Prio {row.prioScore}</span>
+                ) : null}
+                <span className="daily-swimlane__count">{row.cards.length} cards</span>
               </div>
-            ))}
-          </Fragment>
-        ))}
+              {dailyStatuses.map((status) => (
+                <div className="daily-column" key={`${row.id}-${status}`}>
+                  {row.cards
+                    .filter((card) => card.status === status)
+                    .map((card) => (
+                      <DailyCard card={card} key={card.id} />
+                    ))}
+                </div>
+              ))}
+            </section>
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
 function DailyHeader({
+  cardCount,
   isRefreshing,
   onRefresh,
   readMode,
   writeMode
 }: {
+  cardCount?: number;
   isRefreshing: boolean;
   onRefresh: () => void;
   readMode?: ReadMode;
@@ -90,8 +165,12 @@ function DailyHeader({
   return (
     <div className="panel-header">
       <div className="panel-header-copy">
+        <div className="panel-eyebrow">Board view</div>
         <h2>Daily</h2>
-        <p>Backend-backed daily board with manual refresh and route-level failure states.</p>
+        <p>
+          Delivery board snapshot with fixed workflow columns.
+          {typeof cardCount === "number" ? ` ${cardCount} active cards loaded.` : ""}
+        </p>
       </div>
       <div className="panel-header-actions">
         {writeMode ? (
@@ -119,7 +198,7 @@ export function DailyPage({ loader = fetchDailyPageData }: DailyPageProps) {
 
   if (isLoading && !data) {
     return (
-      <div className="panel">
+      <div className="panel panel--route">
         <DailyHeader isRefreshing={false} onRefresh={refresh} />
         <ResourceState
           actionLabel="Retry"
@@ -133,7 +212,7 @@ export function DailyPage({ loader = fetchDailyPageData }: DailyPageProps) {
 
   if (!data) {
     return (
-      <div className="panel">
+      <div className="panel panel--route">
         <DailyHeader isRefreshing={false} onRefresh={refresh} />
         <ResourceState
           actionLabel={
@@ -167,8 +246,9 @@ export function DailyPage({ loader = fetchDailyPageData }: DailyPageProps) {
   }
 
   return (
-    <div className="panel">
+    <div className="panel panel--route">
       <DailyHeader
+        cardCount={data.rows.reduce((count, row) => count + row.cards.length, 0)}
         isRefreshing={isRefreshing}
         onRefresh={refresh}
         readMode={data.readMode}

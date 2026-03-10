@@ -17,8 +17,10 @@ export function ResourceState({
 }: ResourceStateProps) {
   return (
     <div className={`resource-state resource-state--${tone}`}>
-      <strong>{title}</strong>
-      <p>{message}</p>
+      <div className="resource-state__copy">
+        <strong>{title}</strong>
+        <p>{message}</p>
+      </div>
       {actionLabel && onAction ? (
         <button
           className="toolbar-button"

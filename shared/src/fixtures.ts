@@ -78,12 +78,14 @@ export const dailyFixtures: DailyRow[] = [
     id: "story-row-1",
     title: "Telemetry setting fixes",
     type: "story",
+    prioScore: 87,
     cards: [
       {
         id: "daily-card-1",
         customId: "CL-8074",
         title: "Telemetry: App stopped communicating with the drone",
         status: "IN PROGRESS",
+        prioScore: 55,
         assignee: "Michele Bolognini"
       },
       {
@@ -91,6 +93,7 @@ export const dailyFixtures: DailyRow[] = [
         customId: "CL-8121",
         title: "Failure to set default preset",
         status: "IN CODE REVIEW",
+        prioScore: 41,
         assignee: "Michele Bolognini"
       }
     ]
@@ -105,6 +108,7 @@ export const dailyFixtures: DailyRow[] = [
         customId: "CL-7994",
         title: "sites-1: Site sorting — split E2E + API",
         status: "SPRINT BACKLOG",
+        prioScore: 35,
         assignee: "Michele Bolognini"
       }
     ]
@@ -119,6 +123,7 @@ export const dailyFixtures: DailyRow[] = [
         customId: "CL-7789",
         title: "WingtraGround processing: unspecified antenna type",
         status: "BLOCKED",
+        prioScore: 44,
         assignee: "Unassigned"
       }
     ]

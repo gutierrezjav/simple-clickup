@@ -1,28 +1,43 @@
-import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
+import { BrowserRouter, NavLink, Route, Routes } from "react-router-dom";
 import { DailyPage } from "./routes/daily-page";
 import { PlanningPage } from "./routes/planning-page";
-import { StorybookGatePage } from "./routes/storybook-gate-page";
+
+function getTabClassName({ isActive }: { isActive: boolean }) {
+  return isActive ? "view-tab view-tab--active" : "view-tab";
+}
 
 export function App() {
   return (
     <BrowserRouter>
       <div className="app-shell">
-        <aside className="sidebar">
-          <h1>Custom ClickUp</h1>
-          <nav>
-            <Link to="/planning">Planning</Link>
-            <Link to="/daily">Daily</Link>
-            <Link to="/storybook-gate">Storybook Gate</Link>
-          </nav>
-        </aside>
-        <main className="content">
-          <Routes>
-            <Route path="/" element={<PlanningPage />} />
-            <Route path="/planning" element={<PlanningPage />} />
-            <Route path="/daily" element={<DailyPage />} />
-            <Route path="/storybook-gate" element={<StorybookGatePage />} />
-          </Routes>
-        </main>
+        <div className="workspace-main">
+          <header className="workspace-header">
+            <div className="workspace-header__copy">
+              <div className="workspace-header__eyebrow">R&amp;D WingtraCloud / All Tasks</div>
+              <h2>Wingtra Cloud Dev</h2>
+            </div>
+            <div className="workspace-header__actions">
+              <div className="workspace-header__search" aria-hidden="true">
+                Planning + daily client
+              </div>
+            </div>
+            <nav className="view-tabs" aria-label="Views">
+              <NavLink className={getTabClassName} to="/planning">
+                Planning
+              </NavLink>
+              <NavLink className={getTabClassName} to="/daily">
+                Daily
+              </NavLink>
+            </nav>
+          </header>
+          <main className="content">
+            <Routes>
+              <Route path="/" element={<PlanningPage />} />
+              <Route path="/planning" element={<PlanningPage />} />
+              <Route path="/daily" element={<DailyPage />} />
+            </Routes>
+          </main>
+        </div>
       </div>
     </BrowserRouter>
   );

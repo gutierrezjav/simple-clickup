@@ -1,4 +1,9 @@
-import { planningFixtures, type WriteMode } from "@custom-clickup/shared";
+import {
+  planningFixtures,
+  type PlanningItem,
+  type WriteMode
+} from "@custom-clickup/shared";
+import { useEffect, useState } from "react";
 import { PlanningRow } from "../components/planning/planning-row";
 import { ResourceState } from "../components/resource-state";
 import { StatusBanner } from "../components/status-banner";
@@ -13,6 +18,26 @@ import { useResourceLoader } from "../lib/use-resource-loader";
 
 export interface PlanningPageProps {
   loader?: () => Promise<PlanningPageData>;
+}
+
+function compareByPriority(
+  left: { prioScore?: number },
+  right: { prioScore?: number }
+): number {
+  return (left.prioScore ?? Number.POSITIVE_INFINITY) - (right.prioScore ?? Number.POSITIVE_INFINITY);
+}
+
+function sortPlanningItems(items: PlanningItem[]): PlanningItem[] {
+  return [...items]
+    .sort(compareByPriority)
+    .map((item) => ({
+      ...item,
+      ...(item.children
+        ? {
+            children: [...item.children].sort(compareByPriority)
+          }
+        : {})
+    }));
 }
 
 function createMockPlanningPageData(): PlanningPageData {
@@ -35,8 +60,12 @@ function getPlanningErrorMessage(error: Error): string {
   return error.message || "Planning data could not be loaded.";
 }
 
-function renderPlanningContent(data: PlanningPageData) {
-  if (data.items.length === 0) {
+function renderPlanningContent(
+  items: PlanningItem[],
+  expandedIds: Set<string>,
+  onToggle: (itemId: string) => void
+) {
+  if (items.length === 0) {
     return (
       <ResourceState
         message="The backend returned no planning items for the current filters."
@@ -46,20 +75,27 @@ function renderPlanningContent(data: PlanningPageData) {
   }
 
   return (
-    <div style={{ display: "grid", gap: 12 }}>
-      {data.items.map((item, index) => (
-        <PlanningRow key={item.id} item={item} expanded={index === 0} />
+    <div className="planning-list">
+      {items.map((item) => (
+        <PlanningRow
+          expanded={expandedIds.has(item.id)}
+          item={item}
+          key={item.id}
+          onToggle={() => onToggle(item.id)}
+        />
       ))}
     </div>
   );
 }
 
 function PlanningHeader({
+  itemCount,
   isRefreshing,
   onRefresh,
   readMode,
   writeMode
 }: {
+  itemCount?: number;
   isRefreshing: boolean;
   onRefresh: () => void;
   readMode?: ReadMode;
@@ -68,8 +104,12 @@ function PlanningHeader({
   return (
     <div className="panel-header">
       <div className="panel-header-copy">
+        <div className="panel-eyebrow">List view</div>
         <h2>Planning</h2>
-        <p>Backend-backed planning list with manual refresh and route-level failure states.</p>
+        <p>
+          Ranked backlog aligned to ClickUp-style list density.
+          {typeof itemCount === "number" ? ` ${itemCount} items in the current snapshot.` : ""}
+        </p>
       </div>
       <div className="panel-header-actions">
         {writeMode ? (
@@ -93,11 +133,29 @@ function PlanningHeader({
 
 export function PlanningPage({ loader = fetchPlanningPageData }: PlanningPageProps) {
   const { data, error, isLoading, isRefreshing, refresh } = useResourceLoader(loader);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const handleConnect = () => startClickUpOAuth("/planning");
+  const sortedItems = data ? sortPlanningItems(data.items) : [];
+
+  useEffect(() => {
+    setExpandedIds(new Set());
+  }, [data?.items]);
+
+  function handleToggle(itemId: string) {
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      if (next.has(itemId)) {
+        next.delete(itemId);
+      } else {
+        next.add(itemId);
+      }
+      return next;
+    });
+  }
 
   if (isLoading && !data) {
     return (
-      <div className="panel">
+      <div className="panel panel--route">
         <PlanningHeader isRefreshing={false} onRefresh={refresh} />
         <ResourceState
           actionLabel="Retry"
@@ -111,7 +169,7 @@ export function PlanningPage({ loader = fetchPlanningPageData }: PlanningPagePro
 
   if (!data) {
     return (
-      <div className="panel">
+      <div className="panel panel--route">
         <PlanningHeader isRefreshing={false} onRefresh={refresh} />
         <ResourceState
           actionLabel={
@@ -147,8 +205,9 @@ export function PlanningPage({ loader = fetchPlanningPageData }: PlanningPagePro
   }
 
   return (
-    <div className="panel">
+    <div className="panel panel--route">
       <PlanningHeader
+        itemCount={sortedItems.length}
         isRefreshing={isRefreshing}
         onRefresh={refresh}
         readMode={data.readMode}
@@ -180,7 +239,7 @@ export function PlanningPage({ loader = fetchPlanningPageData }: PlanningPagePro
           }
         />
       ) : null}
-      {renderPlanningContent(data)}
+      {renderPlanningContent(sortedItems, expandedIds, handleToggle)}
     </div>
   );
 }

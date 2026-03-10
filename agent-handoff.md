@@ -80,7 +80,7 @@ Current implementation note:
 - default local behavior is still mock-safe
 - production-list writes are still blocked
 - daily live reads still need view-specific query shaping to avoid overfetch
-- frontend styling is still a scaffold and has not yet gone through the planned ClickUp-inspired shell/density pass
+- frontend styling now includes the ClickUp-inspired shell/density pass with swimlane-aligned daily layout
 
 ## Expected environment variables
 
@@ -181,10 +181,6 @@ Tighten the Daily live-read query before starting write work:
 
 After that:
 
-- run a ClickUp-inspired UI alignment pass before drag-and-drop, inline editing, and non-mock write work:
-  - lighter neutral workspace shell with denser header and view tabs
-  - slimmer route-state and banner treatment
-  - planning rows and daily cards tightened toward ClickUp-like density without copying branding
 - implement safe non-mock write adapters with explicit allowlisting for `test-space`
 - keep production-list writes blocked
 - connect mutation verification to the new shell/banner treatment

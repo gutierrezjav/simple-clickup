@@ -29,7 +29,7 @@ Before those screens are fully integrated into the app, their UI building blocks
 What already exists in the repo:
 
 - npm workspaces for `frontend`, `backend`, and `shared`
-- SPA frontend scaffold with routes for planning, daily, and a Storybook gate page
+- SPA frontend scaffold with routes for planning and daily (Storybook remains a separate surface)
 - Storybook config plus initial component/screen stories
 - `Express` backend scaffold with:
   - health route
@@ -147,8 +147,7 @@ Safety rule for v1:
   - standalone row variants
   - app mode/status banner for `mock`, `test-space`, or disabled writes
 - Add a workspace shell and header pattern shared by the app routes and Storybook screen compositions:
-  - utility rail / sidebar treatment
-  - compact location header
+  - single-column shell with compact location header
   - view tabs
   - slimmer loading/error/rate-limit state presentation
 - Build screen-level Storybook stories for:
@@ -166,8 +165,8 @@ Safety rule for v1:
 - Render one ranked list.
 - Stories are the main items and start collapsed.
 - Expanding a story reveals all non-closed subtasks.
-- Sort stories by `Prio score` descending.
-- Sort subtasks by `Prio score` descending.
+- Sort stories by `Prio score` ascending (0 is highest priority).
+- Sort subtasks by `Prio score` ascending (0 is highest priority).
 - Include items with this exact logic:
   - `Task Type = User Story` and status not in:
     - `DEPLOYED TO DEV`
@@ -197,6 +196,9 @@ Safety rule for v1:
 - Render one row per story.
 - The story itself is the row header only, not a board card.
 - Render child tasks inside the matching status columns.
+- Render swimlanes as full-width horizontal bands so each story is visually grouped.
+- Sort swimlanes by lowest `Prio score` (tasks/bugs rows inherit the lowest card priority).
+- Show `Prio score` on cards and do not repeat status on cards since the column already indicates it.
 - The live backend query for Daily should exclude closed tasks.
 - The live backend query for Daily should request only tasks in these six statuses.
 - `include_timl` should default to `false` for Daily because it means "include tasks in multiple lists"; only enable it if the board must show cross-listed tasks whose home list is elsewhere.

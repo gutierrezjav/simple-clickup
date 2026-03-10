@@ -14,12 +14,25 @@ export function StatusBanner({ readMode, writeMode }: StatusBannerProps) {
         ? "Writing to allowlisted test space"
         : "Live write mode";
 
+  const writeTone =
+    writeMode === "mock"
+      ? "status-banner__item status-banner__item--mock"
+      : writeMode === "test-space"
+        ? "status-banner__item status-banner__item--test"
+        : "status-banner__item status-banner__item--live";
+
   return (
     <div className="status-banner">
       {readMode ? (
-        <div className="badge">{readMode === "live" ? "Live reads" : "Mock reads"}</div>
+        <div
+          className={`status-banner__item ${
+            readMode === "live" ? "status-banner__item--live" : "status-banner__item--mock"
+          }`}
+        >
+          {readMode === "live" ? "Live reads" : "Mock reads"}
+        </div>
       ) : null}
-      <div className="badge">{label}</div>
+      <div className={writeTone}>{label}</div>
     </div>
   );
 }

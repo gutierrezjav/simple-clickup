@@ -40,6 +40,7 @@ export interface DailyCard {
   customId: string;
   title: string;
   status: DailyStatus;
+  prioScore?: number;
   assignee?: string;
 }
 
@@ -47,6 +48,7 @@ export interface DailyRow {
   id: string;
   title: string;
   type: "story" | "tasks" | "bugs";
+  prioScore?: number;
   cards: DailyCard[];
 }
 
