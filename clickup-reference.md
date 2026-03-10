@@ -87,11 +87,13 @@ Preferred classification:
 - `effort`
 - `Size (days)`
 
-## Inline editable planning fields
+## Planning read UX
 
-- `Prio score`
-- assignee
-- `Planning bucket`
+- keep one ranked backlog
+- stories remain collapsed by default
+- expand to reveal non-closed subtasks
+- planning filters are optional and last in the roadmap
+- if implemented, planning filters are client-side only and descendant-aware
 
 ## Daily behavior
 
@@ -103,31 +105,30 @@ Preferred classification:
 - ancestor story rows remain visible if any descendant task is active on the board
 - one extra row for standalone tasks
 - one extra row for standalone bugs
-- drag-and-drop updates status only
+- daily filters are client-side only
+- first daily filters are `search` and `assignee`
+- filtered totals should be shown at page, row, and column level
 
 ## Storybook requirement
 
 - build planning and daily UI components in Storybook before full app integration
 - use mocked normalized data in Storybook
-- use mocked write handlers in Storybook
 - Storybook review is a verification phase, not an optional extra
 
 ## API constraints
 
 - frontend should not call ClickUp directly
 - browser UI should use a simple server-side `Express` ClickUp proxy
-- custom field writes require dedicated custom-field update endpoints
 - real OAuth is in scope for v1
 - v1 session storage is ephemeral and cookie-based
 - `Fastify` is not needed for v1
+- no backend filter params are planned for the next read-only slice
 
-## ClickUp safety rules
+## Project split
 
-- live production reads are allowed
-- live production writes are not part of normal development/testing in v1
-- default write mode is `mock`
-- optional real-write mode may target a dedicated test ClickUp space/list only
-- production-list live writes stay blocked until verification safeguards exist
+- this repo’s active project is read-only
+- the separate mutation roadmap lives in [clickup-write-project-plan.md](/data/simple-clickup/clickup-write-project-plan.md)
+- do not plan write-path work in the read project
 
 ## Read guardrails
 

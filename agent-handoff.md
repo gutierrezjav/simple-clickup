@@ -10,6 +10,7 @@ Recommended reading order:
 2. [implementation-status.md](/data/simple-clickup/implementation-status.md)
 3. [clickup-reference.md](/data/simple-clickup/clickup-reference.md)
 4. [clickup-research.md](/data/simple-clickup/clickup-research.md)
+5. [clickup-write-project-plan.md](/data/simple-clickup/clickup-write-project-plan.md) only if you are explicitly working on the separate write project
 
 ## Repo layout
 
@@ -31,7 +32,8 @@ Recommended reading order:
 ### Root
 
 - [package.json](/data/simple-clickup/package.json): workspace scripts
-- [clickup-v1-plan.md](/data/simple-clickup/clickup-v1-plan.md): target implementation plan
+- [clickup-v1-plan.md](/data/simple-clickup/clickup-v1-plan.md): read-only implementation plan
+- [clickup-write-project-plan.md](/data/simple-clickup/clickup-write-project-plan.md): separate deferred write project
 - [implementation-status.md](/data/simple-clickup/implementation-status.md): current delivery status
 
 ### Frontend
@@ -64,10 +66,9 @@ Recommended reading order:
 ## Current safety model
 
 - Live production ClickUp reads are implemented behind explicit `CLICKUP_READ_MODE=live`.
+- This project is now planned as read-only.
+- The separate write roadmap lives in [clickup-write-project-plan.md](/data/simple-clickup/clickup-write-project-plan.md).
 - Live production ClickUp writes must not be used during development/testing.
-- Default write mode is `mock`.
-- `test-space` is planned but not implemented.
-- `live` is intentionally blocked by default.
 
 Current implementation note:
 
@@ -85,8 +86,9 @@ Current implementation note:
 - nested stories now render as their own daily rows rather than board cards
 - ancestor story rows remain visible when descendant active work exists deeper in the hierarchy
 - default local behavior is still mock-safe
-- production-list writes are still blocked
+- production-list writes are still blocked, but that work is now outside this project’s roadmap
 - frontend styling now includes the ClickUp-inspired shell/density pass with swimlane-aligned daily layout
+- current code still includes write stubs and write-mode UI, but the next read-only slice removes those concepts from the planning/daily surface
 
 ## Expected environment variables
 
@@ -192,15 +194,12 @@ HOME=/tmp STORYBOOK_DISABLE_TELEMETRY=1 npm run build-storybook
 
 ## Recommended next task
 
-Start safe write-path work without touching the production list:
+Stay on the read-only project:
 
-- implement safe non-mock mutation adapters with explicit allowlisting for `test-space`
-- keep production-list writes blocked
-- connect mutation verification to the shell/banner treatment
+- remove write-mode concepts from the planning/daily product surface
+- add daily client-side filters for search and assignee
+- add daily filtered totals for page, row, and column headers
+- run the denser ClickUp-like visual pass for planning and daily
+- leave planning filters until the end; they are optional
 
-After that:
-
-- wire drag-and-drop status updates on the daily board in `mock` mode first
-- add inline planning edits for `Prio score`, assignee, and `Planning bucket`
-
-Do not start real write integration against the production list yet.
+Only switch to [clickup-write-project-plan.md](/data/simple-clickup/clickup-write-project-plan.md) if the task is explicitly about mutations.

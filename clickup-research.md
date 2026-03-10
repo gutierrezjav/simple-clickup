@@ -10,6 +10,8 @@ This note compresses the current research for a simple ClickUp client scoped to 
 - a daily view
 - a controlled task/custom-field structure
 
+The active project is now read-only. Mutation planning has been split into [clickup-write-project-plan.md](/data/simple-clickup/clickup-write-project-plan.md).
+
 The research combines:
 
 - live workspace inspection through ClickUp MCP
@@ -146,7 +148,7 @@ For this project, live reads from the production ClickUp list are acceptable in 
 - bounded refresh behavior instead of aggressive polling
 - 429 / `Retry-After` handling
 
-Live writes are a separate risk because they mutate the real planning workflow. Development and test flows should therefore default to mocks or a dedicated ClickUp test space/list until explicit verification gates are in place.
+Live writes are a separate risk because they mutate the real planning workflow. They are no longer part of the active project roadmap and should be handled in the separate write project.
 
 #### 6. Rate limits are per token and plan-dependent
 
@@ -195,21 +197,11 @@ That makes it the right first step for both planning and daily optimization. The
 - support light editing only
 - require a Storybook verification phase before wiring the full app
 
-### Editing supported in v1
-
-- status
-- assignee
-- planning-related fields such as `Prio score` and `Planning bucket`
-
-No near-full ClickUp editor in v1.
-
-### Edit safety policy
+### Read-only project policy
 
 - use live production ClickUp for reads
-- do not use live production ClickUp for write-path development/testing in v1
-- support mocked writes first
-- optionally support real writes only against a dedicated ClickUp test space/list
-- reserve real production writes for a later phase with explicit verification safeguards
+- keep the active project read-only
+- track mutation work separately in [clickup-write-project-plan.md](/data/simple-clickup/clickup-write-project-plan.md)
 
 ## Planning view definition
 
@@ -244,13 +236,16 @@ The excluded statuses are:
 - `PROD MINOR ISSUE`
 - `CLOSED`
 
-### Inline editing in planning
+### Planning read UX priority
 
-Inline editing should support only:
+Planning filters are no longer core scope. The required planning work is visual/read usability:
 
-- `Prio score`
-- assignee
-- `Planning bucket`
+- denser list rows
+- clearer chip hierarchy
+- stronger assignee/avatar treatment
+- more compact child rows
+
+Planning filters are optional and last.
 
 ## Daily view definition
 
@@ -263,7 +258,8 @@ Inline editing should support only:
 - child tasks appear as cards inside status columns
 - only non-story children become cards for a story row
 - ancestor stories stay visible if any descendant execution work is still active on the board
-- status updates happen via drag-and-drop
+- the next read-only slice adds client-side `search` and `assignee` filters
+- the next read-only slice adds filtered totals for page, row, and column headers
 
 ### Standalone work handling
 
@@ -339,7 +335,7 @@ If the actual ClickUp capitalization/spelling differs, the app should use the re
 ### Frontend delivery sequence
 
 - build reusable components and screen compositions in Storybook first
-- review the planning and daily UI there with mocked data and mocked writes
+- review the planning and daily UI there with mocked data
 - only after Storybook verification, wire the SPA to the real backend read flows
 
 ### Read optimization direction
@@ -383,13 +379,9 @@ If the actual ClickUp capitalization/spelling differs, the app should use the re
 - start blocking locally at `90%` of the detected limit instead of waiting for upstream `429`
 - on upstream `429`, honor `Retry-After` first and fall back to `X-RateLimit-Reset`
 
-### ClickUp access modes
+### Separate write project
 
-The backend should support explicit write modes:
-
-- `mock`: default for local development and automated tests
-- `test-space`: real writes, but only to an explicit allowlisted ClickUp test workspace/list
-- `live`: blocked by default in v1
+Mutation modes and write-path safety are now tracked in [clickup-write-project-plan.md](/data/simple-clickup/clickup-write-project-plan.md).
 
 ### Normalized item handling
 
@@ -412,4 +404,5 @@ The backend should support explicit write modes:
 - render status columns using the real ClickUp statuses
 - render one row per story
 - render one `Tasks` row and one `Bugs` row for standalone work
-- support drag-and-drop for status changes only
+- add client-side `search` and `assignee` filters
+- add filtered totals for page, row, and column headers

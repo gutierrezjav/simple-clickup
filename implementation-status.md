@@ -11,7 +11,7 @@ The repo is no longer empty. It now contains a working scaffold for the planned 
 - shared types/fixtures package
 - Storybook-first UI surface
 
-The scaffold is intentionally mock-safe. Real production ClickUp reads are now implemented behind explicit opt-in. Real production ClickUp writes are still intentionally blocked.
+The scaffold is intentionally mock-safe. Real production ClickUp reads are now implemented behind explicit opt-in. The current project roadmap is now read-only; write work has been split into [clickup-write-project-plan.md](/data/simple-clickup/clickup-write-project-plan.md).
 
 ## What is implemented
 
@@ -98,6 +98,12 @@ The scaffold is intentionally mock-safe. Real production ClickUp reads are now i
 - target-list field validation for the required planning/daily fields
 - backend unit coverage for daily row normalization, including nested-story hierarchies
 
+Read-only roadmap note:
+
+- the current code still exposes write stubs and a write-mode banner
+- the next read-only slice removes write-mode concepts from the planning/daily product surface
+- write-path work is now tracked separately in [clickup-write-project-plan.md](/data/simple-clickup/clickup-write-project-plan.md)
+
 ### Shared package
 
 - normalized types for planning, daily, and schema state
@@ -111,17 +117,18 @@ The scaffold is intentionally mock-safe. Real production ClickUp reads are now i
 - production verification of OAuth and live read mode with real ClickUp app credentials
 - validation that list-task filtering is sufficient before considering the filtered team-task endpoint
 
-### UI behavior
+### Read UX
 
-- true drag-and-drop for daily board
-- inline field editing in planning
-- route-level states beyond the planning/daily screen level
+- daily client-side filters for search and assignee
+- daily filtered totals at page, row, and column level
+- filtered-empty states distinct from backend-empty states
+- denser ClickUp-like visual refresh for planning and daily
+- removal of write-mode concepts from the read product surface
+- optional planning filters as a final, non-blocking slice
 
-### Safe write infrastructure
+### Separate write project
 
-- `test-space` real-write adapter
-- hard safeguards around allowlisted test workspace/list ids
-- future verified `live` write enablement
+- mutation adapters, test-space writes, inline edits, and daily status updates now live in [clickup-write-project-plan.md](/data/simple-clickup/clickup-write-project-plan.md)
 
 ## Validation completed
 
@@ -169,9 +176,10 @@ Frontend app behavior now:
 
 - `/planning` fetches `/api/clickup/planning`
 - `/daily` fetches `/api/clickup/daily`
-- the app shows backend read/write mode in the status banner after a successful load
+- the app currently shows backend read/write mode in the status banner after a successful load
 - refresh is manual only; there is no background polling
 - Storybook screen stories still use fixture-backed loaders
+- the planned next read-only slice replaces the read/write banner with a read-only status badge
 
 ## Stage 3 verification notes
 
@@ -236,8 +244,8 @@ Backend read behavior now:
 
 ## Recommended next implementation slice
 
-1. Implement safe non-mock mutation adapters with explicit `test-space` allowlisting.
-2. Keep production-list live writes blocked.
-3. Connect mutation verification and write-mode clarity into the existing shell/banner treatment.
-4. Add drag-and-drop status mutation wiring for the daily board in `mock` mode first.
-5. Add inline planning edits for `Prio score`, assignee, and `Planning bucket`.
+1. Split the write roadmap out of the current read project surface and replace the read/write banner with a read-only status badge.
+2. Add daily client-side filters for search and assignee without changing backend APIs.
+3. Add filtered totals for the daily page header, row headers, and column headers.
+4. Run the denser ClickUp-like visual pass for planning and daily.
+5. Treat planning filters as optional and last.
