@@ -1,6 +1,6 @@
 # Implementation Status
 
-Last updated: 2026-03-10
+Last updated: 2026-03-18
 
 ## Overall state
 
@@ -50,6 +50,7 @@ The scaffold is intentionally mock-safe. Real production ClickUp reads are now i
   - horizontal swimlanes with story headers only (no story cards)
   - nested stories rendered as story rows, not cards
   - ancestor story rows kept visible when descendant daily work exists
+  - cards are top-aligned within each status column
   - cards show `Prio score` and hide status (status implied by column)
   - swimlanes and cards sorted by lowest `Prio score`
   - client-side search and assignee filters over the fetched snapshot
@@ -101,7 +102,7 @@ The scaffold is intentionally mock-safe. Real production ClickUp reads are now i
   - structured one-line `pino` logging for ClickUp requests and logical backend reads
 - live normalization from ClickUp responses into the existing shared planning/daily shapes
 - daily normalization now preserves nested story rows and empty ancestor story headers when descendant work is active
-- target-list field validation for the required planning/daily fields
+- target-list field validation for live-read fields that are actually required by the current planning/daily normalization
 - backend unit coverage for daily row normalization, including nested-story hierarchies
 
 Read-only roadmap note:

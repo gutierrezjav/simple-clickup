@@ -781,6 +781,7 @@ input {
 
 .daily-column {
   display: grid;
+  align-content: start;
   gap: 8px;
   min-height: 150px;
   padding: 8px;

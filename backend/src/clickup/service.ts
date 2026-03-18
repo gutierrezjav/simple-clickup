@@ -87,7 +87,6 @@ const dailyTaskQuery: ClickUpTaskQueryOptions = {
 const requiredFieldNames = [
   "Prio score",
   "Planning bucket",
-  "Swimlane",
   "CL Sprint ID",
   "Epic",
   "Epic-Story",
