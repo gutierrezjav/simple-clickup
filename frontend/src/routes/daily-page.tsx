@@ -7,19 +7,18 @@ import {
 import { useState } from "react";
 import { DailyCard } from "../components/daily/daily-card";
 import { ResourceState } from "../components/resource-state";
-import { StatusBanner } from "../components/status-banner";
 import {
   ClickUpApiError,
   fetchDailyPageData,
   startClickUpOAuth,
-  type DailyPageData,
-  type ReadMode
+  type DailyPageData
 } from "../lib/clickup-api";
 import {
   filterDailyBoard,
   type DailyBoardCounts,
   type DailyBoardFilters
 } from "../lib/daily-board";
+import { useTopBarAction } from "../lib/top-bar-action";
 import { useResourceLoader } from "../lib/use-resource-loader";
 
 export interface DailyPageProps {
@@ -186,56 +185,16 @@ function renderDailyGrid({
   );
 }
 
-function DailyHeader({
-  counts,
-  filtersActive,
-  isRefreshing,
-  onRefresh,
-  readMode
-}: {
-  counts?: DailyBoardCounts;
-  filtersActive: boolean;
-  isRefreshing: boolean;
-  onRefresh: () => void;
-  readMode?: ReadMode;
-}) {
-  const cardSummary =
-    counts && filtersActive
-      ? `${counts.visibleCards} / ${counts.totalCards} active cards visible.`
-      : counts
-        ? `${counts.totalCards} active cards loaded.`
-        : undefined;
-
-  return (
-    <div className="panel-header">
-      <div className="panel-header-copy">
-        <div className="panel-eyebrow">Board view</div>
-        <h2>Daily</h2>
-        <p>
-          Delivery board snapshot with fixed workflow columns.
-          {cardSummary ? ` ${cardSummary}` : ""}
-        </p>
-      </div>
-      <div className="panel-header-actions">
-        {readMode ? <StatusBanner readMode={readMode} /> : null}
-        <button
-          className="toolbar-button"
-          disabled={isRefreshing}
-          onClick={onRefresh}
-          type="button"
-        >
-          {isRefreshing ? "Refreshing..." : "Refresh"}
-        </button>
-      </div>
-    </div>
-  );
-}
-
 export function DailyPage({ loader = fetchDailyPageData }: DailyPageProps) {
   const { data, error, isLoading, isRefreshing, refresh } = useResourceLoader(loader);
   const [filters, setFilters] = useState<DailyBoardFilters>({
     search: "",
     assignee: ""
+  });
+  useTopBarAction({
+    disabled: isRefreshing,
+    label: isRefreshing ? "Refreshing..." : "Refresh",
+    onAction: refresh
   });
   const handleConnect = () => startClickUpOAuth("/daily");
 
@@ -263,7 +222,6 @@ export function DailyPage({ loader = fetchDailyPageData }: DailyPageProps) {
   if (isLoading && !data) {
     return (
       <div className="panel panel--route">
-        <DailyHeader filtersActive={false} isRefreshing={false} onRefresh={refresh} />
         <ResourceState
           actionLabel="Retry"
           message="Loading daily board data from the backend."
@@ -277,7 +235,6 @@ export function DailyPage({ loader = fetchDailyPageData }: DailyPageProps) {
   if (!data) {
     return (
       <div className="panel panel--route">
-        <DailyHeader filtersActive={false} isRefreshing={false} onRefresh={refresh} />
         <ResourceState
           actionLabel={
             error instanceof ClickUpApiError && error.status === 401
@@ -314,13 +271,6 @@ export function DailyPage({ loader = fetchDailyPageData }: DailyPageProps) {
 
   return (
     <div className="panel panel--route">
-      <DailyHeader
-        counts={filteredBoard.counts}
-        filtersActive={filteredBoard.filtersActive}
-        isRefreshing={isRefreshing}
-        onRefresh={refresh}
-        readMode={data.readMode}
-      />
       <div className="filter-toolbar" role="group" aria-label="Daily filters">
         <label className="filter-field">
           <span className="filter-field__label">Search</span>

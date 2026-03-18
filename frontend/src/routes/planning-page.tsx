@@ -5,14 +5,13 @@ import {
 import { useEffect, useState } from "react";
 import { PlanningRow } from "../components/planning/planning-row";
 import { ResourceState } from "../components/resource-state";
-import { StatusBanner } from "../components/status-banner";
 import {
   ClickUpApiError,
   fetchPlanningPageData,
   startClickUpOAuth,
-  type PlanningPageData,
-  type ReadMode
+  type PlanningPageData
 } from "../lib/clickup-api";
+import { useTopBarAction } from "../lib/top-bar-action";
 import { useResourceLoader } from "../lib/use-resource-loader";
 
 export interface PlanningPageProps {
@@ -87,15 +86,9 @@ function renderPlanningContent(
 }
 
 function PlanningHeader({
-  itemCount,
-  isRefreshing,
-  onRefresh,
-  readMode
+  itemCount
 }: {
   itemCount?: number;
-  isRefreshing: boolean;
-  onRefresh: () => void;
-  readMode?: ReadMode;
 }) {
   return (
     <div className="panel-header">
@@ -107,17 +100,6 @@ function PlanningHeader({
           {typeof itemCount === "number" ? ` ${itemCount} items in the current snapshot.` : ""}
         </p>
       </div>
-      <div className="panel-header-actions">
-        {readMode ? <StatusBanner readMode={readMode} /> : null}
-        <button
-          className="toolbar-button"
-          disabled={isRefreshing}
-          onClick={onRefresh}
-          type="button"
-        >
-          {isRefreshing ? "Refreshing..." : "Refresh"}
-        </button>
-      </div>
     </div>
   );
 }
@@ -125,6 +107,11 @@ function PlanningHeader({
 export function PlanningPage({ loader = fetchPlanningPageData }: PlanningPageProps) {
   const { data, error, isLoading, isRefreshing, refresh } = useResourceLoader(loader);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  useTopBarAction({
+    disabled: isRefreshing,
+    label: isRefreshing ? "Refreshing..." : "Refresh",
+    onAction: refresh
+  });
   const handleConnect = () => startClickUpOAuth("/planning");
   const sortedItems = data ? sortPlanningItems(data.items) : [];
 
@@ -147,7 +134,7 @@ export function PlanningPage({ loader = fetchPlanningPageData }: PlanningPagePro
   if (isLoading && !data) {
     return (
       <div className="panel panel--route">
-        <PlanningHeader isRefreshing={false} onRefresh={refresh} />
+        <PlanningHeader />
         <ResourceState
           actionLabel="Retry"
           message="Loading planning data from the backend."
@@ -161,7 +148,7 @@ export function PlanningPage({ loader = fetchPlanningPageData }: PlanningPagePro
   if (!data) {
     return (
       <div className="panel panel--route">
-        <PlanningHeader isRefreshing={false} onRefresh={refresh} />
+        <PlanningHeader />
         <ResourceState
           actionLabel={
             error instanceof ClickUpApiError && error.status === 401
@@ -197,12 +184,7 @@ export function PlanningPage({ loader = fetchPlanningPageData }: PlanningPagePro
 
   return (
     <div className="panel panel--route">
-      <PlanningHeader
-        itemCount={sortedItems.length}
-        isRefreshing={isRefreshing}
-        onRefresh={refresh}
-        readMode={data.readMode}
-      />
+      <PlanningHeader itemCount={sortedItems.length} />
       {error ? (
         <ResourceState
           actionLabel={
