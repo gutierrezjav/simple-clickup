@@ -1,47 +1,38 @@
 # ClickUp Client Write Project Plan
 
-Last updated: 2026-03-10
+Last updated: 2026-03-18
 
-## Goal
+## Status
 
-Track the deferred mutation project separately from the read-only client. This project starts only after the read-only contract cleanup and read UX work are complete.
+Inactive.
 
-## Summary
+This project does not start until the active read-only project is stable enough after live verification.
 
-This project owns all ClickUp mutation behavior that was previously mixed into the main plan:
+## Scope
 
-- safe write adapters
-- write-path verification
-- write-mode product concepts
-- daily status updates
-- planning inline edits
+When resumed, this document will cover:
 
-The production list must remain protected. Real writes should first target a dedicated allowlisted ClickUp test workspace/list.
-
-## Planned scope
-
-- mutation adapter with:
-  - `mock`
-  - `test-space`
-  - future gated `live`
-- safe allowlisting for test workspace/list IDs
-- guarded status updates for the daily board
-- guarded custom-field updates for planning fields:
-  - `Prio score`
-  - assignee
-  - `Planning bucket`
-- write-mode UI and verification messaging
-- mutation revalidation behavior and optimistic updates where appropriate
+- mutation adapters for `mock`, `test-space`, and only later gated `live`
+- guarded daily status updates
+- guarded planning field edits
+- test workspace or list allowlisting
+- revalidation and optimistic update strategy
 
 ## Dependencies
 
-- the read-only project removes `writeMode` from the current read contract and read UI
-- the read-only project finishes daily read filters/totals and the visual refresh
-- the backend read flows, logging, and rate-limit handling remain stable
+- the read-only client stays stable in live use
+- write work stays separate from the planning and daily read contract
+- production list safety rules remain in place
 
-## Safety rules
+## Safety Rules
 
 - do not write to the production list during development or automated testing
 - start with `mock`
-- only then add `test-space`
-- keep `live` blocked until explicit verification gates exist
+- then add `test-space`
+- keep production `live` writes blocked until explicit verification gates exist
+
+## Main Entry Points When This Resumes
+
+- [backend/src/routes/clickup.ts](/data/simple-clickup/backend/src/routes/clickup.ts)
+- [backend/src/clickup/service.ts](/data/simple-clickup/backend/src/clickup/service.ts)
+- [clickup-reference.md](/data/simple-clickup/clickup-reference.md)
