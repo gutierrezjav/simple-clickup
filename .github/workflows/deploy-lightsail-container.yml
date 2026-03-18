@@ -1,0 +1,129 @@
+name: Deploy Lightsail Container
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: lightsail-production
+  cancel-in-progress: true
+
+# Required GitHub variables:
+# AWS_ROLE_TO_ASSUME, ECR_PUBLIC_REPOSITORY, LIGHTSAIL_REGION, LIGHTSAIL_SERVICE_NAME
+# Optional GitHub variables:
+# LIGHTSAIL_POWER, LIGHTSAIL_SCALE, CLICKUP_WRITE_MODE, CLICKUP_READ_MODE,
+# CLICKUP_API_BASE_URL, CLICKUP_OAUTH_AUTHORIZE_URL, CLICKUP_REDIRECT_URI,
+# CLICKUP_TARGET_TEAM_ID, CLICKUP_TARGET_LIST_ID, CLICKUP_READ_CACHE_TTL_MS,
+# CLICKUP_HTTP_TIMEOUT_MS
+# Required GitHub secrets for OAuth mode:
+# SESSION_SECRET, CLICKUP_CLIENT_ID, CLICKUP_CLIENT_SECRET
+# Optional GitHub secret:
+# CLICKUP_ACCESS_TOKEN
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          cache: npm
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run test suite
+        run: npm test
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-east-1
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+
+      - name: Ensure ECR Public repository exists
+        id: repository
+        env:
+          ECR_PUBLIC_REPOSITORY: ${{ vars.ECR_PUBLIC_REPOSITORY }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${ECR_PUBLIC_REPOSITORY}" ]]; then
+            echo "ECR_PUBLIC_REPOSITORY GitHub variable is required." >&2
+            exit 1
+          fi
+
+          repository_uri="$(
+            aws ecr-public describe-repositories \
+              --region us-east-1 \
+              --repository-names "${ECR_PUBLIC_REPOSITORY}" \
+              --query 'repositories[0].repositoryUri' \
+              --output text 2>/dev/null || true
+          )"
+
+          if [[ -z "${repository_uri}" || "${repository_uri}" == "None" ]]; then
+            repository_uri="$(
+              aws ecr-public create-repository \
+                --region us-east-1 \
+                --repository-name "${ECR_PUBLIC_REPOSITORY}" \
+                --query 'repository.repositoryUri' \
+                --output text
+            )"
+          fi
+
+          echo "repository_uri=${repository_uri}" >> "${GITHUB_OUTPUT}"
+
+      - name: Login to Amazon ECR Public
+        id: login-ecr-public
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registry-type: public
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push container image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.repository.outputs.repository_uri }}:${{ github.sha }}
+            ${{ steps.repository.outputs.repository_uri }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to Lightsail Container Service
+        env:
+          IMAGE_URI: ${{ steps.repository.outputs.repository_uri }}:${{ github.sha }}
+          LIGHTSAIL_REGION: ${{ vars.LIGHTSAIL_REGION }}
+          LIGHTSAIL_SERVICE_NAME: ${{ vars.LIGHTSAIL_SERVICE_NAME }}
+          LIGHTSAIL_POWER: ${{ vars.LIGHTSAIL_POWER }}
+          LIGHTSAIL_SCALE: ${{ vars.LIGHTSAIL_SCALE }}
+          LIGHTSAIL_CONTAINER_NAME: app
+          LIGHTSAIL_CONTAINER_PORT: "8080"
+          LIGHTSAIL_HEALTH_CHECK_PATH: /health
+          CLICKUP_WRITE_MODE: ${{ vars.CLICKUP_WRITE_MODE }}
+          CLICKUP_READ_MODE: ${{ vars.CLICKUP_READ_MODE }}
+          CLICKUP_API_BASE_URL: ${{ vars.CLICKUP_API_BASE_URL }}
+          CLICKUP_OAUTH_AUTHORIZE_URL: ${{ vars.CLICKUP_OAUTH_AUTHORIZE_URL }}
+          CLICKUP_REDIRECT_URI: ${{ vars.CLICKUP_REDIRECT_URI }}
+          CLICKUP_TARGET_TEAM_ID: ${{ vars.CLICKUP_TARGET_TEAM_ID }}
+          CLICKUP_TARGET_LIST_ID: ${{ vars.CLICKUP_TARGET_LIST_ID }}
+          CLICKUP_READ_CACHE_TTL_MS: ${{ vars.CLICKUP_READ_CACHE_TTL_MS }}
+          CLICKUP_HTTP_TIMEOUT_MS: ${{ vars.CLICKUP_HTTP_TIMEOUT_MS }}
+          CLICKUP_ACCESS_TOKEN: ${{ secrets.CLICKUP_ACCESS_TOKEN }}
+          CLICKUP_CLIENT_ID: ${{ secrets.CLICKUP_CLIENT_ID }}
+          CLICKUP_CLIENT_SECRET: ${{ secrets.CLICKUP_CLIENT_SECRET }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+        run: ./scripts/deploy-lightsail-container.sh

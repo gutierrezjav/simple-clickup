@@ -1,0 +1,11 @@
+.git
+.github
+node_modules
+**/node_modules
+**/dist
+coverage
+docs
+storybook-static
+.env
+.env.local
+.DS_Store
