@@ -1,4 +1,4 @@
-import type { DailyRow, PlanningItem } from "@custom-clickup/shared";
+import type { DailyRow, PlanningItem, VerificationSummary } from "@custom-clickup/shared";
 
 export type ReadMode = "mock" | "live";
 
@@ -12,6 +12,10 @@ export interface PlanningPageData extends ResourceMetadata {
 
 export interface DailyPageData extends ResourceMetadata {
   rows: DailyRow[];
+}
+
+export interface VerificationPageData extends ResourceMetadata {
+  summary: VerificationSummary;
 }
 
 interface ApiErrorPayload {
@@ -82,6 +86,10 @@ export function fetchPlanningPageData(): Promise<PlanningPageData> {
 
 export function fetchDailyPageData(): Promise<DailyPageData> {
   return fetchClickUpResource<{ rows: DailyRow[] }>("/api/clickup/daily");
+}
+
+export function fetchVerificationPageData(): Promise<VerificationPageData> {
+  return fetchClickUpResource<{ summary: VerificationSummary }>("/api/clickup/verification");
 }
 
 export function startClickUpOAuth(returnTo: string): void {

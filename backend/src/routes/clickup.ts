@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { config } from "../config.js";
 import { ClickUpServiceError } from "../clickup/errors.js";
 import type { ClickUpTokenSource } from "../clickup/types.js";
+import { buildVerificationSummary } from "../clickup/verification.js";
 import {
   clearSession,
   readSession,
@@ -151,6 +152,28 @@ clickupRouter.get("/daily", async (req, res) => {
 
     res.json({
       rows: await readService.getDailyRows()
+    });
+  } catch (error) {
+    handleRouteError(error, res, requestToken?.source);
+  }
+});
+
+clickupRouter.get("/verification", async (req, res) => {
+  const requestToken = getRequestToken(req);
+  try {
+    const readService = getReadService(requestToken);
+    const [schema, planning, daily] = await Promise.all([
+      readService.getSchema(),
+      readService.getPlanningItems(),
+      readService.getDailyRows()
+    ]);
+
+    res.json({
+      summary: buildVerificationSummary({
+        schema,
+        planning,
+        daily
+      })
     });
   } catch (error) {
     handleRouteError(error, res, requestToken?.source);

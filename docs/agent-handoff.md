@@ -8,7 +8,7 @@ This repo is a read-only ClickUp client for the `Wingtra Cloud Dev` list. It shi
 
 ## Current State
 
-Phase 1 is done. The read-only UI, OAuth flow, live-read backend, daily board filters, and current layout pass are all implemented.
+Phases 1 and 2 are done. The read-only UI, OAuth flow, live-read backend, daily board filters, and current layout pass are implemented and verified against the real ClickUp planning and daily views.
 
 ## Read Order
 
@@ -30,6 +30,7 @@ Phase 1 is done. The read-only UI, OAuth flow, live-read backend, daily board fi
 - [frontend/src/app.tsx](/data/simple-clickup/frontend/src/app.tsx): route shell
 - [frontend/src/routes/planning-page.tsx](/data/simple-clickup/frontend/src/routes/planning-page.tsx): planning screen
 - [frontend/src/routes/daily-page.tsx](/data/simple-clickup/frontend/src/routes/daily-page.tsx): daily board screen
+- [frontend/src/routes/verification-page.tsx](/data/simple-clickup/frontend/src/routes/verification-page.tsx): hidden verification screen for targeted live checks
 - [frontend/src/lib/clickup-api.ts](/data/simple-clickup/frontend/src/lib/clickup-api.ts): frontend fetch layer
 - [frontend/src/lib/daily-board.ts](/data/simple-clickup/frontend/src/lib/daily-board.ts): pure daily filtering and totals
 - [frontend/src/styles.css](/data/simple-clickup/frontend/src/styles.css): main layout and board styling
@@ -42,6 +43,7 @@ Phase 1 is done. The read-only UI, OAuth flow, live-read backend, daily board fi
 - [backend/src/config.ts](/data/simple-clickup/backend/src/config.ts): env parsing
 - [backend/src/clickup/service.ts](/data/simple-clickup/backend/src/clickup/service.ts): live loaders and normalization
 - [backend/src/clickup/client.ts](/data/simple-clickup/backend/src/clickup/client.ts): ClickUp REST client
+- [backend/src/clickup/verification.ts](/data/simple-clickup/backend/src/clickup/verification.ts): verification summary builder
 - [backend/test/clickup-service.test.ts](/data/simple-clickup/backend/test/clickup-service.test.ts): backend behavior coverage
 
 ### Shared
@@ -83,6 +85,6 @@ For live reads, the backend supports:
 
 ## Next Agent Focus
 
-- validate live query shapes against the real ClickUp board and backlog
-- fix only concrete mismatches
-- keep planning filters optional and late
+- keep the verified read model stable and fix only new concrete live mismatches
+- leave `/verify` available for targeted checks, but do not surface it in the primary navigation
+- keep optional planning filters deferred until they are explicitly needed

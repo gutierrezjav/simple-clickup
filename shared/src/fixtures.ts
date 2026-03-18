@@ -6,7 +6,7 @@ export const schemaConfig: SchemaConfig = {
   listId: "901500224401",
   planningExcludedStatuses,
   dailyStatuses,
-  inlineEditableFields: ["Prio score", "Assignee", "Planning bucket"]
+  inlineEditableFields: ["Prio score", "Assignee", "Budget"]
 };
 
 export const planningFixtures: PlanningItem[] = [
@@ -18,7 +18,7 @@ export const planningFixtures: PlanningItem[] = [
     status: "SPRINT BACKLOG",
     prioScore: 87,
     assignee: "Michele Bolognini",
-    planningBucket: "must deliver",
+    budget: "must deliver",
     children: [
       {
         id: "subtask-1",
@@ -48,7 +48,7 @@ export const planningFixtures: PlanningItem[] = [
     status: "SPRINT READY",
     prioScore: 60,
     assignee: "Unassigned",
-    planningBucket: "High",
+    budget: "High",
     children: []
   },
   {
@@ -59,7 +59,7 @@ export const planningFixtures: PlanningItem[] = [
     status: "BLOCKED",
     prioScore: 44,
     assignee: "Unassigned",
-    planningBucket: "High"
+    budget: "High"
   },
   {
     id: "task-1",
@@ -69,7 +69,7 @@ export const planningFixtures: PlanningItem[] = [
     status: "SPRINT BACKLOG",
     prioScore: 35,
     assignee: "Michele Bolognini",
-    planningBucket: "Opportunistic"
+    budget: "Opportunistic"
   }
 ];
 

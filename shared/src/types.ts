@@ -31,7 +31,7 @@ export interface PlanningItem {
   status: string;
   prioScore?: number;
   assignee?: string;
-  planningBucket?: string;
+  budget?: string;
   children?: PlanningItem[];
 }
 
@@ -50,6 +50,37 @@ export interface DailyRow {
   type: "story" | "tasks" | "bugs";
   prioScore?: number;
   cards: DailyCard[];
+}
+
+export interface NamedCountSummary {
+  name: string;
+  count: number;
+}
+
+export interface VerificationSummary {
+  schema: {
+    workspaceId: string;
+    listId: string;
+  };
+  planning: {
+    itemCount: number;
+    childCount: number;
+    missingAssigneeCount: number;
+    missingBudgetCount: number;
+    missingPrioScoreCount: number;
+    byKind: NamedCountSummary[];
+    byStatus: NamedCountSummary[];
+  };
+  daily: {
+    rowCount: number;
+    cardCount: number;
+    storyRowCount: number;
+    storyRowsWithoutCards: number;
+    missingAssigneeCount: number;
+    missingPrioScoreCount: number;
+    byRowType: NamedCountSummary[];
+    byStatus: NamedCountSummary[];
+  };
 }
 
 export interface SchemaConfig {

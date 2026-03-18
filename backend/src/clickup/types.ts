@@ -51,6 +51,9 @@ export interface ClickUpFieldPayload {
   name?: string | null;
   type?: string | null;
   required?: boolean;
+  type_config?: {
+    options?: ClickUpCustomFieldOptionPayload[];
+  };
 }
 
 export interface ClickUpCustomTaskTypePayload {

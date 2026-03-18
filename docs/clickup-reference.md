@@ -56,6 +56,12 @@ Excluded planning statuses:
 - `PROD MINOR ISSUE`
 - `CLOSED`
 
+Verification notes:
+
+- compare planning counts against the ClickUp prio view using top-level included items only
+- do not include subtasks in top-level planning totals or missing budget counts
+- `Budget` is the current field name; older `Planning bucket` naming is legacy compatibility only
+
 ## Daily Columns
 
 Use these exact columns in this order:
@@ -96,8 +102,7 @@ Observed task type IDs:
 Fields observed on the target list:
 
 - `Prio score`
-- `Planning bucket`
-- `Swimlane`
+- `Budget`
 - `CL Sprint ID`
 - `Epic`
 - `Epic-Story`

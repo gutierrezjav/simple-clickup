@@ -1,6 +1,7 @@
 import { BrowserRouter, NavLink, Route, Routes } from "react-router-dom";
 import { DailyPage } from "./routes/daily-page";
 import { PlanningPage } from "./routes/planning-page";
+import { VerificationPage } from "./routes/verification-page";
 
 function getTabClassName({ isActive }: { isActive: boolean }) {
   return isActive ? "view-tab view-tab--active" : "view-tab";
@@ -35,6 +36,7 @@ export function App() {
               <Route path="/" element={<PlanningPage />} />
               <Route path="/planning" element={<PlanningPage />} />
               <Route path="/daily" element={<DailyPage />} />
+              <Route path="/verify" element={<VerificationPage />} />
             </Routes>
           </main>
         </div>

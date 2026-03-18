@@ -21,8 +21,9 @@ Use [clickup-reference.md](/data/simple-clickup/docs/clickup-reference.md) for s
 
 - task type is the preferred classifier
 - hierarchy is the fallback when task type data is incomplete
-- `Prio score` and `Planning bucket` are actively used by the current read model
-- `Swimlane` exists in the source workspace but is not required by current backend normalization
+- `Prio score` and `Budget` are actively used by the current read model
+- the older `Swimlane` field naming appears to have been replaced by `Budget`
+- Phase 2 verification compares the prio view against top-level planning items only; subtasks stay as child work and are not part of top-level budget counts
 
 Observed task type IDs:
 
@@ -32,8 +33,7 @@ Observed task type IDs:
 
 Observed field examples:
 
-- `Planning bucket`: `done`, `must deliver`, `High`, `Opportunistic`, `Not planned`
-- `Swimlane`: `New Features`, `Tech debt`, `Mixed`, `Bugs`
+- `Budget`: `done`, `must deliver`, `High`, `Opportunistic`, `Not planned`
 
 ## API Decisions That Still Matter
 
@@ -41,6 +41,7 @@ Observed field examples:
 - list-task queries with explicit status filters are the first optimization path
 - custom-field mutations are a separate concern and belong to the write project
 - saved view definitions are not directly available here, so live UI verification still matters
+- the session-backed `/verify` route is useful for spot checks, but it should not be primary navigation
 
 ## What Was Trimmed
 

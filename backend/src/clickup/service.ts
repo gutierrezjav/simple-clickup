@@ -49,6 +49,7 @@ interface CachedLoadResult<T> {
 
 interface ClickUpMetadataSnapshot {
   fieldCount: number;
+  fieldByName: Map<string, ClickUpFieldPayload>;
   schema: SchemaConfig;
   taskTypeMap: Map<number, string>;
 }
@@ -84,15 +85,16 @@ const dailyTaskQuery: ClickUpTaskQueryOptions = {
   subtasks: true
 };
 
-const requiredFieldNames = [
-  "Prio score",
-  "Planning bucket",
-  "CL Sprint ID",
-  "Epic",
-  "Epic-Story",
-  "Technical Area",
-  "effort",
-  "Size (days)"
+const budgetFieldNames = ["Budget", "Planning bucket"] as const;
+const requiredFieldGroups = [
+  ["Prio score"],
+  budgetFieldNames,
+  ["CL Sprint ID"],
+  ["Epic"],
+  ["Epic-Story"],
+  ["Technical Area"],
+  ["effort"],
+  ["Size (days)"]
 ] as const;
 
 function normalizeName(value: string): string {
@@ -161,13 +163,16 @@ function optionMatchesValue(
   return String(option.orderindex ?? "") === rawAsString;
 }
 
-function parseDropdownField(field: ClickUpCustomFieldPayload | undefined): string | undefined {
+function parseDropdownField(
+  field: ClickUpCustomFieldPayload | undefined,
+  fallbackField: ClickUpFieldPayload | undefined
+): string | undefined {
   const rawValue = field?.value;
   if (typeof rawValue !== "string" && typeof rawValue !== "number") {
     return undefined;
   }
 
-  const options = field?.type_config?.options;
+  const options = field?.type_config?.options ?? fallbackField?.type_config?.options;
   if (!options?.length) {
     return undefined;
   }
@@ -203,6 +208,35 @@ function getCustomField(task: ClickUpTaskPayload, fieldName: string): ClickUpCus
   return task.custom_fields?.find((field) => field.name === fieldName);
 }
 
+function getCustomFieldByNames(
+  task: ClickUpTaskPayload,
+  fieldNames: readonly string[]
+): ClickUpCustomFieldPayload | undefined {
+  for (const fieldName of fieldNames) {
+    const field = getCustomField(task, fieldName);
+    if (field) {
+      return field;
+    }
+  }
+
+  return undefined;
+}
+
+function buildFieldMap(fields: ClickUpFieldPayload[]): Map<string, ClickUpFieldPayload> {
+  const fieldByName = new Map<string, ClickUpFieldPayload>();
+
+  for (const field of fields) {
+    const name = field.name?.trim();
+    if (!name) {
+      continue;
+    }
+
+    fieldByName.set(name, field);
+  }
+
+  return fieldByName;
+}
+
 function buildTaskTypeMap(taskTypes: ClickUpCustomTaskTypePayload[]): Map<number, string> {
   const taskTypeMap = new Map<number, string>();
 
@@ -227,7 +261,9 @@ function buildTaskTypeMap(taskTypes: ClickUpCustomTaskTypePayload[]): Map<number
 
 function validateFields(fields: ClickUpFieldPayload[]): void {
   const names = new Set(fields.map((field) => field.name?.trim()).filter(Boolean));
-  const missingFields = requiredFieldNames.filter((fieldName) => !names.has(fieldName));
+  const missingFields = requiredFieldGroups
+    .filter((fieldNames) => !fieldNames.some((fieldName) => names.has(fieldName)))
+    .map(([preferredFieldName]) => preferredFieldName);
 
   if (missingFields.length > 0) {
     throw new ClickUpServiceError(
@@ -273,11 +309,15 @@ function classifyTask(
 function toPlanningItem(
   task: ClickUpTaskPayload,
   kind: PlanningItem["kind"],
+  fieldByName: Map<string, ClickUpFieldPayload>,
   childItems: PlanningItem[] = []
 ): PlanningItem {
   const prioScore = parseNumberField(getCustomField(task, "Prio score"));
   const assignee = firstAssigneeName(task.assignees);
-  const planningBucket = parseDropdownField(getCustomField(task, "Planning bucket"));
+  const budget = parseDropdownField(
+    getCustomFieldByNames(task, budgetFieldNames),
+    budgetFieldNames.map((fieldName) => fieldByName.get(fieldName)).find(Boolean)
+  );
 
   return {
     id: task.id ?? "unknown-task",
@@ -287,14 +327,15 @@ function toPlanningItem(
     status: normalizeStatus(task.status),
     ...(prioScore !== undefined ? { prioScore } : {}),
     ...(assignee ? { assignee } : {}),
-    ...(planningBucket ? { planningBucket } : {}),
+    ...(budget ? { budget } : {}),
     ...(childItems.length > 0 ? { children: childItems } : {})
   };
 }
 
-function buildPlanningItems(
+export function buildPlanningItems(
   tasks: ClickUpTaskPayload[],
-  taskTypeMap: Map<number, string>
+  taskTypeMap: Map<number, string>,
+  fieldByName: Map<string, ClickUpFieldPayload> = new Map()
 ): PlanningItem[] {
   const flatTasks = flattenTasks(tasks);
   const childIdsByParentId = new Map<string, string[]>();
@@ -344,7 +385,7 @@ function buildPlanningItems(
         .filter((child): child is ClickUpTaskPayload => Boolean(child))
         .filter((child) => normalizeStatus(child.status) !== "CLOSED")
         .map((child) => ({
-          item: toPlanningItem(child, "subtask"),
+          item: toPlanningItem(child, "subtask", fieldByName),
           orderindex: child.orderindex,
           prioScore: parseNumberField(getCustomField(child, "Prio score"))
         }))
@@ -352,7 +393,7 @@ function buildPlanningItems(
         .map((entry) => entry.item);
 
       return {
-        item: toPlanningItem(task, kind, childItems),
+        item: toPlanningItem(task, kind, fieldByName, childItems),
         orderindex: task.orderindex,
         prioScore: parseNumberField(getCustomField(task, "Prio score"))
       };
@@ -619,6 +660,7 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
 
     return {
       fieldCount: fields.length,
+      fieldByName: buildFieldMap(fields),
       schema: buildSchema(config.teamId, config.listId),
       taskTypeMap: buildTaskTypeMap(taskTypes)
     };
@@ -630,7 +672,7 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
       client.getListTasks(config.listId, planningTaskQuery)
     ]);
 
-    return buildPlanningItems(tasks, metadata.value.taskTypeMap);
+    return buildPlanningItems(tasks, metadata.value.taskTypeMap, metadata.value.fieldByName);
   });
 
   const loadDaily = createCachedLoader(config.cacheTtlMs, async (): Promise<DailyRow[]> => {

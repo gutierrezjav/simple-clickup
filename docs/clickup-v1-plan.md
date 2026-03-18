@@ -30,13 +30,15 @@ Completed:
 
 ### Phase 2: Live Verification And Targeted Polish
 
-Status: active
+Status: done
 
-Focus:
+Completed:
 
-- verify planning and daily output against real ClickUp data
-- correct concrete mismatches in counts, hierarchy handling, or filtering
-- make only targeted visual adjustments that are justified by live usage
+- verified planning output against the real ClickUp prio view
+- verified daily output against the real ClickUp daily view
+- corrected the planning field mapping to use `Budget` with legacy compatibility for `Planning bucket`
+- aligned verification metrics so top-level planning counts match the prio view contract
+- kept `/verify` available as a hidden session-backed verification route
 
 ### Phase 3: Optional Planning Filters
 
@@ -67,11 +69,13 @@ Only do this after phase 2 is stable.
 - only hard-require ClickUp fields that are actually needed by current normalization
 - keep the write roadmap separate
 
-## Exit Criteria For The Active Phase
+## Exit Criteria For Phase 2
 
 - planning and daily views are trustworthy against the real ClickUp list
 - no known hierarchy or count mismatches remain
 - the current visual pass is either accepted or reduced to a short targeted follow-up list
+
+Status: met
 
 ## Main Entry Points
 

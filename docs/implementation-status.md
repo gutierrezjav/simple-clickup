@@ -4,13 +4,14 @@ Last updated: 2026-03-18
 
 ## Summary
 
-Phase 1 is done. The repo now has a working read-only ClickUp client with planning and daily screens, a TypeScript `Express` backend, shared normalized types, and Storybook coverage.
+Phases 1 and 2 are done. The repo now has a verified read-only ClickUp client with planning and daily screens, a TypeScript `Express` backend, shared normalized types, and Storybook coverage.
 
 ## What Has Been Done
 
 ### Frontend
 
 - `/planning` and `/daily` routes are implemented
+- `/verify` remains available for targeted live verification but is hidden from the main navigation
 - route-level loading, retry, rate-limit, and empty states are implemented
 - planning is read-only, sorted by `Prio score`, and collapses stories by default
 - daily renders story rows, standalone task/bug rows, nested stories as rows, and visible ancestors
@@ -22,9 +23,10 @@ Phase 1 is done. The repo now has a working read-only ClickUp client with planni
 
 - `/health`, `/auth`, and `/api/clickup` route groups are implemented
 - OAuth start, callback, and logout flows are implemented
-- live reads support `schema`, `planning`, and `daily`
+- live reads support `schema`, `planning`, `daily`, and verification summaries
 - ClickUp reads include metadata caching, task caching, request deduplication, and rate-limit handling
 - backend normalization converts ClickUp responses into the shared planning/daily shapes
+- planning normalization uses the verified `Budget` field naming and counts top-level planning items separately from subtasks
 - only fields actually required by current normalization are hard-required for live reads
 - mock mode remains the default safe local mode
 
@@ -36,10 +38,8 @@ Phase 1 is done. The repo now has a working read-only ClickUp client with planni
 
 ## Remaining Work
 
-- verify live planning/daily output against the real ClickUp views
-- fix only confirmed count, filtering, or hierarchy mismatches
-- decide whether more visual polish is still necessary after live usage
 - optional planning filters
+- future targeted fixes only if new live mismatches are observed
 - all mutation work, test-space writes, and write-mode UI
 
 ## Known Caveats
