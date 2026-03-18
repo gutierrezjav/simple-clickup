@@ -11,7 +11,7 @@ Maintain a read-only ClickUp client for the `Wingtra Cloud Dev` list with:
 - backend-owned ClickUp access
 - optional live auth via OAuth
 
-The active project remains read-only. All write work stays in [clickup-write-project-plan.md](/data/simple-clickup/clickup-write-project-plan.md).
+The active project remains read-only. All write work stays in [clickup-write-project-plan.md](/data/simple-clickup/docs/clickup-write-project-plan.md).
 
 ## Current Phase
 
@@ -75,8 +75,8 @@ Only do this after phase 2 is stable.
 
 ## Main Entry Points
 
-- [implementation-status.md](/data/simple-clickup/implementation-status.md)
-- [clickup-reference.md](/data/simple-clickup/clickup-reference.md)
+- [implementation-status.md](/data/simple-clickup/docs/implementation-status.md)
+- [clickup-reference.md](/data/simple-clickup/docs/clickup-reference.md)
 - [backend/src/clickup/service.ts](/data/simple-clickup/backend/src/clickup/service.ts)
 - [frontend/src/routes/planning-page.tsx](/data/simple-clickup/frontend/src/routes/planning-page.tsx)
 - [frontend/src/routes/daily-page.tsx](/data/simple-clickup/frontend/src/routes/daily-page.tsx)

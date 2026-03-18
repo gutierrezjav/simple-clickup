@@ -4,48 +4,26 @@ Last updated: 2026-03-18
 
 ## Project Summary
 
-This repo is a read-only ClickUp client for the `Wingtra Cloud Dev` list.
-
-- planning view: ranked backlog centered on stories
-- daily view: fixed-status board with story rows and standalone task/bug rows
-- backend-owned ClickUp integration: OAuth, session handling, live reads, caching, rate limiting, normalization
-- write work is explicitly out of scope for the active project
+This repo is a read-only ClickUp client for the `Wingtra Cloud Dev` list. It ships a planning view, a daily board, and a backend-owned ClickUp integration. Write work remains out of scope.
 
 ## Current State
 
-Phase 1 is done.
-
-Completed:
-
-- read-only frontend shell for `/planning` and `/daily`
-- backend `Express` API for schema, planning, and daily reads
-- ClickUp OAuth start/callback/logout flow
-- live-read backend client with caching, request deduplication, and rate-limit handling
-- daily filters, totals, nested-story handling, and layout fixes
-- Storybook and test coverage for the main read-only behavior
-
-Still open:
-
-- verify live planning/daily output against the real ClickUp views and fix only real mismatches
-- decide whether the current visual density is sufficient after more live usage
-- optional planning filters, only after live verification work
+Phase 1 is done. The read-only UI, OAuth flow, live-read backend, daily board filters, and current layout pass are all implemented.
 
 ## Read Order
 
-1. [implementation-status.md](/data/simple-clickup/implementation-status.md)
-2. [clickup-v1-plan.md](/data/simple-clickup/clickup-v1-plan.md)
-3. [clickup-reference.md](/data/simple-clickup/clickup-reference.md)
-4. [clickup-write-project-plan.md](/data/simple-clickup/clickup-write-project-plan.md) only for explicit write work
-5. [clickup-research.md](/data/simple-clickup/clickup-research.md) only if you need historical rationale
+1. [implementation-status.md](/data/simple-clickup/docs/implementation-status.md)
+2. [clickup-v1-plan.md](/data/simple-clickup/docs/clickup-v1-plan.md)
+3. [clickup-reference.md](/data/simple-clickup/docs/clickup-reference.md)
 
 ## Main Entry Points
 
 ### Root
 
 - [package.json](/data/simple-clickup/package.json): workspace scripts
-- [implementation-status.md](/data/simple-clickup/implementation-status.md): current delivered state and remaining work
-- [clickup-v1-plan.md](/data/simple-clickup/clickup-v1-plan.md): active roadmap
-- [clickup-reference.md](/data/simple-clickup/clickup-reference.md): stable product and data-model reference
+- [docs/implementation-status.md](/data/simple-clickup/docs/implementation-status.md): current delivered state
+- [docs/clickup-v1-plan.md](/data/simple-clickup/docs/clickup-v1-plan.md): active roadmap
+- [docs/clickup-reference.md](/data/simple-clickup/docs/clickup-reference.md): stable product and data-model reference
 
 ### Frontend
 
@@ -101,7 +79,7 @@ For live reads, the backend supports:
 - Do not add production write behavior in this project.
 - Keep backend reads server-side; the frontend should not call ClickUp directly.
 - Do not treat every observed ClickUp field as hard-required. Only fields used by the current normalization should block reads.
-- Leave `clickup-write-project-plan.md` untouched unless the task is explicitly about mutations.
+- Leave `docs/clickup-write-project-plan.md` untouched unless the task is explicitly about mutations.
 
 ## Next Agent Focus
 

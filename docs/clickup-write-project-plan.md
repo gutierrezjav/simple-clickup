@@ -35,4 +35,4 @@ When resumed, this document will cover:
 
 - [backend/src/routes/clickup.ts](/data/simple-clickup/backend/src/routes/clickup.ts)
 - [backend/src/clickup/service.ts](/data/simple-clickup/backend/src/clickup/service.ts)
-- [clickup-reference.md](/data/simple-clickup/clickup-reference.md)
+- [clickup-reference.md](/data/simple-clickup/docs/clickup-reference.md)

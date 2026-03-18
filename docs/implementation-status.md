@@ -4,15 +4,7 @@ Last updated: 2026-03-18
 
 ## Summary
 
-The repo now contains a working read-only ClickUp client with:
-
-- a planning page
-- a daily board page
-- a TypeScript `Express` backend
-- shared normalized types and fixtures
-- Storybook coverage for the main UI surfaces
-
-Phase 1 is done. The foundation, read-only contract, OAuth flow, live-read backend, and daily board improvements are in place.
+Phase 1 is done. The repo now has a working read-only ClickUp client with planning and daily screens, a TypeScript `Express` backend, shared normalized types, and Storybook coverage.
 
 ## What Has Been Done
 
@@ -42,27 +34,11 @@ Phase 1 is done. The foundation, read-only contract, OAuth flow, live-read backe
 - canonical daily statuses and planning exclusions are shared between frontend and backend
 - fixture data supports Storybook and mock mode
 
-## Validation Snapshot
-
-These commands have been run successfully during the current implementation cycle:
-
-- `npm run test`
-- `npm run typecheck`
-- `npm run build`
-- `npm run test --workspace backend`
-- `npm run typecheck --workspace backend`
-- `HOME=/tmp STORYBOOK_DISABLE_TELEMETRY=1 npm run build-storybook`
-
 ## Remaining Work
-
-### Active
 
 - verify live planning/daily output against the real ClickUp views
 - fix only confirmed count, filtering, or hierarchy mismatches
 - decide whether more visual polish is still necessary after live usage
-
-### Deferred
-
 - optional planning filters
 - all mutation work, test-space writes, and write-mode UI
 
@@ -74,9 +50,9 @@ These commands have been run successfully during the current implementation cycl
 
 ## Main Entry Points
 
-- [agent-handoff.md](/data/simple-clickup/agent-handoff.md): fastest handoff for the next agent
-- [clickup-v1-plan.md](/data/simple-clickup/clickup-v1-plan.md): active roadmap
-- [clickup-reference.md](/data/simple-clickup/clickup-reference.md): stable behavior and data reference
+- [docs/agent-handoff.md](/data/simple-clickup/docs/agent-handoff.md): fastest handoff for the next agent
+- [docs/clickup-v1-plan.md](/data/simple-clickup/docs/clickup-v1-plan.md): active roadmap
+- [docs/clickup-reference.md](/data/simple-clickup/docs/clickup-reference.md): stable behavior and data reference
 - [backend/src/clickup/service.ts](/data/simple-clickup/backend/src/clickup/service.ts): core read normalization
 - [frontend/src/routes/daily-page.tsx](/data/simple-clickup/frontend/src/routes/daily-page.tsx): daily board UI
 - [frontend/src/routes/planning-page.tsx](/data/simple-clickup/frontend/src/routes/planning-page.tsx): planning UI

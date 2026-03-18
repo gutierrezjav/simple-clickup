@@ -6,7 +6,7 @@ Last updated: 2026-03-18
 
 This file keeps only the historical findings that still help explain the current implementation.
 
-Use [clickup-reference.md](/data/simple-clickup/clickup-reference.md) for stable product rules and [clickup-v1-plan.md](/data/simple-clickup/clickup-v1-plan.md) for the active roadmap.
+Use [clickup-reference.md](/data/simple-clickup/docs/clickup-reference.md) for stable product rules and [clickup-v1-plan.md](/data/simple-clickup/docs/clickup-v1-plan.md) for the active roadmap.
 
 ## Workspace Observations
 

@@ -145,4 +145,4 @@ Daily:
 
 - the frontend should not call ClickUp directly
 - mock mode should remain the default safe mode
-- writes are tracked separately in [clickup-write-project-plan.md](/data/simple-clickup/clickup-write-project-plan.md)
+- writes are tracked separately in [clickup-write-project-plan.md](/data/simple-clickup/docs/clickup-write-project-plan.md)
