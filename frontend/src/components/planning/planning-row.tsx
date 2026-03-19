@@ -4,6 +4,7 @@ import {
   getAssigneeDisplayName,
   getAssigneeInitials
 } from "../../lib/assignee";
+import { getClickUpTaskUrl } from "../../lib/clickup-task-url";
 
 interface PlanningRowProps {
   item: PlanningItem;
@@ -52,7 +53,16 @@ export function PlanningRow({ item, expanded = false, onToggle }: PlanningRowPro
               <span className={`pill pill--kind pill--${item.kind}`}>{formatKindLabel(item.kind)}</span>
               <span className="pill pill--status">{item.status}</span>
             </div>
-            <h3 className="planning-row__title">{item.title}</h3>
+            <h3 className="planning-row__title">
+              <a
+                className="task-link"
+                href={getClickUpTaskUrl(item.id)}
+                rel="noreferrer"
+                target="_blank"
+              >
+                {item.title}
+              </a>
+            </h3>
             <div className="planning-row__meta">{item.customId}</div>
           </div>
         </div>
@@ -81,7 +91,16 @@ export function PlanningRow({ item, expanded = false, onToggle }: PlanningRowPro
                   {formatKindLabel(child.kind)}
                 </span>
                 <div className="planning-child-row__copy">
-                  <strong>{child.title}</strong>
+                  <strong>
+                    <a
+                      className="task-link"
+                      href={getClickUpTaskUrl(child.id)}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      {child.title}
+                    </a>
+                  </strong>
                   <div>
                     {child.customId} · {child.status}
                   </div>

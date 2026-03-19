@@ -106,9 +106,8 @@ export function VerificationPage({
       <div className="panel panel--route">
         <VerificationHeader isRefreshing={false} onRefresh={refresh} />
         <ResourceState
-          actionLabel="Retry"
+          isLoading
           message="Loading the verification snapshot from the backend."
-          onAction={refresh}
           title="Loading Verification"
         />
       </div>

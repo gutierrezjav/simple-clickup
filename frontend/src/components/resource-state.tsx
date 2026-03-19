@@ -1,6 +1,7 @@
 interface ResourceStateProps {
   actionLabel?: string;
   disabled?: boolean;
+  isLoading?: boolean;
   message: string;
   onAction?: () => void;
   title: string;
@@ -10,6 +11,7 @@ interface ResourceStateProps {
 export function ResourceState({
   actionLabel,
   disabled = false,
+  isLoading = false,
   message,
   onAction,
   title,
@@ -21,7 +23,9 @@ export function ResourceState({
         <strong>{title}</strong>
         <p>{message}</p>
       </div>
-      {actionLabel && onAction ? (
+      {isLoading ? (
+        <div className="resource-state__spinner" aria-hidden="true" />
+      ) : actionLabel && onAction ? (
         <button
           className="toolbar-button"
           disabled={disabled}

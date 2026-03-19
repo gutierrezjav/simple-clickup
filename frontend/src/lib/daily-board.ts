@@ -55,8 +55,17 @@ function matchesCardSearch(card: DailyCard, searchTerm: string): boolean {
 }
 
 export function getDailyAssigneeOptions(rows: DailyRow[]): string[] {
-  return [...new Set(rows.flatMap((row) => row.cards.map((card) => getAssigneeDisplayName(card.assignee))))]
+  const assignees = [
+    ...new Set(rows.flatMap((row) => row.cards.map((card) => getAssigneeDisplayName(card.assignee))))
+  ];
+
+  const namedAssignees = assignees
+    .filter((assignee) => assignee !== "Unassigned")
     .sort((left, right) => left.localeCompare(right));
+
+  return assignees.includes("Unassigned")
+    ? ["Unassigned", ...namedAssignees]
+    : namedAssignees;
 }
 
 export function filterDailyBoard(

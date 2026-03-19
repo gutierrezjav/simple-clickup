@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from "react";
-import { BrowserRouter, Navigate, NavLink, Route, Routes } from "react-router-dom";
+import { useEffect, useState, type ReactNode } from "react";
+import { BrowserRouter, Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { TopBarActionContext, type TopBarAction } from "./lib/top-bar-action";
 import { DailyPage } from "./routes/daily-page";
 import { PlanningPage } from "./routes/planning-page";
@@ -51,9 +51,36 @@ function AppShell({ children }: { children: ReactNode }) {
   );
 }
 
+function getDocumentTitle(pathname: string): string {
+  if (pathname.startsWith("/planning")) {
+    return "Simple Clickup | Planning";
+  }
+
+  if (pathname.startsWith("/daily")) {
+    return "Simple Clickup | Daily";
+  }
+
+  if (pathname.startsWith("/verify")) {
+    return "Simple Clickup | Verification";
+  }
+
+  return "Simple Clickup";
+}
+
+function DocumentTitleManager() {
+  const location = useLocation();
+
+  useEffect(() => {
+    document.title = getDocumentTitle(location.pathname);
+  }, [location.pathname]);
+
+  return null;
+}
+
 export function App() {
   return (
     <BrowserRouter>
+      <DocumentTitleManager />
       <AppShell>
         <Routes>
           <Route path="/" element={<Navigate replace to="/daily" />} />

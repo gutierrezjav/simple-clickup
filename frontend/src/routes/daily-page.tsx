@@ -18,6 +18,7 @@ import {
   type DailyBoardCounts,
   type DailyBoardFilters
 } from "../lib/daily-board";
+import { getClickUpTaskUrl } from "../lib/clickup-task-url";
 import { useTopBarAction } from "../lib/top-bar-action";
 import { useResourceLoader } from "../lib/use-resource-loader";
 
@@ -163,7 +164,20 @@ function renderDailyGrid({
                     {formatCount(row.cards.length, row.totalCardCount, filtersActive)} cards
                   </span>
                 </div>
-                <strong className="daily-swimlane__title">{row.title}</strong>
+                <strong className="daily-swimlane__title">
+                  {row.type === "story" ? (
+                    <a
+                      className="task-link"
+                      href={getClickUpTaskUrl(row.id)}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      {row.title}
+                    </a>
+                  ) : (
+                    row.title
+                  )}
+                </strong>
                 {typeof row.prioScore === "number" ? (
                   <span className="daily-swimlane__prio">Prio {row.prioScore}</span>
                 ) : null}
@@ -223,9 +237,8 @@ export function DailyPage({ loader = fetchDailyPageData }: DailyPageProps) {
     return (
       <div className="panel panel--route">
         <ResourceState
-          actionLabel="Retry"
+          isLoading
           message="Loading daily board data from the backend."
-          onAction={refresh}
           title="Loading Daily Board"
         />
       </div>
@@ -285,14 +298,20 @@ export function DailyPage({ loader = fetchDailyPageData }: DailyPageProps) {
         <label className="filter-field">
           <span className="filter-field__label">Assignee</span>
           <select
-            className="filter-select"
+            className={`filter-select ${
+              filters.assignee === ""
+                ? "filter-select--placeholder"
+                : ""
+            }`}
             onChange={(event) => handleAssigneeChange(event.target.value)}
             value={filters.assignee}
           >
-            <option value="">All assignees</option>
+            <option value="" hidden>
+              Filter assignee
+            </option>
             {filteredBoard.assigneeOptions.map((assignee) => (
               <option key={assignee} value={assignee}>
-                {assignee}
+                {assignee === "Unassigned" ? "<< unassigned >>" : assignee}
               </option>
             ))}
           </select>

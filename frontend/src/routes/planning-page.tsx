@@ -136,9 +136,8 @@ export function PlanningPage({ loader = fetchPlanningPageData }: PlanningPagePro
       <div className="panel panel--route">
         <PlanningHeader />
         <ResourceState
-          actionLabel="Retry"
+          isLoading
           message="Loading planning data from the backend."
-          onAction={refresh}
           title="Loading Planning"
         />
       </div>
