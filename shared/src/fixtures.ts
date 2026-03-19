@@ -1,6 +1,8 @@
 import type { DailyRow, PlanningItem, SchemaConfig } from "./types.js";
 import { dailyStatuses, planningExcludedStatuses } from "./types.js";
 
+const mockAvatarUrl = "/mock-avatar.svg";
+
 export const schemaConfig: SchemaConfig = {
   workspaceId: "2199933",
   listId: "901500224401",
@@ -18,6 +20,7 @@ export const planningFixtures: PlanningItem[] = [
     status: "SPRINT BACKLOG",
     prioScore: 87,
     assignee: "Michele Bolognini",
+    assigneeAvatarUrl: mockAvatarUrl,
     budget: "must deliver",
     children: [
       {
@@ -27,7 +30,8 @@ export const planningFixtures: PlanningItem[] = [
         kind: "subtask",
         status: "IN PROGRESS",
         prioScore: 55,
-        assignee: "Michele Bolognini"
+        assignee: "Michele Bolognini",
+        assigneeAvatarUrl: mockAvatarUrl
       },
       {
         id: "subtask-2",
@@ -36,7 +40,8 @@ export const planningFixtures: PlanningItem[] = [
         kind: "subtask",
         status: "IN CODE REVIEW",
         prioScore: 41,
-        assignee: "Michele Bolognini"
+        assignee: "Michele Bolognini",
+        assigneeAvatarUrl: mockAvatarUrl
       }
     ]
   },
@@ -69,6 +74,7 @@ export const planningFixtures: PlanningItem[] = [
     status: "SPRINT BACKLOG",
     prioScore: 35,
     assignee: "Michele Bolognini",
+    assigneeAvatarUrl: mockAvatarUrl,
     budget: "Opportunistic"
   }
 ];
@@ -86,7 +92,8 @@ export const dailyFixtures: DailyRow[] = [
         title: "Telemetry: App stopped communicating with the drone",
         status: "IN PROGRESS",
         prioScore: 55,
-        assignee: "Michele Bolognini"
+        assignee: "Michele Bolognini",
+        assigneeAvatarUrl: mockAvatarUrl
       },
       {
         id: "daily-card-2",
@@ -94,7 +101,8 @@ export const dailyFixtures: DailyRow[] = [
         title: "Failure to set default preset",
         status: "IN CODE REVIEW",
         prioScore: 41,
-        assignee: "Michele Bolognini"
+        assignee: "Michele Bolognini",
+        assigneeAvatarUrl: mockAvatarUrl
       }
     ]
   },
@@ -109,7 +117,8 @@ export const dailyFixtures: DailyRow[] = [
         title: "sites-1: Site sorting — split E2E + API",
         status: "SPRINT BACKLOG",
         prioScore: 35,
-        assignee: "Michele Bolognini"
+        assignee: "Michele Bolognini",
+        assigneeAvatarUrl: mockAvatarUrl
       }
     ]
   },

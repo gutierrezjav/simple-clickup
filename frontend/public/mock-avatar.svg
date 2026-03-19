@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" role="img" aria-labelledby="title">
+  <title>Mock avatar</title>
+  <defs>
+    <linearGradient id="bg" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#dff2f2" />
+      <stop offset="100%" stop-color="#e7f2ff" />
+    </linearGradient>
+  </defs>
+  <rect width="300" height="300" rx="72" fill="url(#bg)" />
+  <circle cx="150" cy="114" r="52" fill="#1b6f86" opacity="0.9" />
+  <path
+    d="M72 250c14-47 46-71 78-71s64 24 78 71"
+    fill="none"
+    opacity="0.9"
+    stroke="#1b6f86"
+    stroke-linecap="round"
+    stroke-width="34"
+  />
+</svg>

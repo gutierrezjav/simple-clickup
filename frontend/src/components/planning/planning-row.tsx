@@ -1,9 +1,6 @@
 import type { PlanningItem } from "@custom-clickup/shared";
-import {
-  getAssigneeClassName,
-  getAssigneeDisplayName,
-  getAssigneeInitials
-} from "../../lib/assignee";
+import { AssigneeAvatar } from "../assignee-avatar";
+import { getAssigneeDisplayName } from "../../lib/assignee";
 import { getClickUpTaskUrl } from "../../lib/clickup-task-url";
 
 interface PlanningRowProps {
@@ -30,7 +27,6 @@ function formatKindLabel(kind: PlanningItem["kind"]) {
 export function PlanningRow({ item, expanded = false, onToggle }: PlanningRowProps) {
   const isExpandable = Boolean(item.children?.length);
   const assigneeLabel = getAssigneeDisplayName(item.assignee);
-  const assigneeInitials = getAssigneeInitials(item.assignee);
 
   return (
     <div className="planning-row">
@@ -70,9 +66,7 @@ export function PlanningRow({ item, expanded = false, onToggle }: PlanningRowPro
           <div>
             <dt>Assignee</dt>
             <dd className="planning-row__assignee">
-              <span className={getAssigneeClassName(item.assignee)}>
-                {assigneeInitials || " "}
-              </span>
+              <AssigneeAvatar assignee={item.assignee} avatarUrl={item.assigneeAvatarUrl} />
               <span className="planning-row__assignee-name">{assigneeLabel}</span>
             </dd>
           </div>
@@ -108,9 +102,7 @@ export function PlanningRow({ item, expanded = false, onToggle }: PlanningRowPro
               </div>
               <div className="planning-child-row__meta">
                 <span className="planning-child-row__assignee">
-                  <span className={getAssigneeClassName(child.assignee)}>
-                    {getAssigneeInitials(child.assignee) || " "}
-                  </span>
+                  <AssigneeAvatar assignee={child.assignee} avatarUrl={child.assigneeAvatarUrl} />
                   <span>{getAssigneeDisplayName(child.assignee)}</span>
                 </span>
                 <span>{child.prioScore ?? "—"}</span>

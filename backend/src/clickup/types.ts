@@ -9,6 +9,7 @@ export interface ClickUpStatusPayload {
 export interface ClickUpUserPayload {
   username?: string | null;
   email?: string | null;
+  profilePicture?: string | null;
 }
 
 export interface ClickUpTagPayload {

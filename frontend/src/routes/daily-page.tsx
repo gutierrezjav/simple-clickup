@@ -4,7 +4,7 @@ import {
   type DailyCard as DailyCardModel,
   type DailyRow
 } from "@custom-clickup/shared";
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { DailyCard } from "../components/daily/daily-card";
 import { ResourceState } from "../components/resource-state";
 import {
@@ -110,6 +110,11 @@ function renderDailyGrid({
   onClearFilters: () => void;
   rows: ReturnType<typeof filterDailyBoard>["rows"];
 }) {
+  const dailyBoardStyle = {
+    "--daily-status-count": String(dailyStatuses.length),
+    "--daily-board-min-width": `${340 + dailyStatuses.length * 230}px`
+  } as CSSProperties;
+
   if (!filtersActive && !counts.totalCards) {
     return (
       <ResourceState
@@ -132,11 +137,11 @@ function renderDailyGrid({
 
   return (
     <div className="table-scroll table-scroll--board">
-      <div className="daily-board">
+      <div className="daily-board" style={dailyBoardStyle}>
         <div className="daily-board__header">
           <div className="daily-board__header-label">Swimlane</div>
           {dailyStatuses.map((status) => (
-            <div className="daily-column-header" key={status}>
+            <div className="daily-column-header" data-status={status} key={status}>
               <span className="daily-column-header__label">{status}</span>
               <span className="daily-column-header__count">
                 {formatCount(counts.visibleByStatus[status], counts.totalByStatus[status], filtersActive)}
@@ -183,7 +188,7 @@ function renderDailyGrid({
                 ) : null}
               </div>
               {dailyStatuses.map((status) => (
-                <div className="daily-column" key={`${row.id}-${status}`}>
+                <div className="daily-column" data-status={status} key={`${row.id}-${status}`}>
                   {row.cards
                     .filter((card) => card.status === status)
                     .map((card) => (

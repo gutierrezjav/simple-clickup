@@ -16,7 +16,8 @@ function createTask({
   parent,
   customItemId,
   orderindex,
-  tags
+  tags,
+  assignees
 }: {
   id: string;
   name: string;
@@ -25,6 +26,7 @@ function createTask({
   customItemId?: number;
   orderindex?: string;
   tags?: Array<{ name: string }>;
+  assignees?: Array<{ username?: string; email?: string; profilePicture?: string | null }>;
 }): ClickUpTaskPayload {
   return {
     id,
@@ -34,6 +36,7 @@ function createTask({
     orderindex: orderindex ?? "0",
     ...(parent ? { parent } : {}),
     ...(tags ? { tags } : {}),
+    ...(assignees ? { assignees } : {}),
     status: { status }
   };
 }
@@ -180,6 +183,45 @@ describe("buildPlanningItems", () => {
     expect(story).toMatchObject({
       id: "story-with-budget",
       budget: "High"
+    });
+  });
+
+  it("preserves the first assignee avatar URL on planning items and daily cards", () => {
+    const avatarUrl = "https://attachments.clickup.com/profilePictures/100562605_k93.jpg";
+    const tasks = [
+      createTask({
+        id: "task-with-avatar",
+        name: "Task with avatar",
+        status: "SPRINT BACKLOG",
+        orderindex: "1",
+        assignees: [
+          {
+            username: "Javier Gutierrez",
+            profilePicture: avatarUrl
+          }
+        ]
+      })
+    ];
+
+    expect(buildPlanningItems(tasks, taskTypeMap)).toMatchObject([
+      {
+        id: "task-with-avatar",
+        assignee: "Javier Gutierrez",
+        assigneeAvatarUrl: avatarUrl
+      }
+    ]);
+
+    const tasksRow = buildDailyRows(tasks, taskTypeMap).find((row) => row.type === "tasks");
+
+    expect(tasksRow).toMatchObject({
+      type: "tasks",
+      cards: [
+        {
+          id: "task-with-avatar",
+          assignee: "Javier Gutierrez",
+          assigneeAvatarUrl: avatarUrl
+        }
+      ]
     });
   });
 });

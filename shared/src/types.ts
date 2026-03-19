@@ -16,7 +16,9 @@ export const dailyStatuses = [
   "IN PROGRESS",
   "IN CODE REVIEW",
   "DEPLOYED TO DEV",
-  "TESTED IN DEV"
+  "TESTED IN DEV",
+  "DEPLOYED TO STAGING",
+  "TESTED IN STAGING"
 ] as const;
 
 export type DailyStatus = (typeof dailyStatuses)[number];
@@ -31,6 +33,7 @@ export interface PlanningItem {
   status: string;
   prioScore?: number;
   assignee?: string;
+  assigneeAvatarUrl?: string;
   budget?: string;
   children?: PlanningItem[];
 }
@@ -42,6 +45,7 @@ export interface DailyCard {
   status: DailyStatus;
   prioScore?: number;
   assignee?: string;
+  assigneeAvatarUrl?: string;
 }
 
 export interface DailyRow {

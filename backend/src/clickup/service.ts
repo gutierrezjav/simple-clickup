@@ -109,9 +109,16 @@ function normalizeStatus(status: ClickUpStatusPayload | string | null | undefine
   return status?.status?.trim().toUpperCase() ?? "UNKNOWN";
 }
 
-function firstAssigneeName(assignees: ClickUpUserPayload[] | undefined): string | undefined {
-  const assignee = assignees?.[0];
+function firstAssignee(assignees: ClickUpUserPayload[] | undefined): ClickUpUserPayload | undefined {
+  return assignees?.[0];
+}
+
+function assigneeName(assignee: ClickUpUserPayload | undefined): string | undefined {
   return assignee?.username?.trim() || assignee?.email?.trim() || undefined;
+}
+
+function assigneeAvatarUrl(assignee: ClickUpUserPayload | undefined): string | undefined {
+  return assignee?.profilePicture?.trim() || undefined;
 }
 
 function parseOrderIndex(value: string | null | undefined): number {
@@ -313,7 +320,9 @@ function toPlanningItem(
   childItems: PlanningItem[] = []
 ): PlanningItem {
   const prioScore = parseNumberField(getCustomField(task, "Prio score"));
-  const assignee = firstAssigneeName(task.assignees);
+  const primaryAssignee = firstAssignee(task.assignees);
+  const assignee = assigneeName(primaryAssignee);
+  const primaryAssigneeAvatarUrl = assignee ? assigneeAvatarUrl(primaryAssignee) : undefined;
   const budget = parseDropdownField(
     getCustomFieldByNames(task, budgetFieldNames),
     budgetFieldNames.map((fieldName) => fieldByName.get(fieldName)).find(Boolean)
@@ -327,6 +336,7 @@ function toPlanningItem(
     status: normalizeStatus(task.status),
     ...(prioScore !== undefined ? { prioScore } : {}),
     ...(assignee ? { assignee } : {}),
+    ...(primaryAssigneeAvatarUrl ? { assigneeAvatarUrl: primaryAssigneeAvatarUrl } : {}),
     ...(budget ? { budget } : {}),
     ...(childItems.length > 0 ? { children: childItems } : {})
   };
@@ -412,7 +422,9 @@ export function buildPlanningItems(
 }
 
 function toDailyCard(task: ClickUpTaskPayload): DailyCard {
-  const assignee = firstAssigneeName(task.assignees);
+  const primaryAssignee = firstAssignee(task.assignees);
+  const assignee = assigneeName(primaryAssignee);
+  const primaryAssigneeAvatarUrl = assignee ? assigneeAvatarUrl(primaryAssignee) : undefined;
   const prioScore = parseNumberField(getCustomField(task, "Prio score"));
 
   return {
@@ -421,7 +433,8 @@ function toDailyCard(task: ClickUpTaskPayload): DailyCard {
     title: task.name?.trim() || "Untitled ClickUp task",
     status: normalizeStatus(task.status) as DailyCard["status"],
     ...(prioScore !== undefined ? { prioScore } : {}),
-    ...(assignee ? { assignee } : {})
+    ...(assignee ? { assignee } : {}),
+    ...(primaryAssigneeAvatarUrl ? { assigneeAvatarUrl: primaryAssigneeAvatarUrl } : {})
   };
 }
 

@@ -1,9 +1,6 @@
 import type { DailyCard as DailyCardModel } from "@custom-clickup/shared";
-import {
-  getAssigneeClassName,
-  getAssigneeDisplayName,
-  getAssigneeInitials
-} from "../../lib/assignee";
+import { AssigneeAvatar } from "../assignee-avatar";
+import { getAssigneeDisplayName } from "../../lib/assignee";
 import { getClickUpTaskUrl } from "../../lib/clickup-task-url";
 
 interface DailyCardProps {
@@ -12,7 +9,6 @@ interface DailyCardProps {
 
 export function DailyCard({ card }: DailyCardProps) {
   const assigneeLabel = getAssigneeDisplayName(card.assignee);
-  const assigneeInitials = getAssigneeInitials(card.assignee);
 
   return (
     <div className="daily-card">
@@ -31,9 +27,7 @@ export function DailyCard({ card }: DailyCardProps) {
         </a>
       </div>
       <div className="daily-card__footer">
-        <span className={getAssigneeClassName(card.assignee)}>
-          {assigneeInitials || " "}
-        </span>
+        <AssigneeAvatar assignee={card.assignee} avatarUrl={card.assigneeAvatarUrl} />
         <span className="daily-card__assignee">{assigneeLabel}</span>
       </div>
     </div>
