@@ -1,10 +1,10 @@
 # Implementation Status
 
-Last updated: 2026-03-18
+Last updated: 2026-03-19
 
 ## Summary
 
-Phases 1 and 2 are done. The repo now has a verified read-only ClickUp client with planning and daily screens, a TypeScript `Express` backend, shared normalized types, and Storybook coverage.
+The active read-only roadmap and the Lightsail deployment plan are complete. The repo now has a verified read-only ClickUp client with planning and daily screens, a TypeScript `Express` backend, shared normalized types, Storybook coverage, and a GitHub Actions deployment path for Amazon Lightsail Container Service.
 
 ## What Has Been Done
 
@@ -36,11 +36,19 @@ Phases 1 and 2 are done. The repo now has a verified read-only ClickUp client wi
 - canonical daily statuses and planning exclusions are shared between frontend and backend
 - fixture data supports Storybook and mock mode
 
+### Deployment
+
+- the repo ships a multi-stage Docker image that serves both the frontend and backend from one runtime container
+- the backend serves the built SPA bundle alongside `/api`, `/auth`, and `/health`
+- the GitHub Actions deployment workflow and Lightsail deployment helper are implemented
+- the AWS/GitHub deployment setup is complete and the deployment plan is closed
+
 ## Remaining Work
 
-- optional planning filters
-- future targeted fixes only if new live mismatches are observed
-- all mutation work, test-space writes, and write-mode UI
+- no active implementation work remains on the current roadmap
+- optional planning filters remain deferred
+- future targeted fixes are only needed if new live mismatches or deployment regressions are observed
+- all mutation work, test-space writes, and write-mode UI remain outside this completed read-only project
 
 ## Known Caveats
 
@@ -51,7 +59,7 @@ Phases 1 and 2 are done. The repo now has a verified read-only ClickUp client wi
 ## Main Entry Points
 
 - [docs/agent-handoff.md](/data/simple-clickup/docs/agent-handoff.md): fastest handoff for the next agent
-- [docs/clickup-v1-plan.md](/data/simple-clickup/docs/clickup-v1-plan.md): active roadmap
+- [docs/clickup-v1-plan.md](/data/simple-clickup/docs/clickup-v1-plan.md): closed read-only roadmap
 - [docs/clickup-reference.md](/data/simple-clickup/docs/clickup-reference.md): stable behavior and data reference
 - [backend/src/clickup/service.ts](/data/simple-clickup/backend/src/clickup/service.ts): core read normalization
 - [frontend/src/routes/daily-page.tsx](/data/simple-clickup/frontend/src/routes/daily-page.tsx): daily board UI

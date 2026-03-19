@@ -1,5 +1,13 @@
 # AWS Lightsail Container Deployment Plan
 
+Last updated: 2026-03-19
+
+## Status
+
+Done.
+
+The repo implementation, GitHub Actions deployment workflow, and required AWS/GitHub deployment setup are complete. Keep this document as reference for the deployed shape and for future maintenance.
+
 ## Summary
 
 - Target platform: Amazon Lightsail Container Service.

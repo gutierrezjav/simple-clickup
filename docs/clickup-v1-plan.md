@@ -1,6 +1,6 @@
 # ClickUp Client Read Project Plan
 
-Last updated: 2026-03-18
+Last updated: 2026-03-19
 
 ## Goal
 
@@ -14,6 +14,10 @@ Maintain a read-only ClickUp client for the `Wingtra Cloud Dev` list with:
 The active project remains read-only. All write work stays in [clickup-write-project-plan.md](/data/simple-clickup/docs/clickup-write-project-plan.md).
 
 ## Current Phase
+
+Status: complete
+
+The active read-only roadmap is complete. Optional planning filters remain deferred and are not required for closure.
 
 ### Phase 1: Read-Only Foundation
 
@@ -75,7 +79,7 @@ Only do this after phase 2 is stable.
 - no known hierarchy or count mismatches remain
 - the current visual pass is either accepted or reduced to a short targeted follow-up list
 
-Status: met
+Status: met and project closed
 
 ## Main Entry Points
 
