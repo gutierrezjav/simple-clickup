@@ -16,7 +16,8 @@ Recent maintenance work tightened the daily board behavior and layout:
 - task descendants inherit the correct swimlane instead of spawning accidental story rows
 - daily status columns are now client-side collapsible and expandable from the header
 - collapsed columns hide their cards and use a compact rail presentation
-- sticky swimlane headers now keep a visible surface during horizontal scroll
+- sticky swimlane headers now keep a flat opaque surface during horizontal scroll
+- daily board design guardrails now live in [docs/clickup-reference.md](/data/simple-clickup/docs/clickup-reference.md) and [docs/clickup-v1-plan.md](/data/simple-clickup/docs/clickup-v1-plan.md)
 
 Recent deployment-related commits:
 

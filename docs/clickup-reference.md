@@ -103,6 +103,15 @@ Observed task type IDs:
 - daily status columns can be collapsed or expanded client-side from the header
 - collapsed status columns hide their cards until expanded again
 
+## Daily Board Design Guidelines
+
+- use a flat sticky swimlane header surface with an opaque background
+- do not let card shadows or scrolling content bleed through the swimlane header area
+- keep story, task, and bug swimlane header treatment visually consistent unless there is a strong information-hierarchy reason not to
+- keep daily cards compact: reduced padding, reduced gaps, smaller radii, and regular-weight titles
+- collapsed columns should read as rails, not mini full columns
+- collapsed rails keep the colored status chip at the top and the count at the bottom
+
 ## Important Fields
 
 Fields observed on the target list:

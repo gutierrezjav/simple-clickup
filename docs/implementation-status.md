@@ -19,7 +19,8 @@ The active read-only roadmap and the Lightsail deployment plan are complete. The
 - daily supports local search and assignee filters plus filtered totals
 - daily status columns are client-side collapsible and expandable from the header, and collapsed columns hide their cards
 - daily cards are top-aligned in each status column
-- daily swimlane headers keep a sticky surface during horizontal scrolling, and the card layout is denser than the original board styling
+- daily swimlane headers keep a sticky flat surface during horizontal scrolling, and the card layout is denser than the original board styling
+- the current daily board design guidance is documented in [docs/clickup-reference.md](/data/simple-clickup/docs/clickup-reference.md) and [docs/clickup-v1-plan.md](/data/simple-clickup/docs/clickup-v1-plan.md)
 - Storybook stories exist for the main planning, daily, and shared UI components
 
 ### Backend

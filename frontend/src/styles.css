@@ -963,22 +963,14 @@ input {
   align-content: start;
   min-height: 132px;
   padding: 10px 12px 10px 10px;
-  border: 1px solid rgba(217, 227, 239, 0.88);
+  border: none;
   border-radius: var(--radius-sm);
-  background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.98) 0%, rgba(247, 249, 253, 0.96) 72%, rgba(247, 249, 253, 0.82) 88%, rgba(247, 249, 253, 0) 100%);
-  backdrop-filter: blur(12px);
-  box-shadow: 14px 0 24px rgba(37, 58, 96, 0.08);
-  isolation: isolate;
+  overflow: hidden;
+  background: rgba(247, 249, 253, 0.98);
 }
 
 .daily-swimlane__header::after {
-  content: "";
-  position: absolute;
-  inset: -1px -26px -1px auto;
-  width: 36px;
-  background: linear-gradient(90deg, rgba(247, 249, 253, 0.82) 0%, rgba(247, 249, 253, 0) 100%);
-  pointer-events: none;
+  content: none;
 }
 
 .daily-swimlane__header-top {

@@ -1,6 +1,6 @@
 # ClickUp Client Read Project Plan
 
-Last updated: 2026-03-19
+Last updated: 2026-03-20
 
 ## Goal
 
@@ -72,6 +72,15 @@ Only do this after phase 2 is stable.
 - keep live-read logic split into `schema`, `planning`, and `daily`
 - only hard-require ClickUp fields that are actually needed by current normalization
 - keep the write roadmap separate
+
+## Design Guidelines
+
+- keep the daily board visually dense: compact cards, smaller spacing, and reduced corner radius
+- keep daily card titles regular-weight for fast scanning; avoid bold-heavy card typography
+- keep swimlane headers sticky and fully opaque so scrolling content and card shadows never bleed through
+- keep swimlane headers visually flat; avoid border, shadow, blur, or other depth effects unless they solve a clear usability issue
+- keep the canonical daily status order even when columns are collapsed or expanded client-side
+- collapsed columns should behave as compact rails: status chip at the top, count at the bottom, and no visible cards while collapsed
 
 ## Exit Criteria For Phase 2
 
