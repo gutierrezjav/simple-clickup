@@ -142,6 +142,32 @@ describe("buildPlanningItems", () => {
     ]);
   });
 
+  it("keeps top-level tasks with subtasks classified as standalone tasks", () => {
+    const tasks = [
+      createTask({
+        id: "task-parent",
+        name: "Parent task",
+        status: "SPRINT BACKLOG",
+        orderindex: "1"
+      }),
+      createTask({
+        id: "task-child",
+        name: "Child task",
+        status: "IN PROGRESS",
+        parent: "task-parent",
+        orderindex: "2"
+      })
+    ];
+
+    const [task] = buildPlanningItems(tasks, taskTypeMap);
+
+    expect(task).toMatchObject({
+      id: "task-parent",
+      kind: "standalone-task",
+      children: [{ id: "task-child", kind: "subtask", status: "IN PROGRESS" }]
+    });
+  });
+
   it("parses budget values from list metadata when task payloads omit dropdown options", () => {
     const tasks = [
       createTask({
@@ -253,6 +279,30 @@ describe("buildDailyRows", () => {
     });
   });
 
+  it("keeps top-level task parents and their subtasks in the shared tasks swimlane", () => {
+    const tasks = [
+      createTask({
+        id: "task-parent",
+        name: "Top-level task",
+        status: "SPRINT BACKLOG",
+        orderindex: "1"
+      }),
+      createTask({
+        id: "task-child",
+        name: "Task subtask",
+        status: "IN PROGRESS",
+        parent: "task-parent",
+        orderindex: "2"
+      })
+    ];
+
+    const rows = buildDailyRows(tasks, taskTypeMap);
+    const tasksRow = rows.find((row) => row.type === "tasks");
+
+    expect(rows.find((row) => row.id === "task-parent")).toBeUndefined();
+    expect(tasksRow?.cards.map((card) => card.id)).toEqual(["task-parent", "task-child"]);
+  });
+
   it("renders nested stories as their own rows and does not treat them as cards", () => {
     const tasks = [
       createTask({
@@ -291,6 +341,44 @@ describe("buildDailyRows", () => {
       cards: [{ id: "task-grandchild", status: "IN PROGRESS" }]
     });
     expect(collectCardIds(tasks)).not.toContain("story-child");
+  });
+
+  it("keeps subtasks of tasks in the same story swimlane as their parent task", () => {
+    const tasks = [
+      createTask({
+        id: "story-parent",
+        name: "Top-level story",
+        status: "BACKLOG",
+        customItemId: storyTaskTypeId
+      }),
+      createTask({
+        id: "task-parent",
+        name: "Parent task card",
+        status: "SPRINT BACKLOG",
+        parent: "story-parent",
+        orderindex: "1"
+      }),
+      createTask({
+        id: "task-child",
+        name: "Nested subtask card",
+        status: "IN PROGRESS",
+        parent: "task-parent",
+        orderindex: "2"
+      })
+    ];
+
+    const rows = buildDailyRows(tasks, taskTypeMap);
+    const storyRow = rows.find((row) => row.id === "story-parent");
+
+    expect(rows.find((row) => row.id === "task-parent")).toBeUndefined();
+    expect(storyRow).toMatchObject({
+      id: "story-parent",
+      type: "story",
+      cards: [
+        { id: "task-parent", status: "SPRINT BACKLOG" },
+        { id: "task-child", status: "IN PROGRESS" }
+      ]
+    });
   });
 
   it("keeps a nested story row even when the story itself is outside the daily statuses", () => {

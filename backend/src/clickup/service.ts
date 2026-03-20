@@ -292,17 +292,15 @@ function buildSchema(teamId: string, listId: string): SchemaConfig {
 
 function classifyTask(
   task: ClickUpTaskPayload,
-  childIdsByParentId: Map<string, string[]>,
   taskTypeMap: Map<number, string>
 ): PlanningItem["kind"] {
   const normalizedTaskTypeName = normalizeName(taskTypeMap.get(task.custom_item_id ?? Number.NaN) ?? "");
-  const hasChildren = childIdsByParentId.has(task.id ?? "");
   const hasPriorityBugTag = (task.tags ?? []).some((tag) => {
     const tagName = tag.name?.trim().toLowerCase();
     return tagName === "po prio" || tagName === "qa prio";
   });
 
-  if (normalizedTaskTypeName.includes("story") || hasChildren) {
+  if (normalizedTaskTypeName.includes("story")) {
     return "story";
   }
 
@@ -371,7 +369,7 @@ export function buildPlanningItems(
   return flatTasks
     .filter((task) => !task.parent)
     .map((task) => {
-      const kind = classifyTask(task, childIdsByParentId, taskTypeMap);
+      const kind = classifyTask(task, taskTypeMap);
       const status = normalizeStatus(task.status);
       const hasPriorityBugTag = (task.tags ?? []).some((tag) => {
         const tagName = tag.name?.trim().toLowerCase();
@@ -471,10 +469,49 @@ export function buildDailyRows(
       continue;
     }
 
-    taskKindById.set(taskId, classifyTask(task, childIdsByParentId, taskTypeMap));
+    taskKindById.set(taskId, classifyTask(task, taskTypeMap));
   }
 
+  const rowIdByTaskId = new Map<string, string | undefined>();
+  const getRowIdForTask = (taskId: string): string | undefined => {
+    if (rowIdByTaskId.has(taskId)) {
+      return rowIdByTaskId.get(taskId);
+    }
+
+    const kind = taskKindById.get(taskId);
+    if (kind === "story") {
+      rowIdByTaskId.set(taskId, undefined);
+      return undefined;
+    }
+
+    const task = taskById.get(taskId);
+    if (!task) {
+      rowIdByTaskId.set(taskId, undefined);
+      return undefined;
+    }
+
+    let rowId: string | undefined;
+
+    if (!task.parent) {
+      rowId = kind === "standalone-bug" ? "bugs-row" : "tasks-row";
+    } else if (taskKindById.get(task.parent) === "story") {
+      rowId = task.parent;
+    } else {
+      // Non-story descendants stay in the same swimlane as their parent task.
+      rowId = getRowIdForTask(task.parent);
+    }
+
+    rowIdByTaskId.set(taskId, rowId);
+    return rowId;
+  };
+
+  const hasVisibleDailyContentByTaskId = new Map<string, boolean>();
   const hasVisibleDailyContent = (taskId: string): boolean => {
+    const cachedValue = hasVisibleDailyContentByTaskId.get(taskId);
+    if (cachedValue !== undefined) {
+      return cachedValue;
+    }
+
     const childIds = childIdsByParentId.get(taskId) ?? [];
 
     for (const childId of childIds) {
@@ -484,21 +521,50 @@ export function buildDailyRows(
       }
 
       const kind = taskKindById.get(childId);
-      if (kind === "story") {
-        if (hasVisibleDailyContent(childId)) {
-          return true;
-        }
-
-        continue;
+      if (kind !== "story" && allowedStatuses.has(normalizeStatus(child.status))) {
+        hasVisibleDailyContentByTaskId.set(taskId, true);
+        return true;
       }
 
-      if (allowedStatuses.has(normalizeStatus(child.status))) {
+      if (hasVisibleDailyContent(childId)) {
+        hasVisibleDailyContentByTaskId.set(taskId, true);
         return true;
       }
     }
 
+    hasVisibleDailyContentByTaskId.set(taskId, false);
     return false;
   };
+
+  const cardsByRowId = new Map<
+    string,
+    Array<{ card: DailyCard; orderindex: string | null | undefined; prioScore: number | undefined }>
+  >();
+
+  for (const task of flatTasks) {
+    const taskId = task.id;
+    if (!taskId) {
+      continue;
+    }
+
+    const kind = taskKindById.get(taskId);
+    if (kind === "story" || !allowedStatuses.has(normalizeStatus(task.status))) {
+      continue;
+    }
+
+    const rowId = getRowIdForTask(taskId);
+    if (!rowId) {
+      continue;
+    }
+
+    const currentCards = cardsByRowId.get(rowId) ?? [];
+    currentCards.push({
+      card: toDailyCard(task),
+      orderindex: task.orderindex,
+      prioScore: parseNumberField(getCustomField(task, "Prio score"))
+    });
+    cardsByRowId.set(rowId, currentCards);
+  }
 
   const storyRows = flatTasks
     .map((task) => ({
@@ -508,16 +574,7 @@ export function buildDailyRows(
     .filter((entry) => entry.kind === "story")
     .map((entry) => {
       const prioScore = parseNumberField(getCustomField(entry.task, "Prio score"));
-      const cards = (childIdsByParentId.get(entry.task.id ?? "") ?? [])
-        .map((childId) => taskById.get(childId))
-        .filter((child): child is ClickUpTaskPayload => Boolean(child))
-        .filter((child) => taskKindById.get(child.id ?? "") !== "story")
-        .filter((child) => allowedStatuses.has(normalizeStatus(child.status)))
-        .map((child) => ({
-          card: toDailyCard(child),
-          orderindex: child.orderindex,
-          prioScore: parseNumberField(getCustomField(child, "Prio score"))
-        }))
+      const cards = (cardsByRowId.get(entry.task.id ?? "") ?? [])
         .sort(compareByTaskMetrics)
         .map((entry) => entry.card);
 
@@ -537,25 +594,11 @@ export function buildDailyRows(
     .sort(compareByTaskMetrics)
     .map((entry) => entry.row);
 
-  const standaloneCards = flatTasks
-    .filter((task) => !task.parent && allowedStatuses.has(normalizeStatus(task.status)))
-    .map((task) => ({
-      kind: classifyTask(task, childIdsByParentId, taskTypeMap),
-      task
-    }))
-    .filter((entry) => entry.kind !== "story");
-
   const tasksRow: DailyRow = {
     id: "tasks-row",
     title: "Tasks",
     type: "tasks",
-    cards: standaloneCards
-      .filter((entry) => entry.kind === "standalone-task")
-      .map((entry) => ({
-        card: toDailyCard(entry.task),
-        orderindex: entry.task.orderindex,
-        prioScore: parseNumberField(getCustomField(entry.task, "Prio score"))
-      }))
+    cards: (cardsByRowId.get("tasks-row") ?? [])
       .sort(compareByTaskMetrics)
       .map((entry) => entry.card)
   };
@@ -564,13 +607,7 @@ export function buildDailyRows(
     id: "bugs-row",
     title: "Bugs",
     type: "bugs",
-    cards: standaloneCards
-      .filter((entry) => entry.kind === "standalone-bug")
-      .map((entry) => ({
-        card: toDailyCard(entry.task),
-        orderindex: entry.task.orderindex,
-        prioScore: parseNumberField(getCustomField(entry.task, "Prio score"))
-      }))
+    cards: (cardsByRowId.get("bugs-row") ?? [])
       .sort(compareByTaskMetrics)
       .map((entry) => entry.card)
   };
