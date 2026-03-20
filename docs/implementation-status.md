@@ -1,6 +1,6 @@
 # Implementation Status
 
-Last updated: 2026-03-19
+Last updated: 2026-03-20
 
 ## Summary
 
@@ -15,8 +15,11 @@ The active read-only roadmap and the Lightsail deployment plan are complete. The
 - route-level loading, retry, rate-limit, and empty states are implemented
 - planning is read-only, sorted by `Prio score`, and collapses stories by default
 - daily renders story rows, standalone task/bug rows, nested stories as rows, and visible ancestors
+- daily keeps task-parent hierarchies inside the correct inherited swimlane instead of promoting parent tasks into story rows
 - daily supports local search and assignee filters plus filtered totals
+- daily status columns are client-side collapsible and expandable from the header, and collapsed columns hide their cards
 - daily cards are top-aligned in each status column
+- daily swimlane headers keep a sticky surface during horizontal scrolling, and the card layout is denser than the original board styling
 - Storybook stories exist for the main planning, daily, and shared UI components
 
 ### Backend

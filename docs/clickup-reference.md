@@ -1,6 +1,6 @@
 # ClickUp Reference
 
-Last updated: 2026-03-18
+Last updated: 2026-03-20
 
 ## Target
 
@@ -89,13 +89,19 @@ Observed task type IDs:
 ## Daily Board Behavior
 
 - one row per story
+- only user-story items create dedicated story swimlanes
 - story itself is a row header, not a board card
 - nested stories are rows, not cards
 - only non-story children render as cards
+- tasks with subtasks stay normal tasks, not story rows
+- non-story descendants inherit the swimlane of their nearest non-story or story ancestor
 - ancestor story rows remain visible when descendant active work exists
 - one extra row for standalone tasks
 - one extra row for standalone bugs
 - daily filters are client-side only
+- daily status columns keep the canonical status order
+- daily status columns can be collapsed or expanded client-side from the header
+- collapsed status columns hide their cards until expanded again
 
 ## Important Fields
 

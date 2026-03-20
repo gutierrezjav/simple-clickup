@@ -26,6 +26,18 @@ export interface FilteredDailyBoard {
   rows: FilteredDailyRow[];
 }
 
+export function getVisibleDailyStatuses(rows: Pick<DailyRow, "cards">[]): DailyStatus[] {
+  const visibleStatuses = new Set<DailyStatus>();
+
+  for (const row of rows) {
+    for (const card of row.cards) {
+      visibleStatuses.add(card.status);
+    }
+  }
+
+  return dailyStatuses.filter((status) => visibleStatuses.has(status));
+}
+
 function createStatusCountMap(): Record<DailyStatus, number> {
   return dailyStatuses.reduce(
     (counts, status) => ({

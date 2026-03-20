@@ -1,6 +1,6 @@
 # Agent Handoff
 
-Last updated: 2026-03-19
+Last updated: 2026-03-20
 
 ## Project Summary
 
@@ -9,6 +9,14 @@ This repo is a read-only ClickUp client for the `Wingtra Cloud Dev` list. It shi
 ## Current State
 
 The application implementation is complete. The read-only roadmap is closed, the Lightsail deployment plan is complete, and the project is now in maintenance mode. The app works locally in both mock mode and live OAuth mode, and the repo contains the finalized container build and GitHub Actions deployment path.
+
+Recent maintenance work tightened the daily board behavior and layout:
+
+- only actual story items own story swimlanes
+- task descendants inherit the correct swimlane instead of spawning accidental story rows
+- daily status columns are now client-side collapsible and expandable from the header
+- collapsed columns hide their cards and use a compact rail presentation
+- sticky swimlane headers now keep a visible surface during horizontal scroll
 
 Recent deployment-related commits:
 
@@ -93,6 +101,8 @@ Optional or deferred items only:
 - [frontend/src/app.tsx](/data/simple-clickup/frontend/src/app.tsx): route shell
 - [frontend/src/routes/planning-page.tsx](/data/simple-clickup/frontend/src/routes/planning-page.tsx): planning screen
 - [frontend/src/routes/daily-page.tsx](/data/simple-clickup/frontend/src/routes/daily-page.tsx): daily board screen
+- [frontend/src/lib/daily-board.ts](/data/simple-clickup/frontend/src/lib/daily-board.ts): daily filter logic and visible-status derivation
+- [frontend/src/styles.css](/data/simple-clickup/frontend/src/styles.css): daily board layout, collapsed-column styling, and sticky swimlane treatment
 - [frontend/src/routes/verification-page.tsx](/data/simple-clickup/frontend/src/routes/verification-page.tsx): verification screen and only visible mock/live badge
 - [frontend/src/lib/clickup-api.ts](/data/simple-clickup/frontend/src/lib/clickup-api.ts): frontend fetch layer and OAuth redirect trigger
 

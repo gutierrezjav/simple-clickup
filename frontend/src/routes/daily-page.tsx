@@ -2,6 +2,7 @@ import {
   dailyFixtures,
   dailyStatuses,
   type DailyCard as DailyCardModel,
+  type DailyStatus,
   type DailyRow
 } from "@custom-clickup/shared";
 import { useState, type CSSProperties } from "react";
@@ -15,6 +16,7 @@ import {
 } from "../lib/clickup-api";
 import {
   filterDailyBoard,
+  getVisibleDailyStatuses,
   type DailyBoardCounts,
   type DailyBoardFilters
 } from "../lib/daily-board";
@@ -25,6 +27,8 @@ import { useResourceLoader } from "../lib/use-resource-loader";
 export interface DailyPageProps {
   loader?: () => Promise<DailyPageData>;
 }
+
+type StatusCollapseOverrides = Partial<Record<DailyStatus, boolean>>;
 
 function compareByPriority(
   left: { prioScore?: number },
@@ -99,20 +103,73 @@ function formatCount(value: number, total: number, filtersActive: boolean): stri
   return filtersActive ? `${value} / ${total}` : String(total);
 }
 
+function formatColumnCount(
+  value: number,
+  total: number,
+  filtersActive: boolean,
+  collapsed: boolean
+): string {
+  if (!filtersActive) {
+    return String(total);
+  }
+
+  return collapsed ? `${value}/${total}` : `${value} / ${total}`;
+}
+
+function getCollapsedStatusLabel(status: (typeof dailyStatuses)[number]): string {
+  switch (status) {
+    case "BLOCKED":
+      return "BLK";
+    case "SPRINT BACKLOG":
+      return "SB";
+    case "IN PROGRESS":
+      return "IP";
+    case "IN CODE REVIEW":
+      return "CR";
+    case "DEPLOYED TO DEV":
+      return "DD";
+    case "TESTED IN DEV":
+      return "TD";
+    case "DEPLOYED TO STAGING":
+      return "DS";
+    case "TESTED IN STAGING":
+      return "TS";
+    default:
+      return status;
+  }
+}
+
 function renderDailyGrid({
   counts,
   filtersActive,
   onClearFilters,
-  rows
+  onToggleStatus,
+  rows,
+  statusCollapseOverrides
 }: {
   counts: DailyBoardCounts;
   filtersActive: boolean;
   onClearFilters: () => void;
+  onToggleStatus: (status: DailyStatus, collapsed: boolean) => void;
   rows: ReturnType<typeof filterDailyBoard>["rows"];
+  statusCollapseOverrides: StatusCollapseOverrides;
 }) {
+  const visibleStatuses = new Set(getVisibleDailyStatuses(rows));
+  const swimlaneWidth = 228;
+  const statusWidth = 206;
+  const collapsedStatusWidth = 72;
+  const isStatusCollapsed = (status: DailyStatus) =>
+    statusCollapseOverrides[status] ?? !visibleStatuses.has(status);
+  const totalBoardWidth = dailyStatuses.reduce(
+    (width, status) => width + (isStatusCollapsed(status) ? collapsedStatusWidth : statusWidth),
+    swimlaneWidth
+  );
   const dailyBoardStyle = {
     "--daily-status-count": String(dailyStatuses.length),
-    "--daily-board-min-width": `${340 + dailyStatuses.length * 230}px`
+    "--daily-grid-columns": `${swimlaneWidth}px ${dailyStatuses
+      .map((status) => (isStatusCollapsed(status) ? `${collapsedStatusWidth}px` : `minmax(${statusWidth}px, 1fr)`))
+      .join(" ")}`,
+    "--daily-board-min-width": `${totalBoardWidth + 48}px`
   } as CSSProperties;
 
   if (!filtersActive && !counts.totalCards) {
@@ -140,14 +197,37 @@ function renderDailyGrid({
       <div className="daily-board" style={dailyBoardStyle}>
         <div className="daily-board__header">
           <div className="daily-board__header-label">Swimlane</div>
-          {dailyStatuses.map((status) => (
-            <div className="daily-column-header" data-status={status} key={status}>
-              <span className="daily-column-header__label">{status}</span>
-              <span className="daily-column-header__count">
-                {formatCount(counts.visibleByStatus[status], counts.totalByStatus[status], filtersActive)}
-              </span>
-            </div>
-          ))}
+          {dailyStatuses.map((status) => {
+            const collapsed = isStatusCollapsed(status);
+
+            return (
+              <button
+                aria-expanded={!collapsed}
+                className="daily-column-header daily-column-header--toggle"
+                data-collapsed={collapsed ? "true" : "false"}
+                data-status={status}
+                key={status}
+                onClick={() => onToggleStatus(status, collapsed)}
+                title={`${collapsed ? "Expand" : "Collapse"} ${status} column`}
+                type="button"
+              >
+                <span className="daily-column-header__label">{status}</span>
+                <span className="daily-column-header__count">
+                  {formatColumnCount(
+                    counts.visibleByStatus[status],
+                    counts.totalByStatus[status],
+                    filtersActive,
+                    collapsed
+                  )}
+                </span>
+                {collapsed ? (
+                  <span className="daily-column-header__collapsed-label">
+                    {getCollapsedStatusLabel(status)}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
         </div>
         <div className="daily-board__body">
           {rows.map((row) => (
@@ -187,15 +267,26 @@ function renderDailyGrid({
                   <span className="daily-swimlane__prio">Prio {row.prioScore}</span>
                 ) : null}
               </div>
-              {dailyStatuses.map((status) => (
-                <div className="daily-column" data-status={status} key={`${row.id}-${status}`}>
-                  {row.cards
-                    .filter((card) => card.status === status)
-                    .map((card) => (
-                      <DailyCard card={card} key={card.id} />
-                    ))}
-                </div>
-              ))}
+              {dailyStatuses.map((status) => {
+                const collapsed = isStatusCollapsed(status);
+
+                return (
+                  <div
+                    className="daily-column"
+                    data-collapsed={collapsed ? "true" : "false"}
+                    data-status={status}
+                    key={`${row.id}-${status}`}
+                  >
+                    {collapsed
+                      ? null
+                      : row.cards
+                          .filter((card) => card.status === status)
+                          .map((card) => (
+                            <DailyCard card={card} key={card.id} />
+                          ))}
+                  </div>
+                );
+              })}
             </section>
           ))}
         </div>
@@ -210,6 +301,7 @@ export function DailyPage({ loader = fetchDailyPageData }: DailyPageProps) {
     search: "",
     assignee: ""
   });
+  const [statusCollapseOverrides, setStatusCollapseOverrides] = useState<StatusCollapseOverrides>({});
   useTopBarAction({
     disabled: isRefreshing,
     label: isRefreshing ? "Refreshing..." : "Refresh",
@@ -236,6 +328,13 @@ export function DailyPage({ loader = fetchDailyPageData }: DailyPageProps) {
       search: "",
       assignee: ""
     });
+  }
+
+  function handleToggleStatus(status: DailyStatus, collapsed: boolean) {
+    setStatusCollapseOverrides((current) => ({
+      ...current,
+      [status]: !collapsed
+    }));
   }
 
   if (isLoading && !data) {
@@ -367,7 +466,9 @@ export function DailyPage({ loader = fetchDailyPageData }: DailyPageProps) {
         counts: filteredBoard.counts,
         filtersActive: filteredBoard.filtersActive,
         onClearFilters: handleClearFilters,
-        rows: filteredBoard.rows
+        onToggleStatus: handleToggleStatus,
+        rows: filteredBoard.rows,
+        statusCollapseOverrides
       })}
     </div>
   );

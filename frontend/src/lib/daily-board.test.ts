@@ -1,6 +1,6 @@
 import type { DailyRow } from "@custom-clickup/shared";
 import { describe, expect, it } from "vitest";
-import { filterDailyBoard } from "./daily-board";
+import { filterDailyBoard, getVisibleDailyStatuses } from "./daily-board";
 
 const rows: DailyRow[] = [
   {
@@ -84,6 +84,15 @@ describe("filterDailyBoard", () => {
     expect(result.rows[0]?.cards.map((card) => card.id)).toEqual(["card-2"]);
   });
 
+  it("returns only the statuses that still have visible cards", () => {
+    const result = filterDailyBoard(rows, {
+      search: "CL-101",
+      assignee: ""
+    });
+
+    expect(getVisibleDailyStatuses(result.rows)).toEqual(["IN CODE REVIEW"]);
+  });
+
   it("filters cards by assignee without exposing standalone row titles as search hits", () => {
     const result = filterDailyBoard(rows, {
       search: "tasks",
@@ -104,5 +113,6 @@ describe("filterDailyBoard", () => {
     expect(result.rows[0]?.id).toBe("story-row");
     expect(result.rows[0]?.cards).toHaveLength(0);
     expect(result.hasVisibleCards).toBe(false);
+    expect(getVisibleDailyStatuses(result.rows)).toEqual([]);
   });
 });
