@@ -1,4 +1,8 @@
-import type { DailyRow, VerificationSummary } from "@custom-clickup/shared";
+import type {
+  DailyRow,
+  StoryStatusDiscrepancyReport,
+  VerificationSummary
+} from "@custom-clickup/shared";
 
 export type ReadMode = "mock" | "live";
 
@@ -12,6 +16,10 @@ export interface DailyPageData extends ResourceMetadata {
 
 export interface VerificationPageData extends ResourceMetadata {
   summary: VerificationSummary;
+}
+
+export interface StoryStatusDiscrepancyReportData extends ResourceMetadata {
+  report: StoryStatusDiscrepancyReport;
 }
 
 interface ApiErrorPayload {
@@ -82,6 +90,12 @@ export function fetchDailyPageData(): Promise<DailyPageData> {
 
 export function fetchVerificationPageData(): Promise<VerificationPageData> {
   return fetchClickUpResource<{ summary: VerificationSummary }>("/api/clickup/verification");
+}
+
+export function fetchStoryStatusDiscrepancyReportData(): Promise<StoryStatusDiscrepancyReportData> {
+  return fetchClickUpResource<{ report: StoryStatusDiscrepancyReport }>(
+    "/api/clickup/story-status-discrepancies"
+  );
 }
 
 export function startClickUpOAuth(returnTo: string): void {

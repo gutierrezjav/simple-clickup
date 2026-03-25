@@ -145,6 +145,19 @@ clickupRouter.get("/daily", async (req, res) => {
   }
 });
 
+clickupRouter.get("/story-status-discrepancies", async (req, res) => {
+  const requestToken = getRequestToken(req);
+  try {
+    const readService = getReadService(requestToken);
+
+    res.json({
+      report: await readService.getStoryStatusDiscrepancyReport()
+    });
+  } catch (error) {
+    handleRouteError(error, res, requestToken?.source);
+  }
+});
+
 clickupRouter.get("/verification", async (req, res) => {
   const requestToken = getRequestToken(req);
   try {

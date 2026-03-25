@@ -2,9 +2,12 @@ import {
   dailyFixtures,
   dailyStatuses,
   schemaConfig,
+  storyStatusProgression,
   type DailyCard,
   type DailyRow,
-  type SchemaConfig
+  type SchemaConfig,
+  type StoryProgressStatus,
+  type StoryStatusDiscrepancyReport
 } from "@custom-clickup/shared";
 import { clickupLogger } from "../logging.js";
 import { ClickUpClient } from "./client.js";
@@ -47,15 +50,23 @@ interface ClickUpTaskMetadataSnapshot {
 }
 
 type TaskKind = "story" | "standalone-task" | "standalone-bug" | "subtask";
-type ReadTarget = "daily";
+type ReadTarget = "daily" | "story-status-discrepancies";
 
 const metadataCacheTtlMultiplier = 5;
+const storyStatusProgressionSet = new Set<string>(storyStatusProgression);
 
 const dailyTaskQuery: ClickUpTaskQueryOptions = {
   archived: false,
   includeClosed: false,
   includeTiml: false,
   statuses: [...dailyStatuses],
+  subtasks: true
+};
+
+const storyStatusCheckTaskQuery: ClickUpTaskQueryOptions = {
+  archived: false,
+  includeClosed: false,
+  includeTiml: false,
   subtasks: true
 };
 
@@ -395,6 +406,157 @@ export function buildDailyRows(
   return [...storyRows, tasksRow, bugsRow];
 }
 
+function getExpectedStoryStatus(statuses: StoryProgressStatus[]): StoryProgressStatus | undefined {
+  const statusIndexes = statuses
+    .map((status) => storyStatusProgression.indexOf(status))
+    .filter((index) => index !== -1);
+
+  if (statusIndexes.length === 0) {
+    return undefined;
+  }
+
+  for (let threshold = storyStatusProgression.length - 1; threshold >= 1; threshold -= 1) {
+    if (statusIndexes.every((index) => index >= threshold)) {
+      return storyStatusProgression[threshold];
+    }
+  }
+
+  if (statusIndexes.some((index) => index >= 1)) {
+    return "IN PROGRESS";
+  }
+
+  return "SPRINT BACKLOG";
+}
+
+function countStoryProgressStatuses(statuses: StoryProgressStatus[]) {
+  const counts = new Map<StoryProgressStatus, number>();
+
+  for (const status of statuses) {
+    counts.set(status, (counts.get(status) ?? 0) + 1);
+  }
+
+  return storyStatusProgression
+    .map((status) => ({
+      name: status,
+      count: counts.get(status) ?? 0
+    }))
+    .filter((entry) => entry.count > 0);
+}
+
+export function buildStoryStatusDiscrepancyReport(
+  tasks: ClickUpTaskPayload[],
+  taskTypeMap: Map<number, string>
+): StoryStatusDiscrepancyReport {
+  const flatTasks = flattenTasks(tasks);
+  const taskById = new Map<string, ClickUpTaskPayload>();
+  const taskKindById = new Map<string, TaskKind>();
+
+  for (const task of flatTasks) {
+    const taskId = task.id;
+    if (!taskId) {
+      continue;
+    }
+
+    taskById.set(taskId, task);
+    taskKindById.set(taskId, classifyTask(task, taskTypeMap));
+  }
+
+  const storyIdByTaskId = new Map<string, string | undefined>();
+  const getAncestorStoryId = (taskId: string): string | undefined => {
+    if (storyIdByTaskId.has(taskId)) {
+      return storyIdByTaskId.get(taskId);
+    }
+
+    const task = taskById.get(taskId);
+    if (!task?.parent) {
+      storyIdByTaskId.set(taskId, undefined);
+      return undefined;
+    }
+
+    let storyId: string | undefined;
+    if (taskKindById.get(task.parent) === "story") {
+      storyId = task.parent;
+    } else if (taskById.has(task.parent)) {
+      storyId = getAncestorStoryId(task.parent);
+    }
+
+    storyIdByTaskId.set(taskId, storyId);
+    return storyId;
+  };
+
+  const activeChildrenByStoryId = new Map<string, ClickUpTaskPayload[]>();
+
+  for (const task of flatTasks) {
+    const taskId = task.id;
+    if (!taskId) {
+      continue;
+    }
+
+    if (taskKindById.get(taskId) === "story") {
+      continue;
+    }
+
+    const normalizedStatus = normalizeStatus(task.status);
+    if (!storyStatusProgressionSet.has(normalizedStatus)) {
+      continue;
+    }
+
+    const storyId = getAncestorStoryId(taskId);
+    if (!storyId) {
+      continue;
+    }
+
+    const currentChildren = activeChildrenByStoryId.get(storyId) ?? [];
+    currentChildren.push(task);
+    activeChildrenByStoryId.set(storyId, currentChildren);
+  }
+
+  const discrepancies = [...activeChildrenByStoryId.entries()]
+    .flatMap(([storyId, activeChildren]) => {
+      const story = taskById.get(storyId);
+      if (!story) {
+        return [];
+      }
+
+      const childStatuses = activeChildren.map(
+        (task) => normalizeStatus(task.status) as StoryProgressStatus
+      );
+      const expectedStatus = getExpectedStoryStatus(childStatuses);
+      if (!expectedStatus) {
+        return [];
+      }
+
+      const actualStatus = normalizeStatus(story.status);
+      if (actualStatus === expectedStatus) {
+        return [];
+      }
+
+      return [
+        {
+          discrepancy: {
+            storyId,
+            storyCustomId: story.custom_id ?? story.id ?? "unknown-story",
+            storyTitle: story.name?.trim() || "Untitled story",
+            actualStatus,
+            expectedStatus,
+            activeChildCount: activeChildren.length,
+            activeChildStatuses: countStoryProgressStatuses(childStatuses)
+          },
+          orderindex: story.orderindex,
+          prioScore: parseNumberField(getCustomField(story, "Prio score"))
+        }
+      ];
+    })
+    .sort(compareByTaskMetrics)
+    .map((entry) => entry.discrepancy);
+
+  return {
+    checkedStoryCount: activeChildrenByStoryId.size,
+    discrepancyCount: discrepancies.length,
+    discrepancies
+  };
+}
+
 function createCachedLoader<T>(
   cacheTtlMs: number,
   load: () => Promise<T>
@@ -435,6 +597,7 @@ function createCachedLoader<T>(
 
 export interface ClickUpReadService {
   getDailyRows(): Promise<DailyRow[]>;
+  getStoryStatusDiscrepancyReport(): Promise<StoryStatusDiscrepancyReport>;
   getReadMode(): ClickUpReadMode;
   getSchema(): Promise<SchemaConfig>;
 }
@@ -444,6 +607,13 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
     return {
       async getDailyRows() {
         return dailyFixtures;
+      },
+      async getStoryStatusDiscrepancyReport() {
+        return {
+          checkedStoryCount: 0,
+          discrepancyCount: 0,
+          discrepancies: []
+        };
       },
       getReadMode() {
         return "mock";
@@ -496,6 +666,18 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
     return buildDailyRows(tasks, metadata.value.taskTypeMap);
   });
 
+  const loadStoryStatusDiscrepancies = createCachedLoader(
+    config.cacheTtlMs,
+    async (): Promise<StoryStatusDiscrepancyReport> => {
+      const [metadata, tasks] = await Promise.all([
+        loadTaskMetadata(),
+        client.getListTasks(config.listId, storyStatusCheckTaskQuery)
+      ]);
+
+      return buildStoryStatusDiscrepancyReport(tasks, metadata.value.taskTypeMap);
+    }
+  );
+
   const runLogicalRead = async <T>(
     readTarget: ReadTarget,
     load: () => Promise<CachedLoadResult<T>>,
@@ -542,6 +724,13 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
   return {
     async getDailyRows() {
       return runLogicalRead("daily", loadDaily, (rows) => rows.length);
+    },
+    async getStoryStatusDiscrepancyReport() {
+      return runLogicalRead(
+        "story-status-discrepancies",
+        loadStoryStatusDiscrepancies,
+        (report) => report.discrepancyCount
+      );
     },
     getReadMode() {
       return "live";

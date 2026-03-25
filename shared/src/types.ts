@@ -13,6 +13,18 @@ export const dailyStatuses = [
 
 export type DailyStatus = (typeof dailyStatuses)[number];
 
+export const storyStatusProgression = [
+  "SPRINT BACKLOG",
+  "IN PROGRESS",
+  "IN CODE REVIEW",
+  "DEPLOYED TO DEV",
+  "TESTED IN DEV",
+  "DEPLOYED TO STAGING",
+  "TESTED IN STAGING"
+] as const;
+
+export type StoryProgressStatus = (typeof storyStatusProgression)[number];
+
 export interface DailyCard {
   id: string;
   customId: string;
@@ -34,6 +46,22 @@ export interface DailyRow {
 export interface NamedCountSummary {
   name: string;
   count: number;
+}
+
+export interface StoryStatusDiscrepancy {
+  storyId: string;
+  storyCustomId: string;
+  storyTitle: string;
+  actualStatus: string;
+  expectedStatus: StoryProgressStatus;
+  activeChildCount: number;
+  activeChildStatuses: NamedCountSummary[];
+}
+
+export interface StoryStatusDiscrepancyReport {
+  checkedStoryCount: number;
+  discrepancyCount: number;
+  discrepancies: StoryStatusDiscrepancy[];
 }
 
 export interface VerificationSummary {

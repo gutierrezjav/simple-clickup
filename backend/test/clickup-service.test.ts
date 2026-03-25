@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ClickUpClient } from "../src/clickup/client.js";
-import { buildDailyRows, createClickUpReadService } from "../src/clickup/service.js";
+import {
+  buildDailyRows,
+  buildStoryStatusDiscrepancyReport,
+  createClickUpReadService
+} from "../src/clickup/service.js";
 import type { ClickUpTaskPayload } from "../src/clickup/types.js";
 
 const storyTaskTypeId = 1;
@@ -250,6 +254,132 @@ describe("buildDailyRows", () => {
   });
 });
 
+describe("buildStoryStatusDiscrepancyReport", () => {
+  it("flags stories whose active child tasks are ahead of the story status", () => {
+    const tasks = [
+      createTask({
+        id: "story-parent",
+        name: "Telemetry setting fixes",
+        status: "refined",
+        customItemId: storyTaskTypeId,
+        orderindex: "1"
+      }),
+      createTask({
+        id: "task-parent",
+        name: "Feature flag task",
+        status: "IN PROGRESS",
+        parent: "story-parent",
+        orderindex: "2"
+      }),
+      createTask({
+        id: "task-child",
+        name: "Nested validation",
+        status: "DEPLOYED TO STAGING",
+        parent: "task-parent",
+        orderindex: "3"
+      }),
+      createTask({
+        id: "task-review",
+        name: "QA review",
+        status: "IN CODE REVIEW",
+        parent: "story-parent",
+        orderindex: "4"
+      })
+    ];
+
+    expect(buildStoryStatusDiscrepancyReport(tasks, taskTypeMap)).toEqual({
+      checkedStoryCount: 1,
+      discrepancyCount: 1,
+      discrepancies: [
+        {
+          storyId: "story-parent",
+          storyCustomId: "STORY-PARENT",
+          storyTitle: "Telemetry setting fixes",
+          actualStatus: "REFINED",
+          expectedStatus: "IN PROGRESS",
+          activeChildCount: 3,
+          activeChildStatuses: [
+            { name: "IN PROGRESS", count: 1 },
+            { name: "IN CODE REVIEW", count: 1 },
+            { name: "DEPLOYED TO STAGING", count: 1 }
+          ]
+        }
+      ]
+    });
+  });
+
+  it("keeps sprint backlog valid only when no active child task has progressed further", () => {
+    const tasks = [
+      createTask({
+        id: "story-parent",
+        name: "Telemetry setting fixes",
+        status: "SPRINT BACKLOG",
+        customItemId: storyTaskTypeId
+      }),
+      createTask({
+        id: "task-backlog",
+        name: "Investigate issue",
+        status: "SPRINT BACKLOG",
+        parent: "story-parent"
+      }),
+      createTask({
+        id: "task-progress",
+        name: "Implement fix",
+        status: "IN PROGRESS",
+        parent: "story-parent"
+      })
+    ];
+
+    expect(buildStoryStatusDiscrepancyReport(tasks, taskTypeMap)).toEqual({
+      checkedStoryCount: 1,
+      discrepancyCount: 1,
+      discrepancies: [
+        {
+          storyId: "story-parent",
+          storyCustomId: "STORY-PARENT",
+          storyTitle: "Telemetry setting fixes",
+          actualStatus: "SPRINT BACKLOG",
+          expectedStatus: "IN PROGRESS",
+          activeChildCount: 2,
+          activeChildStatuses: [
+            { name: "SPRINT BACKLOG", count: 1 },
+            { name: "IN PROGRESS", count: 1 }
+          ]
+        }
+      ]
+    });
+  });
+
+  it("does not flag sprint backlog stories when every active child task is still in sprint backlog", () => {
+    const tasks = [
+      createTask({
+        id: "story-parent",
+        name: "Telemetry setting fixes",
+        status: "SPRINT BACKLOG",
+        customItemId: storyTaskTypeId
+      }),
+      createTask({
+        id: "task-backlog-1",
+        name: "Investigate issue",
+        status: "SPRINT BACKLOG",
+        parent: "story-parent"
+      }),
+      createTask({
+        id: "task-backlog-2",
+        name: "Implement fix",
+        status: "SPRINT BACKLOG",
+        parent: "story-parent"
+      })
+    ];
+
+    expect(buildStoryStatusDiscrepancyReport(tasks, taskTypeMap)).toEqual({
+      checkedStoryCount: 1,
+      discrepancyCount: 0,
+      discrepancies: []
+    });
+  });
+});
+
 describe("createClickUpReadService", () => {
   it("keeps daily reads working when optional ClickUp custom fields are removed", async () => {
     vi.spyOn(ClickUpClient.prototype, "getCustomTaskTypes").mockResolvedValue([
@@ -275,5 +405,51 @@ describe("createClickUpReadService", () => {
       { id: "tasks-row", type: "tasks", cards: [] },
       { id: "bugs-row", type: "bugs", cards: [] }
     ]);
+  });
+
+  it("loads story status discrepancies through the live read service", async () => {
+    vi.spyOn(ClickUpClient.prototype, "getCustomTaskTypes").mockResolvedValue([
+      {
+        id: storyTaskTypeId,
+        name: "User Story"
+      }
+    ]);
+    vi.spyOn(ClickUpClient.prototype, "getListTasks").mockResolvedValue([
+      createTask({
+        id: "story-parent",
+        name: "Telemetry setting fixes",
+        status: "refined",
+        customItemId: storyTaskTypeId
+      }),
+      createTask({
+        id: "task-progress",
+        name: "Implement fix",
+        status: "IN PROGRESS",
+        parent: "story-parent"
+      })
+    ]);
+
+    const service = createClickUpReadService({
+      accessToken: "test-token",
+      baseUrl: "https://example.invalid/api/v2",
+      cacheTtlMs: 1_000,
+      listId: "list-1",
+      readMode: "live",
+      teamId: "team-1",
+      timeoutMs: 1_000,
+      tokenSource: "env"
+    });
+
+    await expect(service.getStoryStatusDiscrepancyReport()).resolves.toEqual({
+      checkedStoryCount: 1,
+      discrepancyCount: 1,
+      discrepancies: [
+        expect.objectContaining({
+          storyId: "story-parent",
+          actualStatus: "REFINED",
+          expectedStatus: "IN PROGRESS"
+        })
+      ]
+    });
   });
 });

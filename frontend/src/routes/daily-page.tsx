@@ -3,16 +3,19 @@ import {
   dailyStatuses,
   type DailyCard as DailyCardModel,
   type DailyStatus,
-  type DailyRow
+  type DailyRow,
+  type StoryStatusDiscrepancyReport
 } from "@custom-clickup/shared";
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { DailyCard } from "../components/daily/daily-card";
 import { ResourceState } from "../components/resource-state";
 import {
   ClickUpApiError,
   fetchDailyPageData,
+  fetchStoryStatusDiscrepancyReportData,
   startClickUpOAuth,
-  type DailyPageData
+  type DailyPageData,
+  type StoryStatusDiscrepancyReportData
 } from "../lib/clickup-api";
 import {
   filterDailyBoard,
@@ -27,6 +30,7 @@ import { useResourceLoader } from "../lib/use-resource-loader";
 
 export interface DailyPageProps {
   loader?: () => Promise<DailyPageData>;
+  storyStatusLoader?: () => Promise<StoryStatusDiscrepancyReportData>;
 }
 
 type StatusCollapseOverrides = Partial<Record<DailyStatus, boolean>>;
@@ -296,8 +300,76 @@ function renderDailyGrid({
   );
 }
 
-export function DailyPage({ loader = fetchDailyPageData }: DailyPageProps) {
+function formatStoryStatusSummary(report: StoryStatusDiscrepancyReport): string {
+  if (report.checkedStoryCount === 0) {
+    return "No active story children were eligible for the lazy status check.";
+  }
+
+  return `${report.discrepancyCount} of ${report.checkedStoryCount} checked stories are out of sync with their active child tasks.`;
+}
+
+function formatActiveChildStatuses(
+  statuses: StoryStatusDiscrepancyReport["discrepancies"][number]["activeChildStatuses"]
+): string {
+  return statuses
+    .map((entry) => `${entry.name} (${entry.count})`)
+    .join(", ");
+}
+
+function renderStoryStatusWarning(
+  report: StoryStatusDiscrepancyReport,
+  onDismiss: () => void
+) {
+  if (report.discrepancyCount === 0) {
+    return null;
+  }
+
+  return (
+    <section className="story-status-warning" role="status">
+      <div className="story-status-warning__header">
+        <div>
+          <h3 className="story-status-warning__title">Story Status Warning</h3>
+          <p className="story-status-warning__summary">{formatStoryStatusSummary(report)}</p>
+        </div>
+        <button
+          aria-label="Dismiss story status warning"
+          className="story-status-warning__dismiss"
+          onClick={onDismiss}
+          type="button"
+        >
+          ×
+        </button>
+      </div>
+      <ul className="story-status-warning__list">
+        {report.discrepancies.map((discrepancy) => (
+          <li className="story-status-warning__item" key={discrepancy.storyId}>
+            <a
+              className="task-link story-status-warning__link"
+              href={getClickUpTaskUrl(discrepancy.storyId)}
+              rel="noreferrer"
+              target="_blank"
+            >
+              {discrepancy.storyCustomId} {discrepancy.storyTitle}
+            </a>
+            <p className="story-status-warning__detail">
+              Expected <strong>{discrepancy.expectedStatus}</strong>, currently{" "}
+              <strong>{discrepancy.actualStatus}</strong>. Active child tasks:{" "}
+              {formatActiveChildStatuses(discrepancy.activeChildStatuses)}.
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+export function DailyPage({
+  loader = fetchDailyPageData,
+  storyStatusLoader = fetchStoryStatusDiscrepancyReportData
+}: DailyPageProps) {
   const { data, error, isLoading, isRefreshing, refresh } = useResourceLoader(loader);
+  const [isStoryStatusWarningDismissed, setIsStoryStatusWarningDismissed] = useState(false);
+  const [storyStatusReport, setStoryStatusReport] = useState<StoryStatusDiscrepancyReport | null>(null);
   const [filters, setFilters] = useState<DailyBoardFilters>({
     search: "",
     assignee: ""
@@ -308,6 +380,38 @@ export function DailyPage({ loader = fetchDailyPageData }: DailyPageProps) {
     label: isRefreshing ? "Refreshing..." : "Refresh",
     onAction: refresh
   });
+
+  useEffect(() => {
+    if (!data || data.readMode !== "live") {
+      setStoryStatusReport(null);
+      return;
+    }
+
+    let cancelled = false;
+    setStoryStatusReport(null);
+
+    void storyStatusLoader()
+      .then((nextData) => {
+        if (cancelled) {
+          return;
+        }
+
+        setIsStoryStatusWarningDismissed(false);
+        setStoryStatusReport(nextData.report);
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+
+        setStoryStatusReport(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [data, storyStatusLoader]);
+
   const handleConnect = () => startClickUpOAuth("/daily");
 
   function handleSearchChange(search: string) {
@@ -389,6 +493,9 @@ export function DailyPage({ loader = fetchDailyPageData }: DailyPageProps) {
 
   return (
     <div className="panel panel--route">
+      {storyStatusReport && !isStoryStatusWarningDismissed
+        ? renderStoryStatusWarning(storyStatusReport, () => setIsStoryStatusWarningDismissed(true))
+        : null}
       <div className="filter-toolbar" role="group" aria-label="Daily filters">
         <label className="filter-field">
           <span className="filter-field__label">Search</span>

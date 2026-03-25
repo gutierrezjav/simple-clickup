@@ -98,7 +98,7 @@ export interface ClickUpRequestSummary {
   method: string;
   page?: number;
   pathname: string;
-  readTarget?: "daily";
+  readTarget?: "daily" | "story-status-discrepancies";
   responseItems?: number;
   startedAt: string;
   tokenSource?: ClickUpTokenSource;
