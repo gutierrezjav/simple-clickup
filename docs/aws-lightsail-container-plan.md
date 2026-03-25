@@ -71,7 +71,7 @@ Use the existing backend config model and set these values in the Lightsail depl
 - The container image builds locally and in GitHub Actions.
 - The Lightsail endpoint serves the app successfully over HTTPS.
 - The custom domain serves the same deployment successfully over HTTPS.
-- Direct browser refresh works on `/planning`, `/daily`, and `/verify`.
+- Direct browser refresh works on `/daily` and `/verify`, and `/planning` redirects safely to `/daily`.
 - `/health` returns `200`.
 - Frontend requests to `/api` and `/auth` work through the same origin.
 - ClickUp OAuth completes with secure cookies enabled.

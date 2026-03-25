@@ -1,6 +1,6 @@
 # ClickUp Client Write Project Plan
 
-Last updated: 2026-03-18
+Last updated: 2026-03-25
 
 ## Status
 
@@ -14,14 +14,13 @@ When resumed, this document will cover:
 
 - mutation adapters for `mock`, `test-space`, and only later gated `live`
 - guarded daily status updates
-- guarded planning field edits
 - test workspace or list allowlisting
 - revalidation and optimistic update strategy
 
 ## Dependencies
 
 - the read-only client stays stable in live use
-- write work stays separate from the planning and daily read contract
+- write work stays separate from the daily read contract
 - production list safety rules remain in place
 
 ## Safety Rules

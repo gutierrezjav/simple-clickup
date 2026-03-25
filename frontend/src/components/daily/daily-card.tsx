@@ -1,34 +1,31 @@
 import type { DailyCard as DailyCardModel } from "@custom-clickup/shared";
-import { AssigneeAvatar } from "../assignee-avatar";
-import { getAssigneeDisplayName } from "../../lib/assignee";
-import { getClickUpTaskUrl } from "../../lib/clickup-task-url";
+import {
+  TaskAssigneeInline,
+  TaskIdentityBlock,
+  TaskPriorityLabel
+} from "../task/task-primitives";
 
 interface DailyCardProps {
   card: DailyCardModel;
 }
 
 export function DailyCard({ card }: DailyCardProps) {
-  const assigneeLabel = getAssigneeDisplayName(card.assignee);
-
   return (
     <div className="daily-card">
-      <div className="daily-card__eyebrow">
-        <span className="daily-card__id">{card.customId}</span>
-        <span className="daily-card__prio">Prio {card.prioScore ?? "—"}</span>
-      </div>
-      <div className="daily-card__title">
-        <a
-          className="task-link"
-          href={getClickUpTaskUrl(card.id)}
-          rel="noreferrer"
-          target="_blank"
-        >
-          {card.title}
-        </a>
-      </div>
+      <TaskIdentityBlock
+        customId={card.customId}
+        eyebrowEnd={<TaskPriorityLabel className="daily-card__prio" prioScore={card.prioScore} />}
+        taskId={card.id}
+        title={card.title}
+        titleClassName="daily-card__title"
+      />
       <div className="daily-card__footer">
-        <AssigneeAvatar assignee={card.assignee} avatarUrl={card.assigneeAvatarUrl} />
-        <span className="daily-card__assignee">{assigneeLabel}</span>
+        <TaskAssigneeInline
+          assignee={card.assignee}
+          avatarUrl={card.assigneeAvatarUrl}
+          compact
+          nameClassName="daily-card__assignee"
+        />
       </div>
     </div>
   );

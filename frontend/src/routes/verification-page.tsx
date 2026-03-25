@@ -42,9 +42,9 @@ function VerificationHeader({
   return (
     <div className="panel-header">
       <div className="panel-header-copy">
-        <div className="panel-eyebrow">Phase 2</div>
+        <div className="panel-eyebrow">Daily board</div>
         <h2>Verification</h2>
-        <p>Live snapshot summary fetched through the current browser session.</p>
+        <p>Daily board snapshot summary fetched through the current browser session.</p>
       </div>
       <div className="panel-header-actions">
         {readMode ? <StatusBanner readMode={readMode} /> : null}
@@ -195,23 +195,6 @@ export function VerificationPage({
         />
       ) : null}
       <div className="verification-layout">
-        <VerificationSection
-          counts={[
-            { label: "By kind", items: summary.planning.byKind },
-            { label: "By status", items: summary.planning.byStatus }
-          ]}
-          metrics={[
-            { label: "Top-level items", value: summary.planning.itemCount },
-            { label: "Child items", value: summary.planning.childCount },
-            { label: "Missing assignee", value: summary.planning.missingAssigneeCount },
-            {
-              label: "Missing budget",
-              value: summary.planning.missingBudgetCount
-            },
-            { label: "Missing prio score", value: summary.planning.missingPrioScoreCount }
-          ]}
-          title="Planning"
-        />
         <VerificationSection
           counts={[
             { label: "By row type", items: summary.daily.byRowType },

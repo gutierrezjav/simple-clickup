@@ -1,7 +1,6 @@
 import type {
   DailyRow,
   NamedCountSummary,
-  PlanningItem,
   SchemaConfig,
   VerificationSummary
 } from "@custom-clickup/shared";
@@ -30,29 +29,17 @@ function countBy<T>(items: T[], pickName: (item: T) => string | undefined): Name
 
 export function buildVerificationSummary({
   schema,
-  planning,
   daily
 }: {
   schema: SchemaConfig;
-  planning: PlanningItem[];
   daily: DailyRow[];
 }): VerificationSummary {
-  const planningItems = planning.flatMap((item) => [item, ...(item.children ?? [])]);
   const dailyCards = daily.flatMap((row) => row.cards);
 
   return {
     schema: {
       workspaceId: schema.workspaceId,
       listId: schema.listId
-    },
-    planning: {
-      itemCount: planning.length,
-      childCount: planning.reduce((count, item) => count + (item.children?.length ?? 0), 0),
-      missingAssigneeCount: planningItems.filter((item) => !item.assignee).length,
-      missingBudgetCount: planning.filter((item) => !item.budget).length,
-      missingPrioScoreCount: planningItems.filter((item) => item.prioScore === undefined).length,
-      byKind: countBy(planningItems, (item) => item.kind),
-      byStatus: countBy(planningItems, (item) => item.status)
     },
     daily: {
       rowCount: daily.length,

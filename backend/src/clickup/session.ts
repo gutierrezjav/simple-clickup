@@ -123,10 +123,10 @@ export function createOAuthState(): string {
 
 export function sanitizeReturnTo(returnTo: string | undefined): string {
   if (!returnTo || !returnTo.startsWith("/") || returnTo.startsWith("//")) {
-    return "/planning";
+    return "/daily";
   }
 
-  return returnTo;
+  return returnTo === "/planning" ? "/daily" : returnTo;
 }
 
 export function readSession(

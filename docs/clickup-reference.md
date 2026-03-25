@@ -1,6 +1,6 @@
 # ClickUp Reference
 
-Last updated: 2026-03-20
+Last updated: 2026-03-25
 
 ## Target
 
@@ -38,29 +38,11 @@ Last updated: 2026-03-20
 
 - `CLOSED`
 
-## Planning Inclusion Rules
+## Product Scope
 
-Include:
-
-- stories whose status is not in the excluded deployment or closed statuses
-- standalone bugs with tag `po prio` or `qa prio` whose status is not in the excluded deployment or closed statuses
-- any item in `SPRINT BACKLOG`
-
-Excluded planning statuses:
-
-- `DEPLOYED TO DEV`
-- `TESTED IN DEV`
-- `DEPLOYED TO STAGING`
-- `TESTED IN STAGING`
-- `DEPLOYED TO PROD`
-- `PROD MINOR ISSUE`
-- `CLOSED`
-
-Verification notes:
-
-- compare planning counts against the ClickUp prio view using top-level included items only
-- do not include subtasks in top-level planning totals or missing budget counts
-- `Budget` is the current field name; older `Planning bucket` naming is legacy compatibility only
+- the planning view has been discontinued and is no longer part of the active app
+- `/planning` now redirects to `/daily` for compatibility only
+- all active behavior and verification rules below apply to the daily board
 
 ## Daily Columns
 
@@ -72,6 +54,8 @@ Use these exact columns in this order:
 - `IN CODE REVIEW`
 - `DEPLOYED TO DEV`
 - `TESTED IN DEV`
+- `DEPLOYED TO STAGING`
+- `TESTED IN STAGING`
 
 ## Item Classification
 
@@ -101,6 +85,7 @@ Observed task type IDs:
 - daily filters are client-side only
 - daily status columns keep the canonical status order
 - daily status columns can be collapsed or expanded client-side from the header
+- `SPRINT BACKLOG`, `IN PROGRESS`, and `IN CODE REVIEW` stay expanded by default even when empty
 - collapsed status columns hide their cards until expanded again
 
 ## Daily Board Design Guidelines
@@ -117,13 +102,6 @@ Observed task type IDs:
 Fields observed on the target list:
 
 - `Prio score`
-- `Budget`
-- `CL Sprint ID`
-- `Epic`
-- `Epic-Story`
-- `Technical Area`
-- `effort`
-- `Size (days)`
 
 Important implementation rule:
 
@@ -131,22 +109,6 @@ Important implementation rule:
 - only fields used by the current normalization should block live reads
 
 ## Read Query Defaults
-
-Planning:
-
-- `include_closed=false`
-- `include_timl=false`
-- `subtasks=true`
-- statuses:
-  - `BACKLOG`
-  - `BUGS / ISSUES`
-  - `IN UX DESIGN`
-  - `READY TO REFINE`
-  - `SPRINT READY`
-  - `BLOCKED`
-  - `SPRINT BACKLOG`
-  - `IN PROGRESS`
-  - `IN CODE REVIEW`
 
 Daily:
 
@@ -160,6 +122,8 @@ Daily:
   - `IN CODE REVIEW`
   - `DEPLOYED TO DEV`
   - `TESTED IN DEV`
+  - `DEPLOYED TO STAGING`
+  - `TESTED IN STAGING`
 
 ## Guardrails
 

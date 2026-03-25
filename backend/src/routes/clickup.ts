@@ -132,19 +132,6 @@ clickupRouter.get("/schema", async (req, res) => {
   }
 });
 
-clickupRouter.get("/planning", async (req, res) => {
-  const requestToken = getRequestToken(req);
-  try {
-    const readService = getReadService(requestToken);
-
-    res.json({
-      items: await readService.getPlanningItems()
-    });
-  } catch (error) {
-    handleRouteError(error, res, requestToken?.source);
-  }
-});
-
 clickupRouter.get("/daily", async (req, res) => {
   const requestToken = getRequestToken(req);
   try {
@@ -162,16 +149,14 @@ clickupRouter.get("/verification", async (req, res) => {
   const requestToken = getRequestToken(req);
   try {
     const readService = getReadService(requestToken);
-    const [schema, planning, daily] = await Promise.all([
+    const [schema, daily] = await Promise.all([
       readService.getSchema(),
-      readService.getPlanningItems(),
       readService.getDailyRows()
     ]);
 
     res.json({
       summary: buildVerificationSummary({
         schema,
-        planning,
         daily
       })
     });

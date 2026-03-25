@@ -1,10 +1,10 @@
 # ClickUp Research Notes
 
-Last updated: 2026-03-18
+Last updated: 2026-03-25
 
 ## Purpose
 
-This file keeps only the historical findings that still help explain the current implementation.
+This file keeps only the historical findings that still help explain the current implementation. The planning view has been discontinued, so planning-specific notes here should be treated as background only.
 
 Use [clickup-reference.md](/data/simple-clickup/docs/clickup-reference.md) for stable product rules and [clickup-v1-plan.md](/data/simple-clickup/docs/clickup-v1-plan.md) for the active roadmap.
 
@@ -21,9 +21,9 @@ Use [clickup-reference.md](/data/simple-clickup/docs/clickup-reference.md) for s
 
 - task type is the preferred classifier
 - hierarchy is the fallback when task type data is incomplete
-- `Prio score` and `Budget` are actively used by the current read model
+- `Prio score` is actively used by the current daily read model
+- `Budget` was used by the discontinued planning model
 - the older `Swimlane` field naming appears to have been replaced by `Budget`
-- Phase 2 verification compares the prio view against top-level planning items only; subtasks stay as child work and are not part of top-level budget counts
 
 Observed task type IDs:
 

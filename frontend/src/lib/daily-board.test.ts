@@ -1,6 +1,10 @@
 import type { DailyRow } from "@custom-clickup/shared";
 import { describe, expect, it } from "vitest";
-import { filterDailyBoard, getVisibleDailyStatuses } from "./daily-board";
+import {
+  filterDailyBoard,
+  getVisibleDailyStatuses,
+  isDailyStatusCollapsedByDefault
+} from "./daily-board";
 
 const rows: DailyRow[] = [
   {
@@ -91,6 +95,15 @@ describe("filterDailyBoard", () => {
     });
 
     expect(getVisibleDailyStatuses(result.rows)).toEqual(["IN CODE REVIEW"]);
+  });
+
+  it("keeps sprint backlog, in progress, and code review expanded by default even when empty", () => {
+    const visibleStatuses = new Set(getVisibleDailyStatuses([]));
+
+    expect(isDailyStatusCollapsedByDefault("SPRINT BACKLOG", visibleStatuses)).toBe(false);
+    expect(isDailyStatusCollapsedByDefault("IN PROGRESS", visibleStatuses)).toBe(false);
+    expect(isDailyStatusCollapsedByDefault("IN CODE REVIEW", visibleStatuses)).toBe(false);
+    expect(isDailyStatusCollapsedByDefault("BLOCKED", visibleStatuses)).toBe(true);
   });
 
   it("filters cards by assignee without exposing standalone row titles as search hits", () => {

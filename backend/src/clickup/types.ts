@@ -1,4 +1,4 @@
-import type { DailyRow, PlanningItem, SchemaConfig } from "@custom-clickup/shared";
+import type { DailyRow, SchemaConfig } from "@custom-clickup/shared";
 
 export type ClickUpTokenSource = "env" | "session" | "none";
 
@@ -98,7 +98,7 @@ export interface ClickUpRequestSummary {
   method: string;
   page?: number;
   pathname: string;
-  readTarget?: "schema" | "planning" | "daily";
+  readTarget?: "daily";
   responseItems?: number;
   startedAt: string;
   tokenSource?: ClickUpTokenSource;
@@ -107,6 +107,5 @@ export interface ClickUpRequestSummary {
 
 export interface ClickUpLiveSnapshot {
   schema: SchemaConfig;
-  planning: PlanningItem[];
   daily: DailyRow[];
 }

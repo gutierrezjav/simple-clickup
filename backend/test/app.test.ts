@@ -56,7 +56,7 @@ describe("createApp", () => {
   });
 
   it("serves built frontend routes for SPA navigation", async () => {
-    const response = await fetch(`${baseUrl}/planning`, {
+    const response = await fetch(`${baseUrl}/daily`, {
       headers: {
         Accept: "text/html"
       }
@@ -74,7 +74,7 @@ describe("createApp", () => {
   });
 
   it("keeps API routes on the backend handler path", async () => {
-    const response = await fetch(`${baseUrl}/api/clickup/planning`, {
+    const response = await fetch(`${baseUrl}/api/clickup/daily`, {
       headers: {
         Accept: "application/json"
       }
@@ -85,9 +85,9 @@ describe("createApp", () => {
     expect(response.status).toBeLessThan(500);
 
     const payload = (await response.json()) as {
-      items?: unknown[];
+      rows?: unknown[];
       message?: string;
     };
-    expect("items" in payload || "message" in payload).toBe(true);
+    expect("rows" in payload || "message" in payload).toBe(true);
   });
 });

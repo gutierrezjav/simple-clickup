@@ -26,6 +26,12 @@ export interface FilteredDailyBoard {
   rows: FilteredDailyRow[];
 }
 
+const alwaysExpandedWhenEmptyStatuses = new Set<DailyStatus>([
+  "SPRINT BACKLOG",
+  "IN PROGRESS",
+  "IN CODE REVIEW"
+]);
+
 export function getVisibleDailyStatuses(rows: Pick<DailyRow, "cards">[]): DailyStatus[] {
   const visibleStatuses = new Set<DailyStatus>();
 
@@ -36,6 +42,17 @@ export function getVisibleDailyStatuses(rows: Pick<DailyRow, "cards">[]): DailyS
   }
 
   return dailyStatuses.filter((status) => visibleStatuses.has(status));
+}
+
+export function isDailyStatusCollapsedByDefault(
+  status: DailyStatus,
+  visibleStatuses: ReadonlySet<DailyStatus>
+): boolean {
+  if (alwaysExpandedWhenEmptyStatuses.has(status)) {
+    return false;
+  }
+
+  return !visibleStatuses.has(status);
 }
 
 function createStatusCountMap(): Record<DailyStatus, number> {

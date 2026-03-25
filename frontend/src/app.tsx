@@ -1,13 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { BrowserRouter, Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { TopBarActionContext, type TopBarAction } from "./lib/top-bar-action";
 import { DailyPage } from "./routes/daily-page";
-import { PlanningPage } from "./routes/planning-page";
 import { VerificationPage } from "./routes/verification-page";
-
-function getTabClassName({ isActive }: { isActive: boolean }) {
-  return isActive ? "view-tab view-tab--active" : "view-tab";
-}
 
 function AppShell({ children }: { children: ReactNode }) {
   const [topBarAction, setTopBarAction] = useState<TopBarAction | null>(null);
@@ -22,14 +17,6 @@ function AppShell({ children }: { children: ReactNode }) {
                 <div className="workspace-header__eyebrow">R&amp;D WingtraCloud / All Tasks</div>
                 <h2>Wingtra Cloud Dev</h2>
               </div>
-              <nav className="view-tabs" aria-label="Views">
-                <NavLink className={getTabClassName} to="/daily">
-                  Daily
-                </NavLink>
-                <NavLink className={getTabClassName} to="/planning">
-                  Planning
-                </NavLink>
-              </nav>
               {topBarAction ? (
                 <div className="workspace-header__actions">
                   <button
@@ -52,10 +39,6 @@ function AppShell({ children }: { children: ReactNode }) {
 }
 
 function getDocumentTitle(pathname: string): string {
-  if (pathname.startsWith("/planning")) {
-    return "Simple Clickup | Planning";
-  }
-
   if (pathname.startsWith("/daily")) {
     return "Simple Clickup | Daily";
   }
@@ -84,9 +67,10 @@ export function App() {
       <AppShell>
         <Routes>
           <Route path="/" element={<Navigate replace to="/daily" />} />
-          <Route path="/planning" element={<PlanningPage />} />
+          <Route path="/planning" element={<Navigate replace to="/daily" />} />
           <Route path="/daily" element={<DailyPage />} />
           <Route path="/verify" element={<VerificationPage />} />
+          <Route path="*" element={<Navigate replace to="/daily" />} />
         </Routes>
       </AppShell>
     </BrowserRouter>

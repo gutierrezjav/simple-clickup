@@ -1,22 +1,17 @@
 import {
   dailyFixtures,
   dailyStatuses,
-  planningExcludedStatuses,
-  planningFixtures,
   schemaConfig,
   type DailyCard,
   type DailyRow,
-  type PlanningItem,
   type SchemaConfig
 } from "@custom-clickup/shared";
 import { clickupLogger } from "../logging.js";
 import { ClickUpClient } from "./client.js";
 import { ClickUpServiceError } from "./errors.js";
 import type {
-  ClickUpCustomFieldOptionPayload,
   ClickUpCustomFieldPayload,
   ClickUpCustomTaskTypePayload,
-  ClickUpFieldPayload,
   ClickUpStatusPayload,
   ClickUpTaskPayload,
   ClickUpTaskQueryOptions,
@@ -47,35 +42,14 @@ interface CachedLoadResult<T> {
   value: T;
 }
 
-interface ClickUpMetadataSnapshot {
-  fieldCount: number;
-  fieldByName: Map<string, ClickUpFieldPayload>;
-  schema: SchemaConfig;
+interface ClickUpTaskMetadataSnapshot {
   taskTypeMap: Map<number, string>;
 }
 
-type ReadTarget = "schema" | "planning" | "daily";
+type TaskKind = "story" | "standalone-task" | "standalone-bug" | "subtask";
+type ReadTarget = "daily";
 
 const metadataCacheTtlMultiplier = 5;
-const planningQueryStatuses = [
-  "BACKLOG",
-  "BUGS / ISSUES",
-  "IN UX DESIGN",
-  "READY TO REFINE",
-  "SPRINT READY",
-  "BLOCKED",
-  "SPRINT BACKLOG",
-  "IN PROGRESS",
-  "IN CODE REVIEW"
-] as const;
-
-const planningTaskQuery: ClickUpTaskQueryOptions = {
-  archived: false,
-  includeClosed: false,
-  includeTiml: false,
-  statuses: [...planningQueryStatuses],
-  subtasks: true
-};
 
 const dailyTaskQuery: ClickUpTaskQueryOptions = {
   archived: false,
@@ -84,18 +58,6 @@ const dailyTaskQuery: ClickUpTaskQueryOptions = {
   statuses: [...dailyStatuses],
   subtasks: true
 };
-
-const budgetFieldNames = ["Budget", "Planning bucket"] as const;
-const requiredFieldGroups = [
-  ["Prio score"],
-  budgetFieldNames,
-  ["CL Sprint ID"],
-  ["Epic"],
-  ["Epic-Story"],
-  ["Technical Area"],
-  ["effort"],
-  ["Size (days)"]
-] as const;
 
 function normalizeName(value: string): string {
   return value.trim().toLowerCase();
@@ -158,36 +120,6 @@ function parseNumberField(field: ClickUpCustomFieldPayload | undefined): number 
   return undefined;
 }
 
-function optionMatchesValue(
-  option: ClickUpCustomFieldOptionPayload,
-  rawValue: string | number
-): boolean {
-  if (option.id === rawValue) {
-    return true;
-  }
-
-  const rawAsString = String(rawValue);
-  return String(option.orderindex ?? "") === rawAsString;
-}
-
-function parseDropdownField(
-  field: ClickUpCustomFieldPayload | undefined,
-  fallbackField: ClickUpFieldPayload | undefined
-): string | undefined {
-  const rawValue = field?.value;
-  if (typeof rawValue !== "string" && typeof rawValue !== "number") {
-    return undefined;
-  }
-
-  const options = field?.type_config?.options ?? fallbackField?.type_config?.options;
-  if (!options?.length) {
-    return undefined;
-  }
-
-  const match = options.find((option) => optionMatchesValue(option, rawValue));
-  return match?.name?.trim() || undefined;
-}
-
 function flattenTasks(tasks: ClickUpTaskPayload[]): ClickUpTaskPayload[] {
   const deduped = new Map<string, ClickUpTaskPayload>();
 
@@ -215,35 +147,6 @@ function getCustomField(task: ClickUpTaskPayload, fieldName: string): ClickUpCus
   return task.custom_fields?.find((field) => field.name === fieldName);
 }
 
-function getCustomFieldByNames(
-  task: ClickUpTaskPayload,
-  fieldNames: readonly string[]
-): ClickUpCustomFieldPayload | undefined {
-  for (const fieldName of fieldNames) {
-    const field = getCustomField(task, fieldName);
-    if (field) {
-      return field;
-    }
-  }
-
-  return undefined;
-}
-
-function buildFieldMap(fields: ClickUpFieldPayload[]): Map<string, ClickUpFieldPayload> {
-  const fieldByName = new Map<string, ClickUpFieldPayload>();
-
-  for (const field of fields) {
-    const name = field.name?.trim();
-    if (!name) {
-      continue;
-    }
-
-    fieldByName.set(name, field);
-  }
-
-  return fieldByName;
-}
-
 function buildTaskTypeMap(taskTypes: ClickUpCustomTaskTypePayload[]): Map<number, string> {
   const taskTypeMap = new Map<number, string>();
 
@@ -266,25 +169,10 @@ function buildTaskTypeMap(taskTypes: ClickUpCustomTaskTypePayload[]): Map<number
   return taskTypeMap;
 }
 
-function validateFields(fields: ClickUpFieldPayload[]): void {
-  const names = new Set(fields.map((field) => field.name?.trim()).filter(Boolean));
-  const missingFields = requiredFieldGroups
-    .filter((fieldNames) => !fieldNames.some((fieldName) => names.has(fieldName)))
-    .map(([preferredFieldName]) => preferredFieldName);
-
-  if (missingFields.length > 0) {
-    throw new ClickUpServiceError(
-      `Target list is missing required ClickUp fields: ${missingFields.join(", ")}.`,
-      502
-    );
-  }
-}
-
 function buildSchema(teamId: string, listId: string): SchemaConfig {
   return {
     workspaceId: teamId,
     listId,
-    planningExcludedStatuses,
     dailyStatuses,
     inlineEditableFields: schemaConfig.inlineEditableFields
   };
@@ -293,7 +181,7 @@ function buildSchema(teamId: string, listId: string): SchemaConfig {
 function classifyTask(
   task: ClickUpTaskPayload,
   taskTypeMap: Map<number, string>
-): PlanningItem["kind"] {
+): TaskKind {
   const normalizedTaskTypeName = normalizeName(taskTypeMap.get(task.custom_item_id ?? Number.NaN) ?? "");
   const hasPriorityBugTag = (task.tags ?? []).some((tag) => {
     const tagName = tag.name?.trim().toLowerCase();
@@ -309,114 +197,6 @@ function classifyTask(
   }
 
   return task.parent ? "subtask" : "standalone-task";
-}
-
-function toPlanningItem(
-  task: ClickUpTaskPayload,
-  kind: PlanningItem["kind"],
-  fieldByName: Map<string, ClickUpFieldPayload>,
-  childItems: PlanningItem[] = []
-): PlanningItem {
-  const prioScore = parseNumberField(getCustomField(task, "Prio score"));
-  const primaryAssignee = firstAssignee(task.assignees);
-  const assignee = assigneeName(primaryAssignee);
-  const primaryAssigneeAvatarUrl = assignee ? assigneeAvatarUrl(primaryAssignee) : undefined;
-  const budget = parseDropdownField(
-    getCustomFieldByNames(task, budgetFieldNames),
-    budgetFieldNames.map((fieldName) => fieldByName.get(fieldName)).find(Boolean)
-  );
-
-  return {
-    id: task.id ?? "unknown-task",
-    customId: task.custom_id ?? task.id ?? "unknown-task",
-    title: task.name?.trim() || "Untitled ClickUp task",
-    kind,
-    status: normalizeStatus(task.status),
-    ...(prioScore !== undefined ? { prioScore } : {}),
-    ...(assignee ? { assignee } : {}),
-    ...(primaryAssigneeAvatarUrl ? { assigneeAvatarUrl: primaryAssigneeAvatarUrl } : {}),
-    ...(budget ? { budget } : {}),
-    ...(childItems.length > 0 ? { children: childItems } : {})
-  };
-}
-
-export function buildPlanningItems(
-  tasks: ClickUpTaskPayload[],
-  taskTypeMap: Map<number, string>,
-  fieldByName: Map<string, ClickUpFieldPayload> = new Map()
-): PlanningItem[] {
-  const flatTasks = flattenTasks(tasks);
-  const childIdsByParentId = new Map<string, string[]>();
-  const taskById = new Map<string, ClickUpTaskPayload>();
-
-  for (const task of flatTasks) {
-    const taskId = task.id;
-    if (!taskId) {
-      continue;
-    }
-
-    taskById.set(taskId, task);
-
-    if (!task.parent) {
-      continue;
-    }
-
-    const currentChildren = childIdsByParentId.get(task.parent) ?? [];
-    currentChildren.push(taskId);
-    childIdsByParentId.set(task.parent, currentChildren);
-  }
-
-  return flatTasks
-    .filter((task) => !task.parent)
-    .map((task) => {
-      const kind = classifyTask(task, taskTypeMap);
-      const status = normalizeStatus(task.status);
-      const hasPriorityBugTag = (task.tags ?? []).some((tag) => {
-        const tagName = tag.name?.trim().toLowerCase();
-        return tagName === "po prio" || tagName === "qa prio";
-      });
-
-      const includeInPlanning =
-        status === "SPRINT BACKLOG" ||
-        (kind === "story" &&
-          !planningExcludedStatuses.includes(status as (typeof planningExcludedStatuses)[number])) ||
-        (kind === "standalone-bug" &&
-          hasPriorityBugTag &&
-          !planningExcludedStatuses.includes(status as (typeof planningExcludedStatuses)[number]));
-
-      if (!includeInPlanning) {
-        return null;
-      }
-
-      const childItems = (childIdsByParentId.get(task.id ?? "") ?? [])
-        .map((childId) => taskById.get(childId))
-        .filter((child): child is ClickUpTaskPayload => Boolean(child))
-        .filter((child) => normalizeStatus(child.status) !== "CLOSED")
-        .map((child) => ({
-          item: toPlanningItem(child, "subtask", fieldByName),
-          orderindex: child.orderindex,
-          prioScore: parseNumberField(getCustomField(child, "Prio score"))
-        }))
-        .sort(compareByTaskMetrics)
-        .map((entry) => entry.item);
-
-      return {
-        item: toPlanningItem(task, kind, fieldByName, childItems),
-        orderindex: task.orderindex,
-        prioScore: parseNumberField(getCustomField(task, "Prio score"))
-      };
-    })
-    .filter(
-      (
-        item
-      ): item is {
-        item: PlanningItem;
-        orderindex: string | null | undefined;
-        prioScore: number | undefined;
-      } => Boolean(item)
-    )
-    .sort(compareByTaskMetrics)
-    .map((entry) => entry.item);
 }
 
 function toDailyCard(task: ClickUpTaskPayload): DailyCard {
@@ -443,7 +223,7 @@ export function buildDailyRows(
   const flatTasks = flattenTasks(tasks);
   const taskById = new Map<string, ClickUpTaskPayload>();
   const childIdsByParentId = new Map<string, string[]>();
-  const taskKindById = new Map<string, PlanningItem["kind"]>();
+  const taskKindById = new Map<string, TaskKind>();
   const allowedStatuses = new Set<string>(dailyStatuses);
 
   for (const task of flatTasks) {
@@ -655,7 +435,6 @@ function createCachedLoader<T>(
 
 export interface ClickUpReadService {
   getDailyRows(): Promise<DailyRow[]>;
-  getPlanningItems(): Promise<PlanningItem[]>;
   getReadMode(): ClickUpReadMode;
   getSchema(): Promise<SchemaConfig>;
 }
@@ -665,9 +444,6 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
     return {
       async getDailyRows() {
         return dailyFixtures;
-      },
-      async getPlanningItems() {
-        return planningFixtures;
       },
       getReadMode() {
         return "mock";
@@ -700,34 +476,20 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
   });
   const metadataCacheTtlMs = Math.max(config.cacheTtlMs * metadataCacheTtlMultiplier, config.cacheTtlMs);
 
-  const loadMetadata = createCachedLoader(metadataCacheTtlMs, async (): Promise<ClickUpMetadataSnapshot> => {
-    const [fields, taskTypes] = await Promise.all([
-      client.getListFields(config.listId),
-      client.getCustomTaskTypes()
-    ]);
+  const loadTaskMetadata = createCachedLoader(
+    metadataCacheTtlMs,
+    async (): Promise<ClickUpTaskMetadataSnapshot> => {
+      const taskTypes = await client.getCustomTaskTypes();
 
-    validateFields(fields);
-
-    return {
-      fieldCount: fields.length,
-      fieldByName: buildFieldMap(fields),
-      schema: buildSchema(config.teamId, config.listId),
-      taskTypeMap: buildTaskTypeMap(taskTypes)
-    };
-  });
-
-  const loadPlanning = createCachedLoader(config.cacheTtlMs, async (): Promise<PlanningItem[]> => {
-    const [metadata, tasks] = await Promise.all([
-      loadMetadata(),
-      client.getListTasks(config.listId, planningTaskQuery)
-    ]);
-
-    return buildPlanningItems(tasks, metadata.value.taskTypeMap, metadata.value.fieldByName);
-  });
+      return {
+        taskTypeMap: buildTaskTypeMap(taskTypes)
+      };
+    }
+  );
 
   const loadDaily = createCachedLoader(config.cacheTtlMs, async (): Promise<DailyRow[]> => {
     const [metadata, tasks] = await Promise.all([
-      loadMetadata(),
+      loadTaskMetadata(),
       client.getListTasks(config.listId, dailyTaskQuery)
     ]);
 
@@ -781,15 +543,13 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
     async getDailyRows() {
       return runLogicalRead("daily", loadDaily, (rows) => rows.length);
     },
-    async getPlanningItems() {
-      return runLogicalRead("planning", loadPlanning, (items) => items.length);
-    },
     getReadMode() {
       return "live";
     },
     async getSchema() {
-      const metadata = await runLogicalRead("schema", loadMetadata, (value) => value.fieldCount);
-      return metadata.schema;
+      return {
+        ...buildSchema(config.teamId, config.listId)
+      };
     }
   };
 }

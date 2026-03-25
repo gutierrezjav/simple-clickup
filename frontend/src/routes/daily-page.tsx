@@ -17,6 +17,7 @@ import {
 import {
   filterDailyBoard,
   getVisibleDailyStatuses,
+  isDailyStatusCollapsedByDefault,
   type DailyBoardCounts,
   type DailyBoardFilters
 } from "../lib/daily-board";
@@ -159,7 +160,7 @@ function renderDailyGrid({
   const statusWidth = 206;
   const collapsedStatusWidth = 72;
   const isStatusCollapsed = (status: DailyStatus) =>
-    statusCollapseOverrides[status] ?? !visibleStatuses.has(status);
+    statusCollapseOverrides[status] ?? isDailyStatusCollapsedByDefault(status, visibleStatuses);
   const totalBoardWidth = dailyStatuses.reduce(
     (width, status) => width + (isStatusCollapsed(status) ? collapsedStatusWidth : statusWidth),
     swimlaneWidth

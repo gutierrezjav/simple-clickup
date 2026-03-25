@@ -1,10 +1,10 @@
 # Agent Handoff
 
-Last updated: 2026-03-20
+Last updated: 2026-03-25
 
 ## Project Summary
 
-This repo is a read-only ClickUp client for the `Wingtra Cloud Dev` list. It ships a planning view, a daily board, a verification page, and a backend-owned ClickUp integration. The latest work adds a containerized deployment path for Amazon Lightsail Container Service.
+This repo is a read-only ClickUp client for the `Wingtra Cloud Dev` list. It ships a daily board, a verification page, and a backend-owned ClickUp integration. The latest work adds a containerized deployment path for Amazon Lightsail Container Service.
 
 ## Current State
 
@@ -15,9 +15,11 @@ Recent maintenance work tightened the daily board behavior and layout:
 - only actual story items own story swimlanes
 - task descendants inherit the correct swimlane instead of spawning accidental story rows
 - daily status columns are now client-side collapsible and expandable from the header
+- `SPRINT BACKLOG`, `IN PROGRESS`, and `IN CODE REVIEW` stay expanded by default even when empty
 - collapsed columns hide their cards and use a compact rail presentation
 - sticky swimlane headers now keep a flat opaque surface during horizontal scroll
 - daily board design guardrails now live in [docs/clickup-reference.md](/data/simple-clickup/docs/clickup-reference.md) and [docs/clickup-v1-plan.md](/data/simple-clickup/docs/clickup-v1-plan.md)
+- the old planning view and planning loader have been discontinued and removed from the active app
 
 Recent deployment-related commits:
 
@@ -62,7 +64,7 @@ Recent deployment-related commits:
 - `docker build -t simple-clickup:local-test .`: passed
 - Started the built image locally and verified:
   - `GET /health` returned `200`
-  - `GET /planning` served the compiled frontend HTML
+  - `GET /daily` served the compiled frontend HTML
 
 ### OAuth Mode Verification
 
@@ -74,7 +76,7 @@ Recent deployment-related commits:
   - `SESSION_COOKIE_SECURE=false`
 - Verified the live-mode pre-login state:
   - backend listened on port `8080`
-  - `GET /api/clickup/planning` returned `401 Unauthorized`
+  - `GET /api/clickup/daily` returned `401 Unauthorized`
   - response header `x-custom-clickup-read-mode: live`
 
 ## Open Follow-Ups
@@ -83,8 +85,7 @@ No active delivery work remains on the current roadmap.
 
 Optional or deferred items only:
 
-- optional planning filters if they become worth implementing later
-- optional UX polish such as exposing the mock/live status banner on Planning and Daily
+- optional UX polish such as exposing the mock/live status banner on Daily
 - Database support is still intentionally deferred. The current deployment path assumes a stateless app container.
 
 ## Main Entry Points
@@ -100,7 +101,6 @@ Optional or deferred items only:
 ### Frontend
 
 - [frontend/src/app.tsx](/data/simple-clickup/frontend/src/app.tsx): route shell
-- [frontend/src/routes/planning-page.tsx](/data/simple-clickup/frontend/src/routes/planning-page.tsx): planning screen
 - [frontend/src/routes/daily-page.tsx](/data/simple-clickup/frontend/src/routes/daily-page.tsx): daily board screen
 - [frontend/src/lib/daily-board.ts](/data/simple-clickup/frontend/src/lib/daily-board.ts): daily filter logic and visible-status derivation
 - [frontend/src/styles.css](/data/simple-clickup/frontend/src/styles.css): daily board layout, collapsed-column styling, and sticky swimlane treatment

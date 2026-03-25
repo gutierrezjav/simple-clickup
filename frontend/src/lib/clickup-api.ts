@@ -1,13 +1,9 @@
-import type { DailyRow, PlanningItem, VerificationSummary } from "@custom-clickup/shared";
+import type { DailyRow, VerificationSummary } from "@custom-clickup/shared";
 
 export type ReadMode = "mock" | "live";
 
 export interface ResourceMetadata {
   readMode: ReadMode;
-}
-
-export interface PlanningPageData extends ResourceMetadata {
-  items: PlanningItem[];
 }
 
 export interface DailyPageData extends ResourceMetadata {
@@ -78,10 +74,6 @@ async function fetchClickUpResource<T>(path: string): Promise<T & { readMode: Re
     ...payload,
     readMode
   };
-}
-
-export function fetchPlanningPageData(): Promise<PlanningPageData> {
-  return fetchClickUpResource<{ items: PlanningItem[] }>("/api/clickup/planning");
 }
 
 export function fetchDailyPageData(): Promise<DailyPageData> {
