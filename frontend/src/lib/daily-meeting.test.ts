@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   advanceDailyMeetingRound,
   getDailyMeetingProgressCount,
-  getEligibleDailyMeetingRoster
+  getEligibleDailyMeetingRoster,
+  getNextDailyMeetingSpeaker
 } from "./daily-meeting";
 
 function createSequenceRandom(values: number[]): () => number {
@@ -157,5 +158,29 @@ describe("getDailyMeetingProgressCount", () => {
         order: ["Alice Smith", "Bob Jones", "Charlie Brown", "Jessica Nilsson"]
       })
     ).toBe(5);
+  });
+});
+
+describe("getNextDailyMeetingSpeaker", () => {
+  it("returns no preview before the round starts", () => {
+    expect(getNextDailyMeetingSpeaker(null)).toBeNull();
+  });
+
+  it("returns the next speaker while the round is in progress", () => {
+    expect(
+      getNextDailyMeetingSpeaker({
+        currentIndex: 0,
+        order: ["Alice Smith", "Bob Jones", "Jessica Nilsson"]
+      })
+    ).toBe("Bob Jones");
+  });
+
+  it("returns no preview after the final speaker is selected", () => {
+    expect(
+      getNextDailyMeetingSpeaker({
+        currentIndex: 2,
+        order: ["Alice Smith", "Bob Jones", "Jessica Nilsson"]
+      })
+    ).toBeNull();
   });
 });

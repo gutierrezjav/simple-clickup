@@ -63,6 +63,14 @@ export function getDailyMeetingProgressCount(
   return Math.max(1, Math.min(segmentCount, Math.ceil(((round.currentIndex + 1) / round.order.length) * segmentCount)));
 }
 
+export function getNextDailyMeetingSpeaker(round: DailyMeetingRound | null): string | null {
+  if (!round || round.order.length === 0) {
+    return null;
+  }
+
+  return round.order[round.currentIndex + 1] ?? null;
+}
+
 export function advanceDailyMeetingRound({
   assigneeOptions,
   random = Math.random,

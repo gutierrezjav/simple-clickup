@@ -21,6 +21,7 @@ import {
   advanceDailyMeetingRound,
   getDailyMeetingProgressCount,
   getEligibleDailyMeetingRoster,
+  getNextDailyMeetingSpeaker,
   type DailyMeetingRound
 } from "../lib/daily-meeting";
 import {
@@ -148,6 +149,10 @@ function getCollapsedStatusLabel(status: (typeof dailyStatuses)[number]): string
     default:
       return status;
   }
+}
+
+function getFirstName(name: string): string {
+  return name.trim().split(/\s+/)[0] ?? name;
 }
 
 function renderDailyGrid({
@@ -405,6 +410,7 @@ export function DailyPage({
   const sortedRows = data ? sortDailyRows(data.rows) : [];
   const filteredBoard = filterDailyBoard(sortedRows, filters);
   const eligibleMeetingRoster = getEligibleDailyMeetingRoster(filteredBoard.assigneeOptions);
+  const nextMeetingSpeaker = getNextDailyMeetingSpeaker(meetingRound);
   useTopBarAction({
     disabled: isRefreshing,
     label: isRefreshing ? "Refreshing..." : "Refresh",
@@ -575,6 +581,7 @@ export function DailyPage({
           className="toolbar-button"
           disabled={!meetingRound && eligibleMeetingRoster.length === 0}
           onClick={handleNextSpeaker}
+          title={nextMeetingSpeaker ? `Next up: ${getFirstName(nextMeetingSpeaker)}` : undefined}
           type="button"
         >
           Next
