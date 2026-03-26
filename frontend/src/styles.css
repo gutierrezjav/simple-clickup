@@ -986,6 +986,7 @@ input {
 }
 
 .daily-swimlane {
+  --daily-swimlane-min-height: 104px;
   display: grid;
   grid-template-columns: var(
     --daily-grid-columns,
@@ -1005,7 +1006,7 @@ input {
   display: grid;
   gap: 4px;
   align-content: start;
-  min-height: 132px;
+  min-height: var(--daily-swimlane-min-height);
   padding: 10px 12px 10px 10px;
   border: none;
   border-radius: var(--radius-sm);
@@ -1046,7 +1047,7 @@ input {
   display: grid;
   align-content: start;
   gap: 6px;
-  min-height: 132px;
+  min-height: var(--daily-swimlane-min-height);
   padding: 6px;
   border: none;
   background: transparent;
