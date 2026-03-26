@@ -10,6 +10,7 @@ Behavior:
 - `Unassigned` and `Javier Gutierrez` are always excluded from the speaking order
 - `Jessica Nilsson` is moved to the end of the order only if she is already present in the roster
 - the first click on `Next` starts a new round with a randomized order
+- once a round has started, the `Next` button may show a subtle tooltip preview of the upcoming speaker using only their first name
 - each later click advances to the next name in that stored order and updates the assignee filter to that person
 - if the user manually selects a different assignee mid-round, that manual selection does not reset or rewrite the stored order; the next `Next` click resumes the original sequence from the stored position and overrides the manual selection
 - after the final speaker, the next click clears the assignee filter and clears the round state
@@ -51,6 +52,7 @@ Behavior:
 - button behavior:
   - enabled only when there is at least one eligible assignee option after exclusions
   - first click starts the round
+  - after the round starts, hover can preview the next speaker's first name
   - later clicks advance the stored sequence, even if the dropdown was manually changed in between
 - if the only options are excluded names or the list is otherwise empty, disable `Next`
 

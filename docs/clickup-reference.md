@@ -87,6 +87,7 @@ Observed task type IDs:
 - daily status columns can be collapsed or expanded client-side from the header
 - `SPRINT BACKLOG`, `IN PROGRESS`, and `IN CODE REVIEW` stay expanded by default even when empty
 - collapsed status columns hide their cards until expanded again
+- truncated daily card title, custom ID, and assignee text expose their full value in a native tooltip only when the text overflows
 
 ## Daily Meeting Helper
 
@@ -95,6 +96,7 @@ Observed task type IDs:
 - `Unassigned` and `Javier Gutierrez` are excluded from the helper rotation
 - `Jessica Nilsson` is always moved to the end when she is present in the assignee list
 - the first `Next` click starts a randomized order; later clicks keep advancing the stored order until it ends
+- once a round has started, the `Next` button shows a subtle tooltip preview of the next speaker using only their first name
 - manual search changes, manual assignee changes, `Clear filters`, and `Refresh` do not reset the stored `Next` order
 - if new people appear in the assignee list after a round starts, they are not injected into the current stored order; they can still be selected manually
 - after the final speaker, the next `Next` click clears the assignee filter and resets the helper round
@@ -105,6 +107,7 @@ Observed task type IDs:
 - do not let card shadows or scrolling content bleed through the swimlane header area
 - keep story, task, and bug swimlane header treatment visually consistent unless there is a strong information-hierarchy reason not to
 - keep daily cards compact: reduced padding, reduced gaps, smaller radii, and regular-weight titles
+- keep swimlane rows vertically compact; the shared minimum row height is intentionally denser than the original board styling
 - collapsed columns should read as rails, not mini full columns
 - collapsed rails keep the colored status chip at the top and the count at the bottom
 

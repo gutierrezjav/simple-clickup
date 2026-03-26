@@ -155,6 +155,95 @@ function getFirstName(name: string): string {
   return name.trim().split(/\s+/)[0] ?? name;
 }
 
+function getSwimlaneMeta(rowType: DailyRow["type"]) {
+  switch (rowType) {
+    case "story":
+      return {
+        label: "Story",
+        pillModifier: "story"
+      };
+    case "tasks":
+      return {
+        label: "Tasks",
+        pillModifier: "standalone-task"
+      };
+    case "bugs":
+      return {
+        label: "Bugs",
+        pillModifier: "standalone-bug"
+      };
+    default: {
+      const exhaustiveCheck: never = rowType;
+      throw new Error(`Unsupported swimlane type: ${exhaustiveCheck}`);
+    }
+  }
+}
+
+function renderSwimlaneTitle(row: ReturnType<typeof filterDailyBoard>["rows"][number]) {
+  if (row.type !== "story") {
+    return row.title;
+  }
+
+  return (
+    <a
+      className="task-link"
+      href={getClickUpTaskUrl(row.id)}
+      rel="noreferrer"
+      target="_blank"
+    >
+      {row.title}
+    </a>
+  );
+}
+
+function isRateLimitedError(error: Error | null | undefined): boolean {
+  return error instanceof ClickUpApiError && error.status === 429;
+}
+
+function isUnauthorizedError(error: Error | null | undefined): boolean {
+  return error instanceof ClickUpApiError && error.status === 401;
+}
+
+function getDailyErrorAction(
+  error: Error | null | undefined,
+  onConnect: () => void,
+  onRetry: () => void
+) {
+  return isUnauthorizedError(error)
+    ? {
+        actionLabel: "Connect ClickUp",
+        onAction: onConnect
+      }
+    : {
+        actionLabel: "Retry",
+        onAction: onRetry
+      };
+}
+
+function getDailyUnavailableTitle(error: Error | null | undefined): string {
+  if (!(error instanceof ClickUpApiError)) {
+    return "Daily Board Unavailable";
+  }
+
+  if (error.status === 429) {
+    return "Rate Limited";
+  }
+
+  if (error.status === 401) {
+    return "ClickUp Connection Required";
+  }
+
+  return "Daily Board Unavailable";
+}
+
+function getDailyRefreshErrorTitle(error: Error | null | undefined): string {
+  return isUnauthorizedError(error) ? "ClickUp Connection Required" : "Refresh Failed";
+}
+
+function getDailyErrorTone(error: Error | null | undefined): "warning" | "error" {
+  return isRateLimitedError(error) ? "warning" : "error";
+}
+
 function renderDailyGrid({
   counts,
   filtersActive,
@@ -246,65 +335,48 @@ function renderDailyGrid({
           })}
         </div>
         <div className="daily-board__body">
-          {rows.map((row) => (
-            <section className={`daily-swimlane daily-swimlane--${row.type}`} key={row.id}>
-              <div className="daily-swimlane__header">
-                <div className="daily-swimlane__header-top">
-                  <span
-                    className={`pill pill--kind pill--${
-                      row.type === "story"
-                        ? "story"
-                        : row.type === "tasks"
-                          ? "standalone-task"
-                          : "standalone-bug"
-                    }`}
-                  >
-                    {row.type === "story" ? "Story" : row.type === "tasks" ? "Tasks" : "Bugs"}
-                  </span>
-                  <span className="daily-swimlane__count">
-                    {formatCount(row.cards.length, row.totalCardCount, filtersActive)} cards
-                  </span>
-                </div>
-                <strong className="daily-swimlane__title">
-                  {row.type === "story" ? (
-                    <a
-                      className="task-link"
-                      href={getClickUpTaskUrl(row.id)}
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      {row.title}
-                    </a>
-                  ) : (
-                    row.title
-                  )}
-                </strong>
-                {typeof row.prioScore === "number" ? (
-                  <span className="daily-swimlane__prio">Prio {row.prioScore}</span>
-                ) : null}
-              </div>
-              {dailyStatuses.map((status) => {
-                const collapsed = isStatusCollapsed(status);
+          {rows.map((row) => {
+            const swimlaneMeta = getSwimlaneMeta(row.type);
 
-                return (
-                  <div
-                    className="daily-column"
-                    data-collapsed={collapsed ? "true" : "false"}
-                    data-status={status}
-                    key={`${row.id}-${status}`}
-                  >
-                    {collapsed
-                      ? null
-                      : row.cards
-                          .filter((card) => card.status === status)
-                          .map((card) => (
-                            <DailyCard card={card} key={card.id} />
-                          ))}
+            return (
+              <section className={`daily-swimlane daily-swimlane--${row.type}`} key={row.id}>
+                <div className="daily-swimlane__header">
+                  <div className="daily-swimlane__header-top">
+                    <span className={`pill pill--kind pill--${swimlaneMeta.pillModifier}`}>
+                      {swimlaneMeta.label}
+                    </span>
+                    <span className="daily-swimlane__count">
+                      {formatCount(row.cards.length, row.totalCardCount, filtersActive)} cards
+                    </span>
                   </div>
-                );
-              })}
-            </section>
-          ))}
+                  <strong className="daily-swimlane__title">{renderSwimlaneTitle(row)}</strong>
+                  {typeof row.prioScore === "number" ? (
+                    <span className="daily-swimlane__prio">Prio {row.prioScore}</span>
+                  ) : null}
+                </div>
+                {dailyStatuses.map((status) => {
+                  const collapsed = isStatusCollapsed(status);
+
+                  return (
+                    <div
+                      className="daily-column"
+                      data-collapsed={collapsed ? "true" : "false"}
+                      data-status={status}
+                      key={`${row.id}-${status}`}
+                    >
+                      {collapsed
+                        ? null
+                        : row.cards
+                            .filter((card) => card.status === status)
+                            .map((card) => (
+                              <DailyCard card={card} key={card.id} />
+                            ))}
+                    </div>
+                  );
+                })}
+              </section>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -449,6 +521,7 @@ export function DailyPage({
   }, [data, storyStatusLoader]);
 
   const handleConnect = () => startClickUpOAuth("/daily");
+  const errorAction = getDailyErrorAction(error, handleConnect, refresh);
 
   function handleSearchChange(search: string) {
     setFilters((current) => ({
@@ -507,31 +580,11 @@ export function DailyPage({
     return (
       <div className="panel panel--route">
         <ResourceState
-          actionLabel={
-            error instanceof ClickUpApiError && error.status === 401
-              ? "Connect ClickUp"
-              : "Retry"
-          }
+          actionLabel={errorAction.actionLabel}
           message={getDailyErrorMessage(error ?? new Error("Daily data could not be loaded."))}
-          onAction={
-            error instanceof ClickUpApiError && error.status === 401
-              ? handleConnect
-              : refresh
-          }
-          title={
-            error instanceof ClickUpApiError
-              ? error.status === 429
-                ? "Rate Limited"
-                : error.status === 401
-                  ? "ClickUp Connection Required"
-                  : "Daily Board Unavailable"
-              : "Daily Board Unavailable"
-          }
-          tone={
-            error instanceof ClickUpApiError && error.status === 429
-              ? "warning"
-              : "error"
-          }
+          onAction={errorAction.onAction}
+          title={getDailyUnavailableTitle(error)}
+          tone={getDailyErrorTone(error)}
         />
       </div>
     );
@@ -602,28 +655,12 @@ export function DailyPage({
       </div>
       {error ? (
         <ResourceState
-          actionLabel={
-            error instanceof ClickUpApiError && error.status === 401
-              ? "Connect ClickUp"
-              : "Retry"
-          }
+          actionLabel={errorAction.actionLabel}
           disabled={isRefreshing}
           message={getDailyErrorMessage(error)}
-          onAction={
-            error instanceof ClickUpApiError && error.status === 401
-              ? handleConnect
-              : refresh
-          }
-          title={
-            error instanceof ClickUpApiError && error.status === 401
-              ? "ClickUp Connection Required"
-              : "Refresh Failed"
-          }
-          tone={
-            error instanceof ClickUpApiError && error.status === 429
-              ? "warning"
-              : "error"
-          }
+          onAction={errorAction.onAction}
+          title={getDailyRefreshErrorTitle(error)}
+          tone={getDailyErrorTone(error)}
         />
       ) : null}
       {renderDailyGrid({

@@ -22,6 +22,9 @@ Recent maintenance work tightened the daily board behavior and layout:
 - the daily page triggers that discrepancy read lazily after the board loads and shows a dismissible warning banner when stories are out of sync
 - the daily page now includes a frontend-only `Next` helper for standups that rotates through assignee filter names
 - the `Next` helper skips `Unassigned` and `Javier Gutierrez`, keeps `Jessica Nilsson` last when present, and preserves its stored order across manual filter changes and refreshes
+- after a round has started, the `Next` button now previews the upcoming speaker via a subtle first-name tooltip
+- truncated daily card title, custom ID, and assignee text now expose the full value in a native tooltip
+- daily swimlanes now use a slightly smaller shared minimum row height to keep sparse boards denser
 - daily board design guardrails now live in [docs/clickup-reference.md](/data/simple-clickup/docs/clickup-reference.md) and [docs/clickup-v1-plan.md](/data/simple-clickup/docs/clickup-v1-plan.md)
 - the old planning view and planning loader have been discontinued and removed from the active app
 
@@ -109,7 +112,8 @@ Optional or deferred items only:
 - [frontend/src/lib/clickup-api.ts](/data/simple-clickup/frontend/src/lib/clickup-api.ts): frontend fetch layer, including the lazy story-status discrepancy read
 - [frontend/src/lib/daily-board.ts](/data/simple-clickup/frontend/src/lib/daily-board.ts): daily filter logic and visible-status derivation
 - [frontend/src/lib/daily-meeting.ts](/data/simple-clickup/frontend/src/lib/daily-meeting.ts): frontend-only standup rotation logic for the `Next` helper
-- [frontend/src/styles.css](/data/simple-clickup/frontend/src/styles.css): daily board layout, collapsed-column styling, sticky swimlane treatment, and discrepancy warning styling
+- [frontend/src/components/task/task-primitives.tsx](/data/simple-clickup/frontend/src/components/task/task-primitives.tsx): shared task text rendering and overflow-aware native tooltip behavior
+- [frontend/src/styles.css](/data/simple-clickup/frontend/src/styles.css): daily board layout, row sizing, collapsed-column styling, sticky swimlane treatment, and discrepancy warning styling
 - [frontend/src/routes/verification-page.tsx](/data/simple-clickup/frontend/src/routes/verification-page.tsx): verification screen and only visible mock/live badge
 
 ### Backend

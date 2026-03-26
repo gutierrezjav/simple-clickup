@@ -20,6 +20,10 @@ interface RequestToken {
   value: string;
 }
 
+type ReadServiceResponseFactory = (
+  readService: ClickUpReadService
+) => Promise<Record<string, unknown>>;
+
 function getSessionOptions(): SessionCookieOptions | null {
   if (!config.SESSION_SECRET) {
     return null;
@@ -119,93 +123,75 @@ function handleRouteError(
   });
 }
 
-clickupRouter.get("/schema", async (req, res) => {
+async function sendReadServiceResponse(
+  req: Request,
+  res: Response,
+  createResponse: ReadServiceResponseFactory
+) {
   const requestToken = getRequestToken(req);
+
   try {
     const readService = getReadService(requestToken);
-
-    res.json({
-      schema: await readService.getSchema()
-    });
+    res.json(await createResponse(readService));
   } catch (error) {
     handleRouteError(error, res, requestToken?.source);
   }
+}
+
+function handleMockWrite(req: Request, res: Response) {
+  if (config.CLICKUP_WRITE_MODE !== "mock") {
+    res.status(501).json({
+      message: "Real ClickUp writes are intentionally disabled in the scaffold."
+    });
+    return;
+  }
+
+  res.json({
+    taskId: req.params.taskId,
+    updated: true,
+    mode: "mock",
+    payload: req.body
+  });
+}
+
+clickupRouter.get("/schema", async (req, res) => {
+  await sendReadServiceResponse(req, res, async (readService) => ({
+    schema: await readService.getSchema()
+  }));
 });
 
 clickupRouter.get("/daily", async (req, res) => {
-  const requestToken = getRequestToken(req);
-  try {
-    const readService = getReadService(requestToken);
-
-    res.json({
-      rows: await readService.getDailyRows()
-    });
-  } catch (error) {
-    handleRouteError(error, res, requestToken?.source);
-  }
+  await sendReadServiceResponse(req, res, async (readService) => ({
+    rows: await readService.getDailyRows()
+  }));
 });
 
 clickupRouter.get("/story-status-discrepancies", async (req, res) => {
-  const requestToken = getRequestToken(req);
-  try {
-    const readService = getReadService(requestToken);
-
-    res.json({
-      report: await readService.getStoryStatusDiscrepancyReport()
-    });
-  } catch (error) {
-    handleRouteError(error, res, requestToken?.source);
-  }
+  await sendReadServiceResponse(req, res, async (readService) => ({
+    report: await readService.getStoryStatusDiscrepancyReport()
+  }));
 });
 
 clickupRouter.get("/verification", async (req, res) => {
-  const requestToken = getRequestToken(req);
-  try {
-    const readService = getReadService(requestToken);
+  await sendReadServiceResponse(req, res, async (readService) => {
     const [schema, daily] = await Promise.all([
       readService.getSchema(),
       readService.getDailyRows()
     ]);
 
-    res.json({
+    return {
       summary: buildVerificationSummary({
         schema,
         daily
       })
-    });
-  } catch (error) {
-    handleRouteError(error, res, requestToken?.source);
-  }
+    };
+  });
 });
 
 clickupRouter.patch("/tasks/:taskId/status", (req, res) => {
-  if (config.CLICKUP_WRITE_MODE !== "mock") {
-    res.status(501).json({
-      message: "Real ClickUp writes are intentionally disabled in the scaffold."
-    });
-    return;
-  }
-
-  res.json({
-    taskId: req.params.taskId,
-    updated: true,
-    mode: "mock",
-    payload: req.body
-  });
+  handleMockWrite(req, res);
 });
 
 clickupRouter.patch("/tasks/:taskId/fields", (req, res) => {
-  if (config.CLICKUP_WRITE_MODE !== "mock") {
-    res.status(501).json({
-      message: "Real ClickUp writes are intentionally disabled in the scaffold."
-    });
-    return;
-  }
-
-  res.json({
-    taskId: req.params.taskId,
-    updated: true,
-    mode: "mock",
-    payload: req.body
-  });
+  handleMockWrite(req, res);
 });
