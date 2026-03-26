@@ -1,6 +1,6 @@
 # ClickUp Reference
 
-Last updated: 2026-03-25
+Last updated: 2026-03-26
 
 ## Target
 
@@ -87,6 +87,17 @@ Observed task type IDs:
 - daily status columns can be collapsed or expanded client-side from the header
 - `SPRINT BACKLOG`, `IN PROGRESS`, and `IN CODE REVIEW` stay expanded by default even when empty
 - collapsed status columns hide their cards until expanded again
+
+## Daily Meeting Helper
+
+- the daily page includes a frontend-only `Next` helper in the filter toolbar
+- the helper uses the current assignee filter list as its source roster
+- `Unassigned` and `Javier Gutierrez` are excluded from the helper rotation
+- `Jessica Nilsson` is always moved to the end when she is present in the assignee list
+- the first `Next` click starts a randomized order; later clicks keep advancing the stored order until it ends
+- manual search changes, manual assignee changes, `Clear filters`, and `Refresh` do not reset the stored `Next` order
+- if new people appear in the assignee list after a round starts, they are not injected into the current stored order; they can still be selected manually
+- after the final speaker, the next `Next` click clears the assignee filter and resets the helper round
 
 ## Daily Board Design Guidelines
 

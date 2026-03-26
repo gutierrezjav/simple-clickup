@@ -488,7 +488,7 @@ input {
 
 .filter-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(220px, 0.9fr) auto;
+  grid-template-columns: minmax(0, 1.6fr) minmax(220px, 0.9fr) auto auto;
   gap: 12px;
   align-items: end;
   margin-bottom: 18px;
@@ -548,17 +548,12 @@ input {
   color: #8b98ad;
 }
 
-.filter-toolbar__actions {
-  display: grid;
-  gap: 8px;
-  justify-items: end;
-}
-
 .filter-toolbar__summary {
+  grid-column: 1 / -1;
   color: var(--text-body);
   font-size: 13px;
   font-weight: 600;
-  text-align: right;
+  text-align: left;
 }
 
 .toolbar-button {
@@ -1259,8 +1254,8 @@ input {
     grid-template-columns: 1fr;
   }
 
-  .filter-toolbar__actions {
-    justify-items: stretch;
+  .filter-toolbar > .toolbar-button {
+    width: 100%;
   }
 
   .filter-toolbar__summary {

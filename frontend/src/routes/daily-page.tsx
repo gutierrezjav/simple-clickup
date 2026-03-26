@@ -18,6 +18,11 @@ import {
   type StoryStatusDiscrepancyReportData
 } from "../lib/clickup-api";
 import {
+  advanceDailyMeetingRound,
+  getEligibleDailyMeetingRoster,
+  type DailyMeetingRound
+} from "../lib/daily-meeting";
+import {
   filterDailyBoard,
   getVisibleDailyStatuses,
   isDailyStatusCollapsedByDefault,
@@ -369,12 +374,16 @@ export function DailyPage({
 }: DailyPageProps) {
   const { data, error, isLoading, isRefreshing, refresh } = useResourceLoader(loader);
   const [isStoryStatusWarningDismissed, setIsStoryStatusWarningDismissed] = useState(false);
+  const [meetingRound, setMeetingRound] = useState<DailyMeetingRound | null>(null);
   const [storyStatusReport, setStoryStatusReport] = useState<StoryStatusDiscrepancyReport | null>(null);
   const [filters, setFilters] = useState<DailyBoardFilters>({
     search: "",
     assignee: ""
   });
   const [statusCollapseOverrides, setStatusCollapseOverrides] = useState<StatusCollapseOverrides>({});
+  const sortedRows = data ? sortDailyRows(data.rows) : [];
+  const filteredBoard = filterDailyBoard(sortedRows, filters);
+  const eligibleMeetingRoster = getEligibleDailyMeetingRoster(filteredBoard.assigneeOptions);
   useTopBarAction({
     disabled: isRefreshing,
     label: isRefreshing ? "Refreshing..." : "Refresh",
@@ -442,6 +451,19 @@ export function DailyPage({
     }));
   }
 
+  function handleNextSpeaker() {
+    const nextMeetingStep = advanceDailyMeetingRound({
+      assigneeOptions: filteredBoard.assigneeOptions,
+      round: meetingRound
+    });
+
+    setMeetingRound(nextMeetingStep.round);
+    setFilters((current) => ({
+      ...current,
+      assignee: nextMeetingStep.assignee
+    }));
+  }
+
   if (isLoading && !data) {
     return (
       <div className="panel panel--route">
@@ -488,9 +510,6 @@ export function DailyPage({
     );
   }
 
-  const sortedRows = sortDailyRows(data.rows);
-  const filteredBoard = filterDailyBoard(sortedRows, filters);
-
   return (
     <div className="panel panel--route">
       {storyStatusReport && !isStoryStatusWarningDismissed
@@ -528,20 +547,26 @@ export function DailyPage({
             ))}
           </select>
         </label>
-        <div className="filter-toolbar__actions">
-          <div className="filter-toolbar__summary">
-            {filteredBoard.filtersActive
-              ? `${filteredBoard.counts.visibleCards} of ${filteredBoard.counts.totalCards} cards visible`
-              : `${filteredBoard.counts.totalCards} cards in snapshot`}
-          </div>
-          <button
-            className="toolbar-button"
-            disabled={!filteredBoard.filtersActive}
-            onClick={handleClearFilters}
-            type="button"
-          >
-            Clear filters
-          </button>
+        <button
+          className="toolbar-button"
+          disabled={!meetingRound && eligibleMeetingRoster.length === 0}
+          onClick={handleNextSpeaker}
+          type="button"
+        >
+          Next
+        </button>
+        <button
+          className="toolbar-button"
+          disabled={!filteredBoard.filtersActive}
+          onClick={handleClearFilters}
+          type="button"
+        >
+          Clear filters
+        </button>
+        <div className="filter-toolbar__summary">
+          {filteredBoard.filtersActive
+            ? `${filteredBoard.counts.visibleCards} of ${filteredBoard.counts.totalCards} cards visible`
+            : `${filteredBoard.counts.totalCards} cards in snapshot`}
         </div>
       </div>
       {error ? (
