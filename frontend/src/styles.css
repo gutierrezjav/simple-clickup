@@ -512,6 +512,30 @@ input {
   color: var(--text-soft);
 }
 
+.filter-field__label--with-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.daily-meeting-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.daily-meeting-progress__segment {
+  width: 10px;
+  height: 4px;
+  border-radius: 999px;
+  background: #cdd6e3;
+  transition: background-color 0.18s ease;
+}
+
+.daily-meeting-progress__segment[data-active="true"] {
+  background: #2f80ed;
+}
+
 .filter-input,
 .filter-select {
   width: 100%;

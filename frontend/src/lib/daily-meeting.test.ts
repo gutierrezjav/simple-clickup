@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   advanceDailyMeetingRound,
+  getDailyMeetingProgressCount,
   getEligibleDailyMeetingRoster
 } from "./daily-meeting";
 
@@ -126,5 +127,35 @@ describe("advanceDailyMeetingRound", () => {
 
     expect(changedRoster.assignee).toBe("Alice Smith");
     expect(changedRoster.round?.order).toEqual(["Bob Jones", "Alice Smith", "Jessica Nilsson"]);
+  });
+});
+
+describe("getDailyMeetingProgressCount", () => {
+  it("returns zero before the round starts", () => {
+    expect(getDailyMeetingProgressCount(null)).toBe(0);
+  });
+
+  it("keeps the indicator visible through the final speaker", () => {
+    expect(
+      getDailyMeetingProgressCount({
+        currentIndex: 2,
+        order: ["Alice Smith", "Bob Jones", "Jessica Nilsson"]
+      })
+    ).toBe(9);
+  });
+
+  it("returns a proportional segment count while the round is in progress", () => {
+    expect(
+      getDailyMeetingProgressCount({
+        currentIndex: 0,
+        order: ["Alice Smith", "Bob Jones", "Charlie Brown", "Jessica Nilsson"]
+      })
+    ).toBe(3);
+    expect(
+      getDailyMeetingProgressCount({
+        currentIndex: 1,
+        order: ["Alice Smith", "Bob Jones", "Charlie Brown", "Jessica Nilsson"]
+      })
+    ).toBe(5);
   });
 });

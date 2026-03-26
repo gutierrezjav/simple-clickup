@@ -19,6 +19,7 @@ import {
 } from "../lib/clickup-api";
 import {
   advanceDailyMeetingRound,
+  getDailyMeetingProgressCount,
   getEligibleDailyMeetingRoster,
   type DailyMeetingRound
 } from "../lib/daily-meeting";
@@ -368,6 +369,26 @@ function renderStoryStatusWarning(
   );
 }
 
+function renderDailyMeetingProgressIndicator(round: DailyMeetingRound | null) {
+  const progressCount = getDailyMeetingProgressCount(round);
+
+  if (progressCount === 0) {
+    return null;
+  }
+
+  return (
+    <span aria-hidden="true" className="daily-meeting-progress">
+      {Array.from({ length: 9 }, (_, index) => (
+        <span
+          className="daily-meeting-progress__segment"
+          data-active={index < progressCount ? "true" : "false"}
+          key={index}
+        />
+      ))}
+    </span>
+  );
+}
+
 export function DailyPage({
   loader = fetchDailyPageData,
   storyStatusLoader = fetchStoryStatusDiscrepancyReportData
@@ -527,7 +548,10 @@ export function DailyPage({
           />
         </label>
         <label className="filter-field">
-          <span className="filter-field__label">Assignee</span>
+          <span className="filter-field__label filter-field__label--with-progress">
+            <span>Assignee</span>
+            {renderDailyMeetingProgressIndicator(meetingRound)}
+          </span>
           <select
             className={`filter-select ${
               filters.assignee === ""

@@ -1,5 +1,6 @@
 const excludedDailyMeetingNames = new Set(["Unassigned", "Javier Gutierrez"]);
 const finalDailyMeetingSpeaker = "Jessica Nilsson";
+const defaultDailyMeetingProgressSegmentCount = 9;
 export interface DailyMeetingRound {
   currentIndex: number;
   order: string[];
@@ -49,6 +50,17 @@ export function getEligibleDailyMeetingRoster(assigneeOptions: string[]): string
   return includesFinalSpeaker
     ? [...nonFinalSpeakers, finalDailyMeetingSpeaker]
     : nonFinalSpeakers;
+}
+
+export function getDailyMeetingProgressCount(
+  round: DailyMeetingRound | null,
+  segmentCount = defaultDailyMeetingProgressSegmentCount
+): number {
+  if (!round || round.order.length === 0 || segmentCount <= 0) {
+    return 0;
+  }
+
+  return Math.max(1, Math.min(segmentCount, Math.ceil(((round.currentIndex + 1) / round.order.length) * segmentCount)));
 }
 
 export function advanceDailyMeetingRound({
