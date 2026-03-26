@@ -4,7 +4,6 @@ import { ClickUpServiceError } from "./errors.js";
 import { resolveClickUpAuthorizationHeader } from "./token.js";
 import type {
   ClickUpCustomTaskTypePayload,
-  ClickUpFieldPayload,
   ClickUpRateLimitState,
   ClickUpTaskPayload,
   ClickUpTaskQueryOptions,
@@ -135,22 +134,6 @@ function parseLastPage(payload: unknown): boolean | undefined {
   }
 
   return undefined;
-}
-
-function parseFields(payload: unknown): ClickUpFieldPayload[] {
-  const candidates = collectRecordsFromArrays(payload).filter((record) => {
-    return (
-      typeof record.id === "string" &&
-      typeof record.name === "string" &&
-      typeof record.type === "string"
-    );
-  });
-
-  if (candidates.length === 0) {
-    throw new ClickUpServiceError("Unexpected ClickUp custom-fields response shape.", 502);
-  }
-
-  return candidates as ClickUpFieldPayload[];
 }
 
 function parseCustomTaskTypes(payload: unknown): ClickUpCustomTaskTypePayload[] {
@@ -350,12 +333,6 @@ export class ClickUpClient {
 
     throw new ClickUpServiceError("ClickUp task pagination exceeded the safety limit.", 502);
   }
-
-  async getListFields(listId: string): Promise<ClickUpFieldPayload[]> {
-    const payload = await this.#getJson(`/list/${listId}/field`);
-    return parseFields(payload);
-  }
-
   async getCustomTaskTypes(): Promise<ClickUpCustomTaskTypePayload[]> {
     const payload = await this.#getJson(`/team/${this.#teamId}/custom_item`);
     return parseCustomTaskTypes(payload);

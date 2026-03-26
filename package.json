@@ -13,9 +13,7 @@
     "dev:backend": "npm run dev --workspace backend",
     "build": "npm run build --workspace shared && npm run build --workspace backend && npm run build --workspace frontend",
     "test": "npm run test --workspace backend && npm run test --workspace frontend",
-    "typecheck": "npm run typecheck --workspace shared && npm run typecheck --workspace backend && npm run typecheck --workspace frontend",
-    "storybook": "npm run storybook --workspace frontend",
-    "build-storybook": "npm run build-storybook --workspace frontend"
+    "typecheck": "npm run typecheck --workspace shared && npm run typecheck --workspace backend && npm run typecheck --workspace frontend"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

@@ -134,10 +134,7 @@ authRouter.get("/clickup/callback", async (req, res) => {
     }
 
     const accessToken = await oauthClient.exchangeCodeForAccessToken(code);
-    const [user, authorizedTeams] = await Promise.all([
-      oauthClient.getAuthorizedUser(accessToken),
-      oauthClient.getAuthorizedTeams(accessToken)
-    ]);
+    const authorizedTeams = await oauthClient.getAuthorizedTeams(accessToken);
     const authorizedTeamIds = authorizedTeams.map((team) => team.id);
 
     if (!authorizedTeamIds.includes(config.CLICKUP_TARGET_TEAM_ID)) {
@@ -152,10 +149,8 @@ authRouter.get("/clickup/callback", async (req, res) => {
       res,
       {
         accessToken,
-        authorizedTeamIds,
         oauthState: undefined,
-        returnTo: undefined,
-        user
+        returnTo: undefined
       },
       sessionOptions
     );
@@ -165,9 +160,4 @@ authRouter.get("/clickup/callback", async (req, res) => {
     clearSession(res, config.SESSION_COOKIE_SECURE);
     handleAuthError(error, res);
   }
-});
-
-authRouter.post("/logout", (_req, res) => {
-  clearSession(res, config.SESSION_COOKIE_SECURE);
-  res.status(204).send();
 });

@@ -8,7 +8,7 @@ Maintain a read-only ClickUp client for the `Wingtra Cloud Dev` list with:
 
 - a daily board view
 - backend-owned ClickUp access
-- optional live auth via OAuth
+- OAuth-backed session auth
 
 The active project remains read-only. All write work stays in [clickup-write-project-plan.md](/data/simple-clickup/docs/clickup-write-project-plan.md).
 
@@ -26,10 +26,11 @@ Completed:
 
 - removed write-mode concepts from the read UI contract
 - shipped the daily screen
-- implemented backend schema/daily live loaders
+- implemented backend daily and verification loaders
 - implemented OAuth session flow
 - added caching, deduplication, and rate-limit handling
 - shipped daily filters, counts, and layout refinements
+- removed the planning surface, Storybook surface, and alternate runtime mode paths that were no longer part of the shipped product
 
 ### Phase 2: Live Verification And Targeted Polish
 
@@ -51,7 +52,6 @@ The planning view, planning loader, and planning-specific UI work were intention
 - server-side ClickUp reads
 - daily normalization
 - route-level loading and error handling
-- Storybook-backed UI development
 - read-only visual polish
 
 ## Out Of Scope
@@ -65,8 +65,8 @@ The planning view, planning loader, and planning-specific UI work were intention
 ## Working Rules
 
 - keep ClickUp access in the backend
-- keep mock mode safe by default
-- keep live-read logic focused on `schema` and `daily`
+- keep the runtime simple and single-path
+- keep active backend reads focused on daily data, discrepancy checks, and verification summaries
 - only hard-require ClickUp fields that are actually needed by current normalization
 - keep the write roadmap separate
 

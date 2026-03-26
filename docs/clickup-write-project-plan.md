@@ -6,13 +6,13 @@ Last updated: 2026-03-25
 
 Inactive.
 
-This project does not start until the active read-only project is stable enough after live verification.
+This project does not start unless the product scope changes. The current app ships no write paths, no write stubs, and no alternate runtime safety modes.
 
 ## Scope
 
 When resumed, this document will cover:
 
-- mutation adapters for `mock`, `test-space`, and only later gated `live`
+- a fresh safety model for mutations
 - guarded daily status updates
 - test workspace or list allowlisting
 - revalidation and optimistic update strategy
@@ -26,9 +26,8 @@ When resumed, this document will cover:
 ## Safety Rules
 
 - do not write to the production list during development or automated testing
-- start with `mock`
-- then add `test-space`
-- keep production `live` writes blocked until explicit verification gates exist
+- reintroduce any write environment or target gating explicitly instead of relying on removed read-path concepts
+- keep production writes blocked until explicit verification gates exist
 
 ## Main Entry Points When This Resumes
 

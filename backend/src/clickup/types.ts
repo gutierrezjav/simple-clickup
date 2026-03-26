@@ -1,6 +1,4 @@
-import type { DailyRow, SchemaConfig } from "@custom-clickup/shared";
-
-export type ClickUpTokenSource = "env" | "session" | "none";
+export type ClickUpTokenSource = "session" | "none";
 
 export interface ClickUpStatusPayload {
   status?: string | null;
@@ -45,16 +43,6 @@ export interface ClickUpTaskPayload {
   tags?: ClickUpTagPayload[];
   custom_fields?: ClickUpCustomFieldPayload[];
   subtasks?: ClickUpTaskPayload[];
-}
-
-export interface ClickUpFieldPayload {
-  id?: string | null;
-  name?: string | null;
-  type?: string | null;
-  required?: boolean;
-  type_config?: {
-    options?: ClickUpCustomFieldOptionPayload[];
-  };
 }
 
 export interface ClickUpCustomTaskTypePayload {
@@ -103,9 +91,4 @@ export interface ClickUpRequestSummary {
   startedAt: string;
   tokenSource?: ClickUpTokenSource;
   url?: string;
-}
-
-export interface ClickUpLiveSnapshot {
-  schema: SchemaConfig;
-  daily: DailyRow[];
 }

@@ -1,5 +1,3 @@
-export type WriteMode = "mock" | "test-space" | "live";
-
 export const dailyStatuses = [
   "BLOCKED",
   "SPRINT BACKLOG",
@@ -77,13 +75,6 @@ export interface VerificationSummary {
     missingAssigneeCount: number;
     missingPrioScoreCount: number;
     byRowType: NamedCountSummary[];
-    byStatus: NamedCountSummary[];
+      byStatus: NamedCountSummary[];
   };
-}
-
-export interface SchemaConfig {
-  workspaceId: string;
-  listId: string;
-  dailyStatuses: readonly DailyStatus[];
-  inlineEditableFields: string[];
 }

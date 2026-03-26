@@ -5,18 +5,10 @@ export const sessionCookieName = "custom-clickup-session";
 
 const sessionVersion = "v1";
 
-export interface ClickUpSessionUser {
-  email: string | undefined;
-  id: number;
-  username: string;
-}
-
 export interface ClickUpSessionState {
   accessToken: string | undefined;
-  authorizedTeamIds: string[] | undefined;
   oauthState: string | undefined;
   returnTo: string | undefined;
-  user: ClickUpSessionUser | undefined;
 }
 
 export interface SessionCookieOptions {
@@ -68,29 +60,9 @@ function decrypt(serialized: string, secret: string): ClickUpSessionState | null
     return {
       accessToken:
         typeof payload.accessToken === "string" ? payload.accessToken : undefined,
-      authorizedTeamIds: Array.isArray(payload.authorizedTeamIds)
-        ? payload.authorizedTeamIds.filter(
-            (teamId): teamId is string =>
-              typeof teamId === "string" && teamId.length > 0
-          )
-        : undefined,
       oauthState:
         typeof payload.oauthState === "string" ? payload.oauthState : undefined,
-      returnTo: typeof payload.returnTo === "string" ? payload.returnTo : undefined,
-      user:
-        payload.user &&
-        typeof payload.user === "object" &&
-        typeof payload.user.id === "number" &&
-        typeof payload.user.username === "string"
-          ? {
-              id: payload.user.id,
-              username: payload.user.username,
-              email:
-                typeof payload.user.email === "string"
-                  ? payload.user.email
-                  : undefined
-            }
-          : undefined
+      returnTo: typeof payload.returnTo === "string" ? payload.returnTo : undefined
     };
   } catch {
     return null;
@@ -101,19 +73,15 @@ function hasSessionData(session: ClickUpSessionState): boolean {
   return Boolean(
     session.accessToken ||
       session.oauthState ||
-      session.returnTo ||
-      session.user ||
-      session.authorizedTeamIds?.length
+      session.returnTo
   );
 }
 
 export function createEmptySessionState(): ClickUpSessionState {
   return {
     accessToken: undefined,
-    authorizedTeamIds: undefined,
     oauthState: undefined,
-    returnTo: undefined,
-    user: undefined
+    returnTo: undefined
   };
 }
 
@@ -126,7 +94,7 @@ export function sanitizeReturnTo(returnTo: string | undefined): string {
     return "/daily";
   }
 
-  return returnTo === "/planning" ? "/daily" : returnTo;
+  return returnTo;
 }
 
 export function readSession(

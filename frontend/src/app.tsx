@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { ResourceState } from "./components/resource-state";
 import { TopBarActionContext, type TopBarAction } from "./lib/top-bar-action";
 import { DailyPage } from "./routes/daily-page";
 import { VerificationPage } from "./routes/verification-page";
@@ -60,6 +61,17 @@ function DocumentTitleManager() {
   return null;
 }
 
+function NotFoundPage() {
+  return (
+    <div className="panel panel--route">
+      <ResourceState
+        message="This route is not available in the app."
+        title="Page Not Found"
+      />
+    </div>
+  );
+}
+
 export function App() {
   return (
     <BrowserRouter>
@@ -67,10 +79,9 @@ export function App() {
       <AppShell>
         <Routes>
           <Route path="/" element={<Navigate replace to="/daily" />} />
-          <Route path="/planning" element={<Navigate replace to="/daily" />} />
           <Route path="/daily" element={<DailyPage />} />
           <Route path="/verify" element={<VerificationPage />} />
-          <Route path="*" element={<Navigate replace to="/daily" />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </AppShell>
     </BrowserRouter>

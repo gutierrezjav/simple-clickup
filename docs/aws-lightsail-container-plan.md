@@ -41,7 +41,13 @@ Use the existing backend config model and set these values in the Lightsail depl
 - `CLICKUP_CLIENT_ID=<value>`
 - `CLICKUP_CLIENT_SECRET=<value>`
 - `CLICKUP_REDIRECT_URI=https://<your-domain>/auth/clickup/callback`
-- Other required `CLICKUP_*` variables already supported by the backend config
+- Optional overrides only when needed:
+  - `CLICKUP_API_BASE_URL`
+  - `CLICKUP_OAUTH_AUTHORIZE_URL`
+  - `CLICKUP_TARGET_TEAM_ID`
+  - `CLICKUP_TARGET_LIST_ID`
+  - `CLICKUP_READ_CACHE_TTL_MS`
+  - `CLICKUP_HTTP_TIMEOUT_MS`
 
 ## AWS Components
 
@@ -71,7 +77,7 @@ Use the existing backend config model and set these values in the Lightsail depl
 - The container image builds locally and in GitHub Actions.
 - The Lightsail endpoint serves the app successfully over HTTPS.
 - The custom domain serves the same deployment successfully over HTTPS.
-- Direct browser refresh works on `/daily` and `/verify`, and `/planning` redirects safely to `/daily`.
+- Direct browser refresh works on `/daily` and `/verify`.
 - `/health` returns `200`.
 - Frontend requests to `/api` and `/auth` work through the same origin.
 - ClickUp OAuth completes with secure cookies enabled.

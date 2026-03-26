@@ -1,11 +1,8 @@
 import {
-  dailyFixtures,
   dailyStatuses,
-  schemaConfig,
   storyStatusProgression,
   type DailyCard,
   type DailyRow,
-  type SchemaConfig,
   type StoryProgressStatus,
   type StoryStatusDiscrepancyReport
 } from "@custom-clickup/shared";
@@ -22,14 +19,11 @@ import type {
   ClickUpUserPayload
 } from "./types.js";
 
-export type ClickUpReadMode = "mock" | "live";
-
 export interface ClickUpReadServiceConfig {
   accessToken: string | undefined;
   baseUrl: string;
   cacheTtlMs: number;
   listId: string;
-  readMode: ClickUpReadMode;
   teamId: string;
   timeoutMs: number;
   tokenSource: ClickUpTokenSource;
@@ -178,15 +172,6 @@ function buildTaskTypeMap(taskTypes: ClickUpCustomTaskTypePayload[]): Map<number
   }
 
   return taskTypeMap;
-}
-
-function buildSchema(teamId: string, listId: string): SchemaConfig {
-  return {
-    workspaceId: teamId,
-    listId,
-    dailyStatuses,
-    inlineEditableFields: schemaConfig.inlineEditableFields
-  };
 }
 
 function classifyTask(
@@ -598,35 +583,12 @@ function createCachedLoader<T>(
 export interface ClickUpReadService {
   getDailyRows(): Promise<DailyRow[]>;
   getStoryStatusDiscrepancyReport(): Promise<StoryStatusDiscrepancyReport>;
-  getReadMode(): ClickUpReadMode;
-  getSchema(): Promise<SchemaConfig>;
 }
 
 export function createClickUpReadService(config: ClickUpReadServiceConfig): ClickUpReadService {
-  if (config.readMode === "mock") {
-    return {
-      async getDailyRows() {
-        return dailyFixtures;
-      },
-      async getStoryStatusDiscrepancyReport() {
-        return {
-          checkedStoryCount: 0,
-          discrepancyCount: 0,
-          discrepancies: []
-        };
-      },
-      getReadMode() {
-        return "mock";
-      },
-      async getSchema() {
-        return buildSchema(config.teamId, config.listId);
-      }
-    };
-  }
-
   if (!config.accessToken) {
     throw new ClickUpServiceError(
-      "Live ClickUp reads require either a configured CLICKUP_ACCESS_TOKEN or an authenticated ClickUp session.",
+      "Connect ClickUp to continue.",
       401
     );
   }
@@ -731,14 +693,6 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
         loadStoryStatusDiscrepancies,
         (report) => report.discrepancyCount
       );
-    },
-    getReadMode() {
-      return "live";
-    },
-    async getSchema() {
-      return {
-        ...buildSchema(config.teamId, config.listId)
-      };
     }
   };
 }

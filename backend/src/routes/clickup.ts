@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
+import { clickupTarget } from "@custom-clickup/shared";
 import { config } from "../config.js";
 import { ClickUpServiceError } from "../clickup/errors.js";
-import type { ClickUpTokenSource } from "../clickup/types.js";
 import { buildVerificationSummary } from "../clickup/verification.js";
 import {
   clearSession,
@@ -14,11 +14,6 @@ import { logger } from "../logging.js";
 export const clickupRouter = Router();
 
 const readServiceByToken = new Map<string, ClickUpReadService>();
-
-interface RequestToken {
-  source: Exclude<ClickUpTokenSource, "none">;
-  value: string;
-}
 
 type ReadServiceResponseFactory = (
   readService: ClickUpReadService
@@ -35,32 +30,19 @@ function getSessionOptions(): SessionCookieOptions | null {
   };
 }
 
-function getRequestToken(req: Request): RequestToken | undefined {
+function getRequestToken(req: Request): string | undefined {
   const sessionOptions = getSessionOptions();
   if (sessionOptions) {
     const session = readSession(req, sessionOptions);
-    if (session?.accessToken) {
-      return {
-        source: "session",
-        value: session.accessToken
-      };
-    }
-  }
-
-  if (config.CLICKUP_ACCESS_TOKEN) {
-    return {
-      source: "env",
-      value: config.CLICKUP_ACCESS_TOKEN
-    };
+    return session?.accessToken;
   }
 
   return undefined;
 }
 
-function getReadService(requestToken: RequestToken | undefined): ClickUpReadService {
-  const tokenSource = requestToken?.source ?? "none";
-  const accessToken = requestToken?.value;
-  const cacheKey = `${config.CLICKUP_READ_MODE}:${tokenSource}:${accessToken ?? "no-token"}`;
+function getReadService(accessToken: string | undefined): ClickUpReadService {
+  const tokenSource = accessToken ? "session" : "none";
+  const cacheKey = `${tokenSource}:${accessToken ?? "no-token"}`;
   const existingService = readServiceByToken.get(cacheKey);
 
   if (existingService) {
@@ -72,7 +54,6 @@ function getReadService(requestToken: RequestToken | undefined): ClickUpReadServ
     baseUrl: config.CLICKUP_API_BASE_URL,
     cacheTtlMs: config.CLICKUP_READ_CACHE_TTL_MS,
     listId: config.CLICKUP_TARGET_LIST_ID,
-    readMode: config.CLICKUP_READ_MODE,
     teamId: config.CLICKUP_TARGET_TEAM_ID,
     timeoutMs: config.CLICKUP_HTTP_TIMEOUT_MS,
     tokenSource
@@ -82,15 +63,10 @@ function getReadService(requestToken: RequestToken | undefined): ClickUpReadServ
   return nextService;
 }
 
-clickupRouter.use((_req, res, next) => {
-  res.set("x-custom-clickup-read-mode", config.CLICKUP_READ_MODE);
-  next();
-});
-
 function handleRouteError(
   error: unknown,
   res: Response,
-  tokenSource: "env" | "session" | undefined
+  tokenSource: "session" | undefined
 ) {
   if (error instanceof ClickUpServiceError) {
     if (tokenSource === "session" && error.statusCode === 401) {
@@ -128,37 +104,16 @@ async function sendReadServiceResponse(
   res: Response,
   createResponse: ReadServiceResponseFactory
 ) {
-  const requestToken = getRequestToken(req);
+  const accessToken = getRequestToken(req);
+  const tokenSource = accessToken ? "session" : undefined;
 
   try {
-    const readService = getReadService(requestToken);
+    const readService = getReadService(accessToken);
     res.json(await createResponse(readService));
   } catch (error) {
-    handleRouteError(error, res, requestToken?.source);
+    handleRouteError(error, res, tokenSource);
   }
 }
-
-function handleMockWrite(req: Request, res: Response) {
-  if (config.CLICKUP_WRITE_MODE !== "mock") {
-    res.status(501).json({
-      message: "Real ClickUp writes are intentionally disabled in the scaffold."
-    });
-    return;
-  }
-
-  res.json({
-    taskId: req.params.taskId,
-    updated: true,
-    mode: "mock",
-    payload: req.body
-  });
-}
-
-clickupRouter.get("/schema", async (req, res) => {
-  await sendReadServiceResponse(req, res, async (readService) => ({
-    schema: await readService.getSchema()
-  }));
-});
 
 clickupRouter.get("/daily", async (req, res) => {
   await sendReadServiceResponse(req, res, async (readService) => ({
@@ -174,24 +129,13 @@ clickupRouter.get("/story-status-discrepancies", async (req, res) => {
 
 clickupRouter.get("/verification", async (req, res) => {
   await sendReadServiceResponse(req, res, async (readService) => {
-    const [schema, daily] = await Promise.all([
-      readService.getSchema(),
-      readService.getDailyRows()
-    ]);
+    const daily = await readService.getDailyRows();
 
     return {
       summary: buildVerificationSummary({
-        schema,
+        schema: clickupTarget,
         daily
       })
     };
   });
-});
-
-clickupRouter.patch("/tasks/:taskId/status", (req, res) => {
-  handleMockWrite(req, res);
-});
-
-clickupRouter.patch("/tasks/:taskId/fields", (req, res) => {
-  handleMockWrite(req, res);
 });

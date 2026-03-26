@@ -1,7 +1,6 @@
 import type {
   DailyRow,
   NamedCountSummary,
-  SchemaConfig,
   VerificationSummary
 } from "@custom-clickup/shared";
 
@@ -31,7 +30,7 @@ export function buildVerificationSummary({
   schema,
   daily
 }: {
-  schema: SchemaConfig;
+  schema: VerificationSummary["schema"];
   daily: DailyRow[];
 }): VerificationSummary {
   const dailyCards = daily.flatMap((row) => row.cards);

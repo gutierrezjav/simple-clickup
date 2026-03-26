@@ -41,8 +41,10 @@ Last updated: 2026-03-26
 ## Product Scope
 
 - the planning view has been discontinued and is no longer part of the active app
-- `/planning` now redirects to `/daily` for compatibility only
+- `/planning` is not part of the shipped route surface
 - all active behavior and verification rules below apply to the daily board
+- ClickUp reads are backend-only and require an OAuth-backed session
+- there is no runtime mock/live mode split and no env-token fallback path
 
 ## Daily Columns
 
@@ -142,5 +144,5 @@ Daily:
 ## Guardrails
 
 - the frontend should not call ClickUp directly
-- mock mode should remain the default safe mode
+- keep the runtime on the current single-path backend session flow
 - writes are tracked separately in [clickup-write-project-plan.md](/data/simple-clickup/docs/clickup-write-project-plan.md)

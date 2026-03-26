@@ -2,22 +2,21 @@
 
 Read-only ClickUp client for the `Wingtra Cloud Dev` list.
 
-The current product surface is centered on the daily board:
+The active app surface is small and deliberate:
 
 - `/daily`: primary board view
 - `/verify`: hidden verification route for live spot-checks
-- `/planning`: compatibility redirect to `/daily`
-- backend-owned ClickUp reads plus OAuth session support
+- backend-owned ClickUp reads through an OAuth-backed session
 - single-container deployment path for Amazon Lightsail Container Service
 
-Current status: complete. The read-only roadmap and the Lightsail deployment plan are closed, and the repo is now in maintenance mode.
+Current status: complete and in maintenance mode. The read-only roadmap and the Lightsail deployment work are closed.
 
 ## Workspace Layout
 
 - `frontend/`: React + Vite UI
 - `backend/`: TypeScript Express app, API routes, OAuth/session handling, and SPA serving
-- `shared/`: shared types, fixtures, and schema constants
-- `docs/`: handoff notes, implementation status, reference behavior, and deployment plans
+- `shared/`: shared types and ClickUp target constants
+- `docs/`: handoff notes, implementation status, behavioral reference, and deployment plans
 
 ## Local Development
 
@@ -47,22 +46,26 @@ npm run build
 docker build -t simple-clickup:local-test .
 ```
 
-## Read Modes
+## Runtime Model
 
 The project is read-only by design.
 
-- `mock` mode is the default safe local mode
-- `live` mode uses server-side ClickUp access through either an access token or OAuth session auth
+- the frontend never talks to ClickUp directly
+- the backend reads ClickUp only with a session access token obtained through OAuth
+- when no valid session exists, the backend returns `401` and the UI offers the Connect ClickUp flow
+- there is no Storybook, no mock/live mode switch, and no `CLICKUP_ACCESS_TOKEN` env fallback
+- `/planning` is no longer part of the app
 
-Typical live-mode variables:
+The backend loads `.env` and `.env.local` values from the repo tree when present. See [.env.example](./.env.example) for the supported variables.
 
-- `CLICKUP_READ_MODE=live`
+Core env vars for OAuth-enabled local or deployed use:
+
 - `CLICKUP_CLIENT_ID`
 - `CLICKUP_CLIENT_SECRET`
 - `CLICKUP_REDIRECT_URI`
 - `SESSION_SECRET`
 
-The backend loads `.env` and `.env.local` values from the repo tree when present. See [.env.example](./.env.example) for the supported variables.
+Other supported env vars cover the API base URL, target workspace/list, request timeout, cache TTL, port, and secure-cookie toggle.
 
 ## Container And Deployment
 
@@ -74,16 +77,15 @@ Production runs as one container that serves both the frontend bundle and the ba
 
 The deployed flow is:
 
-1. GitHub Actions installs dependencies and runs tests.
+1. GitHub Actions installs dependencies and runs verification checks.
 2. The workflow builds one image and pushes it to Amazon ECR Public.
 3. Lightsail Container Service deploys that image as the public app container.
 
 ## Notes
 
 - `/verify` is intentionally kept out of the main navigation
-- the frontend never talks to ClickUp directly
-- write-mode work is intentionally out of scope in the active project
-- Storybook in this environment should be run with `HOME=/tmp STORYBOOK_DISABLE_TELEMETRY=1`
+- write behavior is intentionally out of scope in the active project
+- the repo is optimized for maintenance and targeted fixes, not feature expansion
 
 ## Docs
 
@@ -92,3 +94,4 @@ The deployed flow is:
 - [docs/clickup-reference.md](./docs/clickup-reference.md)
 - [docs/clickup-v1-plan.md](./docs/clickup-v1-plan.md)
 - [docs/aws-lightsail-container-plan.md](./docs/aws-lightsail-container-plan.md)
+- [docs/clickup-write-project-plan.md](./docs/clickup-write-project-plan.md)

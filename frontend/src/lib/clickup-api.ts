@@ -4,21 +4,15 @@ import type {
   VerificationSummary
 } from "@custom-clickup/shared";
 
-export type ReadMode = "mock" | "live";
-
-export interface ResourceMetadata {
-  readMode: ReadMode;
-}
-
-export interface DailyPageData extends ResourceMetadata {
+export interface DailyPageData {
   rows: DailyRow[];
 }
 
-export interface VerificationPageData extends ResourceMetadata {
+export interface VerificationPageData {
   summary: VerificationSummary;
 }
 
-export interface StoryStatusDiscrepancyReportData extends ResourceMetadata {
+export interface StoryStatusDiscrepancyReportData {
   report: StoryStatusDiscrepancyReport;
 }
 
@@ -38,10 +32,6 @@ export class ClickUpApiError extends Error {
   }
 }
 
-function parseReadMode(headerValue: string | null): ReadMode {
-  return headerValue === "live" ? "live" : "mock";
-}
-
 function parseRetryAfterSeconds(headerValue: string | null): number | undefined {
   if (!headerValue) {
     return undefined;
@@ -59,14 +49,12 @@ async function parseErrorPayload(response: Response): Promise<ApiErrorPayload> {
   }
 }
 
-async function fetchClickUpResource<T>(path: string): Promise<T & { readMode: ReadMode }> {
+async function fetchClickUpResource<T>(path: string): Promise<T> {
   const response = await fetch(path, {
     headers: {
       Accept: "application/json"
     }
   });
-
-  const readMode = parseReadMode(response.headers.get("x-custom-clickup-read-mode"));
 
   if (!response.ok) {
     const errorPayload = await parseErrorPayload(response);
@@ -77,11 +65,7 @@ async function fetchClickUpResource<T>(path: string): Promise<T & { readMode: Re
     );
   }
 
-  const payload = (await response.json()) as T;
-  return {
-    ...payload,
-    readMode
-  };
+  return (await response.json()) as T;
 }
 
 export function fetchDailyPageData(): Promise<DailyPageData> {

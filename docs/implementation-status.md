@@ -4,15 +4,15 @@ Last updated: 2026-03-26
 
 ## Summary
 
-The active read-only roadmap and the Lightsail deployment plan are complete. The repo now has a verified read-only ClickUp client centered on the daily board, a TypeScript `Express` backend, shared normalized types, Storybook coverage, and a GitHub Actions deployment path for Amazon Lightsail Container Service.
+The active read-only roadmap and the Lightsail deployment plan are complete. The repo now has a verified read-only ClickUp client centered on the daily board, a TypeScript `Express` backend, shared normalized types, and a GitHub Actions deployment path for Amazon Lightsail Container Service.
 
 ## What Has Been Done
 
 ### Frontend
 
 - `/daily` is the primary product route
-- `/planning` now redirects to `/daily` for compatibility
 - `/verify` remains available for targeted live verification but is hidden from the main navigation
+- `/planning` is no longer part of the app
 - route-level loading, retry, rate-limit, and empty states are implemented
 - daily renders story rows, standalone task/bug rows, nested stories as rows, and visible ancestors
 - daily keeps task-parent hierarchies inside the correct inherited swimlane instead of promoting parent tasks into story rows
@@ -27,23 +27,21 @@ The active read-only roadmap and the Lightsail deployment plan are complete. The
 - truncated daily card title, custom ID, and assignee text now expose the full value in a native tooltip only when the text overflows
 - the `Next` helper uses the current assignee filter list, skips `Unassigned` and `Javier Gutierrez`, keeps `Jessica Nilsson` last when present, and preserves its stored order across search, manual assignee changes, clear-filters, and refresh actions
 - the current daily board design guidance is documented in [docs/clickup-reference.md](/data/simple-clickup/docs/clickup-reference.md) and [docs/clickup-v1-plan.md](/data/simple-clickup/docs/clickup-v1-plan.md)
-- Storybook stories exist for the main daily and shared UI components
 
 ### Backend
 
 - `/health`, `/auth`, and `/api/clickup` route groups are implemented
-- OAuth start, callback, and logout flows are implemented
-- live reads support `schema`, `daily`, `story-status-discrepancies`, and verification summaries
+- OAuth start and callback flows are implemented
+- session-backed reads support `daily`, `story-status-discrepancies`, and verification summaries
 - ClickUp reads include metadata caching, task caching, request deduplication, and rate-limit handling
 - backend normalization converts ClickUp responses into the shared daily shapes and the story-status discrepancy report
 - the discontinued planning loader and planning route have been removed from the active app
-- mock mode remains the default safe local mode
+- unused mode toggles, token env fallback, and non-active API helpers were removed
 
 ### Shared
 
-- normalized types exist for daily, schema, and story-status discrepancy data
-- canonical daily statuses are shared between frontend and backend
-- fixture data supports Storybook and mock mode
+- normalized types exist for daily and story-status discrepancy data, plus the verification summary schema shape
+- canonical daily statuses and the ClickUp target constants are shared between frontend and backend
 
 ### Deployment
 
@@ -57,13 +55,12 @@ The active read-only roadmap and the Lightsail deployment plan are complete. The
 - no active implementation work remains on the current roadmap
 - the old planning view has been discontinued and is no longer planned
 - future targeted fixes are only needed if new live mismatches or deployment regressions are observed
-- all mutation work, test-space writes, and write-mode UI remain outside this completed read-only project
+- all mutation work remains outside this completed read-only project
 
 ## Known Caveats
 
-- Storybook writes under `/home/javier/.storybook` by default in this environment, so use `HOME=/tmp STORYBOOK_DISABLE_TELEMETRY=1` for local Storybook commands here.
 - The headless browser used by automation does not share your local authenticated ClickUp browser session.
-- The repo still contains guarded write stubs, but they are outside the active roadmap.
+- `/verify` is intentionally hidden from the main navigation even though it remains a supported route.
 
 ## Main Entry Points
 

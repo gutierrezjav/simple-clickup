@@ -1,11 +1,9 @@
 import type { NamedCountSummary } from "@custom-clickup/shared";
 import { ResourceState } from "../components/resource-state";
-import { StatusBanner } from "../components/status-banner";
 import {
   ClickUpApiError,
   fetchVerificationPageData,
   startClickUpOAuth,
-  type ReadMode,
   type VerificationPageData
 } from "../lib/clickup-api";
 import { useResourceLoader } from "../lib/use-resource-loader";
@@ -32,12 +30,10 @@ function formatCounts(items: NamedCountSummary[]): string {
 
 function VerificationHeader({
   isRefreshing,
-  onRefresh,
-  readMode
+  onRefresh
 }: {
   isRefreshing: boolean;
   onRefresh: () => void;
-  readMode?: ReadMode;
 }) {
   return (
     <div className="panel-header">
@@ -47,7 +43,6 @@ function VerificationHeader({
         <p>Daily board snapshot summary fetched through the current browser session.</p>
       </div>
       <div className="panel-header-actions">
-        {readMode ? <StatusBanner readMode={readMode} /> : null}
         <button
           className="toolbar-button"
           disabled={isRefreshing}
@@ -156,7 +151,6 @@ export function VerificationPage({
       <VerificationHeader
         isRefreshing={isRefreshing}
         onRefresh={refresh}
-        readMode={data.readMode}
       />
       <div className="verification-meta">
         <div className="verification-meta__item">

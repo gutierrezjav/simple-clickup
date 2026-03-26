@@ -387,8 +387,7 @@ input {
 }
 
 .badge,
-.pill,
-.status-banner__item {
+.pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -439,32 +438,6 @@ input {
   min-height: 24px;
   padding: 0 8px;
   font-size: 10px;
-}
-
-.status-banner {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
-.status-banner__item {
-  border-color: transparent;
-}
-
-.status-banner__item--mock {
-  background: #f2f4ff;
-  color: #4b56dd;
-}
-
-.status-banner__item--test {
-  background: var(--warning-soft);
-  color: var(--warning-strong);
-}
-
-.status-banner__item--live {
-  background: var(--success-soft);
-  color: var(--success-strong);
 }
 
 .panel-header {

@@ -1,5 +1,4 @@
 import {
-  dailyFixtures,
   dailyStatuses,
   type DailyCard as DailyCardModel,
   type DailyStatus,
@@ -90,13 +89,6 @@ function sortDailyRows(rows: DailyRow[]): DailyRow[] {
     });
 
   return [...storyRows, ...extraRows].sort(compareByPriority);
-}
-
-function createMockDailyPageData(): DailyPageData {
-  return {
-    rows: dailyFixtures,
-    readMode: "mock"
-  };
 }
 
 function getDailyErrorMessage(error: Error): string {
@@ -490,7 +482,7 @@ export function DailyPage({
   });
 
   useEffect(() => {
-    if (!data || data.readMode !== "live") {
+    if (!data) {
       setStoryStatusReport(null);
       return;
     }
@@ -674,6 +666,3 @@ export function DailyPage({
     </div>
   );
 }
-
-export const dailyPageStoryLoader = async (): Promise<DailyPageData> =>
-  createMockDailyPageData();

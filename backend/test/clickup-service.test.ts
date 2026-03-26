@@ -395,10 +395,9 @@ describe("createClickUpReadService", () => {
       baseUrl: "https://example.invalid/api/v2",
       cacheTtlMs: 1_000,
       listId: "list-1",
-      readMode: "live",
       teamId: "team-1",
       timeoutMs: 1_000,
-      tokenSource: "env"
+      tokenSource: "session"
     });
 
     await expect(service.getDailyRows()).resolves.toMatchObject([
@@ -407,7 +406,7 @@ describe("createClickUpReadService", () => {
     ]);
   });
 
-  it("loads story status discrepancies through the live read service", async () => {
+  it("loads story status discrepancies through the session-backed read service", async () => {
     vi.spyOn(ClickUpClient.prototype, "getCustomTaskTypes").mockResolvedValue([
       {
         id: storyTaskTypeId,
@@ -434,10 +433,9 @@ describe("createClickUpReadService", () => {
       baseUrl: "https://example.invalid/api/v2",
       cacheTtlMs: 1_000,
       listId: "list-1",
-      readMode: "live",
       teamId: "team-1",
       timeoutMs: 1_000,
-      tokenSource: "env"
+      tokenSource: "session"
     });
 
     await expect(service.getStoryStatusDiscrepancyReport()).resolves.toEqual({

@@ -14,25 +14,11 @@ interface ClickUpOAuthTokenResponse {
   access_token?: string;
 }
 
-interface ClickUpOAuthUserResponse {
-  user?: {
-    email?: string | null;
-    id?: number | null;
-    username?: string | null;
-  };
-}
-
 interface ClickUpOAuthTeamsResponse {
   teams?: Array<{
     id?: string | number | null;
     name?: string | null;
   }>;
-}
-
-export interface ClickUpAuthorizedUser {
-  email: string | undefined;
-  id: number;
-  username: string;
 }
 
 export interface ClickUpAuthorizedTeam {
@@ -95,28 +81,6 @@ export class ClickUpOAuthClient {
     }
 
     return payload.access_token;
-  }
-
-  async getAuthorizedUser(accessToken: string): Promise<ClickUpAuthorizedUser> {
-    const payload = (await this.#requestJson("/user", {
-      headers: {
-        Authorization: resolveClickUpAuthorizationHeader(accessToken)
-      }
-    })) as ClickUpOAuthUserResponse;
-
-    if (
-      !payload.user ||
-      typeof payload.user.id !== "number" ||
-      typeof payload.user.username !== "string"
-    ) {
-      throw new ClickUpServiceError("ClickUp OAuth user response was incomplete.", 502);
-    }
-
-    return {
-      email: typeof payload.user.email === "string" ? payload.user.email : undefined,
-      id: payload.user.id,
-      username: payload.user.username
-    };
   }
 
   async getAuthorizedTeams(accessToken: string): Promise<ClickUpAuthorizedTeam[]> {

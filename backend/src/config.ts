@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { schemaConfig } from "@custom-clickup/shared";
+import { clickupTarget } from "@custom-clickup/shared";
 import { z } from "zod";
 
 function parseEnvAssignment(line: string): [string, string] | null {
@@ -141,16 +141,13 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(4000),
   LOG_FORMAT: z.enum(["pretty", "json"]).default("pretty"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
-  CLICKUP_WRITE_MODE: z.enum(["mock", "test-space", "live"]).default("mock"),
-  CLICKUP_READ_MODE: z.enum(["mock", "live"]).default("mock"),
-  CLICKUP_ACCESS_TOKEN: optionalNonEmptyStringSchema,
   CLICKUP_API_BASE_URL: z.string().url().default("https://api.clickup.com/api/v2"),
   CLICKUP_OAUTH_AUTHORIZE_URL: z.string().url().default("https://app.clickup.com/api"),
   CLICKUP_CLIENT_ID: optionalNonEmptyStringSchema,
   CLICKUP_CLIENT_SECRET: optionalNonEmptyStringSchema,
   CLICKUP_REDIRECT_URI: optionalUrlSchema,
-  CLICKUP_TARGET_TEAM_ID: z.string().trim().min(1).default(schemaConfig.workspaceId),
-  CLICKUP_TARGET_LIST_ID: z.string().trim().min(1).default(schemaConfig.listId),
+  CLICKUP_TARGET_TEAM_ID: z.string().trim().min(1).default(clickupTarget.workspaceId),
+  CLICKUP_TARGET_LIST_ID: z.string().trim().min(1).default(clickupTarget.listId),
   CLICKUP_READ_CACHE_TTL_MS: z.coerce.number().int().positive().default(30_000),
   CLICKUP_HTTP_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
   SESSION_SECRET: optionalSecretSchema,

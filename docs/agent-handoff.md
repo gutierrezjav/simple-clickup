@@ -4,11 +4,18 @@ Last updated: 2026-03-26
 
 ## Project Summary
 
-This repo is a read-only ClickUp client for the `Wingtra Cloud Dev` list. It ships a daily board, a verification page, and a backend-owned ClickUp integration. The latest work adds a lazy story-status discrepancy check on top of the daily board plus the containerized deployment path for Amazon Lightsail Container Service.
+This repo is a read-only ClickUp client for the `Wingtra Cloud Dev` list. It ships a daily board, a hidden verification route, and a backend-owned ClickUp integration. The app is now intentionally narrow: no planning surface, no Storybook, no runtime mode split, and no env-token fallback.
 
 ## Current State
 
-The application implementation is complete. The read-only roadmap is closed, the Lightsail deployment plan is complete, and the project is now in maintenance mode. The app works locally in both mock mode and live OAuth mode, and the repo contains the finalized container build and GitHub Actions deployment path.
+The application implementation is complete. The read-only roadmap is closed, the Lightsail deployment plan is complete, and the project is now in maintenance mode. The current runtime shape is one server-backed path:
+
+- `/daily` is the primary route
+- `/verify` is available for targeted session-backed verification only
+- `/planning` has been removed from the app
+- ClickUp data is read only from the backend
+- the backend requires an OAuth-backed session token to read ClickUp data
+- there is no Storybook, mock mode, live mode toggle, or `CLICKUP_ACCESS_TOKEN` environment path
 
 Recent maintenance work tightened the daily board behavior and layout:
 
@@ -27,6 +34,7 @@ Recent maintenance work tightened the daily board behavior and layout:
 - daily swimlanes now use a slightly smaller shared minimum row height to keep sparse boards denser
 - daily board design guardrails now live in [docs/clickup-reference.md](/data/simple-clickup/docs/clickup-reference.md) and [docs/clickup-v1-plan.md](/data/simple-clickup/docs/clickup-v1-plan.md)
 - the old planning view and planning loader have been discontinued and removed from the active app
+- the old Storybook-only fixtures, stories, and mode badges were removed as part of the simplification pass
 
 Recent deployment-related commits:
 
@@ -40,7 +48,7 @@ Recent deployment-related commits:
 
 - [backend/src/app.ts](/data/simple-clickup/backend/src/app.ts): Express now serves the built frontend bundle in addition to `/api`, `/auth`, and `/health`.
 - [backend/test/app.test.ts](/data/simple-clickup/backend/test/app.test.ts): backend coverage for SPA route serving, static asset serving, and API route preservation.
-- [shared/src/fixtures.ts](/data/simple-clickup/shared/src/fixtures.ts): still provides mock-mode data when `CLICKUP_READ_MODE=mock`.
+- [frontend/src/app.tsx](/data/simple-clickup/frontend/src/app.tsx): route shell for `/daily`, `/verify`, root redirect, and generic not-found handling.
 
 ### Containerization
 
@@ -52,11 +60,11 @@ Recent deployment-related commits:
 - [.github/workflows/deploy-lightsail-container.yml](/data/simple-clickup/.github/workflows/deploy-lightsail-container.yml): GitHub Actions workflow that installs dependencies, runs tests, builds and pushes the image to ECR Public, then updates a Lightsail container deployment.
 - [scripts/deploy-lightsail-container.sh](/data/simple-clickup/scripts/deploy-lightsail-container.sh): creates the Lightsail container service if needed, injects runtime env vars, sets the public endpoint and health check, and waits for the service to reach `RUNNING`.
 
-### OAuth And Live Reads
+### OAuth And ClickUp Reads
 
-- The backend already supported OAuth and live reads before the deployment work.
-- Local Docker OAuth mode now works when the container is started with runtime env vars, `CLICKUP_READ_MODE=live`, no `CLICKUP_ACCESS_TOKEN`, `PORT=8080`, and a localhost callback URL.
+- The backend reads ClickUp only with an OAuth-backed session token.
 - The frontend shows the Connect ClickUp path when the backend returns `401`.
+- The backend no longer supports read-mode switching, token env fallbacks, or schema/debug helper endpoints that are not part of the active product.
 
 ## What Was Tested
 
@@ -77,14 +85,11 @@ Recent deployment-related commits:
 
 - Restarted the local container with runtime env vars from `.env` plus overrides:
   - `PORT=8080`
-  - `CLICKUP_READ_MODE=live`
-  - `CLICKUP_ACCESS_TOKEN=`
   - `CLICKUP_REDIRECT_URI=http://localhost:8080/auth/clickup/callback`
   - `SESSION_COOKIE_SECURE=false`
-- Verified the live-mode pre-login state:
+- Verified the pre-login state:
   - backend listened on port `8080`
   - `GET /api/clickup/daily` returned `401 Unauthorized`
-  - response header `x-custom-clickup-read-mode: live`
 
 ## Open Follow-Ups
 
@@ -92,7 +97,6 @@ No active delivery work remains on the current roadmap.
 
 Optional or deferred items only:
 
-- optional UX polish such as exposing the mock/live status banner on Daily
 - Database support is still intentionally deferred. The current deployment path assumes a stateless app container.
 
 ## Main Entry Points
@@ -114,7 +118,7 @@ Optional or deferred items only:
 - [frontend/src/lib/daily-meeting.ts](/data/simple-clickup/frontend/src/lib/daily-meeting.ts): frontend-only standup rotation logic for the `Next` helper
 - [frontend/src/components/task/task-primitives.tsx](/data/simple-clickup/frontend/src/components/task/task-primitives.tsx): shared task text rendering and overflow-aware native tooltip behavior
 - [frontend/src/styles.css](/data/simple-clickup/frontend/src/styles.css): daily board layout, row sizing, collapsed-column styling, sticky swimlane treatment, and discrepancy warning styling
-- [frontend/src/routes/verification-page.tsx](/data/simple-clickup/frontend/src/routes/verification-page.tsx): verification screen and only visible mock/live badge
+- [frontend/src/routes/verification-page.tsx](/data/simple-clickup/frontend/src/routes/verification-page.tsx): verification screen
 
 ### Backend
 
@@ -122,7 +126,7 @@ Optional or deferred items only:
 - [backend/src/routes/clickup.ts](/data/simple-clickup/backend/src/routes/clickup.ts): read endpoints, including `/api/clickup/story-status-discrepancies`
 - [backend/src/routes/auth.ts](/data/simple-clickup/backend/src/routes/auth.ts): OAuth routes
 - [backend/src/config.ts](/data/simple-clickup/backend/src/config.ts): env parsing
-- [backend/src/clickup/service.ts](/data/simple-clickup/backend/src/clickup/service.ts): mock/live read-mode behavior plus story-status discrepancy logic
+- [backend/src/clickup/service.ts](/data/simple-clickup/backend/src/clickup/service.ts): session-backed read service plus story-status discrepancy logic
 - [backend/test/app.test.ts](/data/simple-clickup/backend/test/app.test.ts): SPA serving and route safety coverage
 
 ## Working Commands
@@ -144,8 +148,6 @@ docker run -d --rm \
   -p 8080:8080 \
   --env-file .env \
   -e PORT=8080 \
-  -e CLICKUP_READ_MODE=live \
-  -e CLICKUP_ACCESS_TOKEN= \
   -e CLICKUP_REDIRECT_URI=http://localhost:8080/auth/clickup/callback \
   -e SESSION_COOKIE_SECURE=false \
   simple-clickup:local-test
@@ -155,6 +157,7 @@ docker run -d --rm \
 
 - Do not add production write behavior in this project.
 - Keep backend reads server-side; the frontend should not call ClickUp directly.
+- Keep the runtime simple; do not reintroduce Storybook, mock/live mode switching, or token-env fallbacks without an explicit scope change.
 - Do not bake secrets into the Docker image or Dockerfile.
 - Treat GitHub Actions environment vars/secrets as the source of truth for deployed container env.
 - If a database becomes necessary, treat it as a separate follow-up decision. The current Lightsail container plan is stateless.

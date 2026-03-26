@@ -7,9 +7,7 @@ describe("buildVerificationSummary", () => {
     const summary = buildVerificationSummary({
       schema: {
         workspaceId: "2199933",
-        listId: "901500224401",
-        dailyStatuses: [],
-        inlineEditableFields: []
+        listId: "901500224401"
       },
       daily: [
         {
