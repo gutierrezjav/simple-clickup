@@ -8,6 +8,7 @@ import {
 import { useEffect, useState, type CSSProperties } from "react";
 import { DailyCard } from "../components/daily/daily-card";
 import { ResourceState } from "../components/resource-state";
+import { TaskTitleLink } from "../components/task/task-primitives";
 import {
   ClickUpApiError,
   fetchDailyPageData,
@@ -103,10 +104,6 @@ function getDailyErrorMessage(error: Error): string {
   return error.message || "Daily board data could not be loaded.";
 }
 
-function formatCount(value: number, total: number, filtersActive: boolean): string {
-  return filtersActive ? `${value} / ${total}` : String(total);
-}
-
 function formatColumnCount(
   value: number,
   total: number,
@@ -177,14 +174,7 @@ function renderSwimlaneTitle(row: ReturnType<typeof filterDailyBoard>["rows"][nu
   }
 
   return (
-    <a
-      className="task-link"
-      href={getClickUpTaskUrl(row.id)}
-      rel="noreferrer"
-      target="_blank"
-    >
-      {row.title}
-    </a>
+    <TaskTitleLink className="daily-swimlane__title-link" taskId={row.id} title={row.title} />
   );
 }
 
@@ -337,14 +327,11 @@ function renderDailyGrid({
                     <span className={`pill pill--kind pill--${swimlaneMeta.pillModifier}`}>
                       {swimlaneMeta.label}
                     </span>
-                    <span className="daily-swimlane__count">
-                      {formatCount(row.cards.length, row.totalCardCount, filtersActive)} cards
-                    </span>
+                    {typeof row.prioScore === "number" ? (
+                      <span className="daily-swimlane__prio">Prio {row.prioScore}</span>
+                    ) : null}
                   </div>
                   <strong className="daily-swimlane__title">{renderSwimlaneTitle(row)}</strong>
-                  {typeof row.prioScore === "number" ? (
-                    <span className="daily-swimlane__prio">Prio {row.prioScore}</span>
-                  ) : null}
                 </div>
                 {dailyStatuses.map((status) => {
                   const collapsed = isStatusCollapsed(status);

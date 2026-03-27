@@ -31,6 +31,8 @@ Recent maintenance work tightened the daily board behavior and layout:
 - the daily page now includes a frontend-only `Next` helper for standups that rotates through assignee filter names
 - the `Next` helper skips `Unassigned` and `Javier Gutierrez`, keeps `Jessica Nilsson` last when present, and preserves its stored order across manual filter changes and refreshes
 - after a round has started, the `Next` button now previews the upcoming speaker via a subtle first-name tooltip
+- story swimlane titles now clamp to two lines and show the full title in a native overflow tooltip
+- swimlane headers no longer show the old `x / n cards` counter, and the shared minimum row height is tighter again
 - truncated daily card title, custom ID, and assignee text now expose the full value in a native tooltip
 - daily swimlanes now use a slightly smaller shared minimum row height to keep sparse boards denser
 - daily board design guardrails now live in [docs/clickup-reference.md](/data/simple-clickup/docs/clickup-reference.md) and [docs/clickup-v1-plan.md](/data/simple-clickup/docs/clickup-v1-plan.md)

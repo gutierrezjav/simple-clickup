@@ -90,6 +90,8 @@ Observed task type IDs:
 - `SPRINT BACKLOG`, `IN PROGRESS`, and `IN CODE REVIEW` stay expanded by default even when empty
 - `DEPLOYED TO STAGING` and `TESTED IN STAGING` start collapsed by default even when they contain cards
 - collapsed status columns hide their cards until expanded again
+- story swimlane titles clamp to two lines and expose the full title in a native tooltip only when the text overflows
+- swimlane headers no longer show a per-row card counter; the compact header keeps only the kind pill, story title, and optional prio
 - truncated daily card title, custom ID, and assignee text expose their full value in a native tooltip only when the text overflows
 
 ## Daily Meeting Helper
@@ -110,7 +112,7 @@ Observed task type IDs:
 - do not let card shadows or scrolling content bleed through the swimlane header area
 - keep story, task, and bug swimlane header treatment visually consistent unless there is a strong information-hierarchy reason not to
 - keep daily cards compact: reduced padding, reduced gaps, smaller radii, and regular-weight titles
-- keep swimlane rows vertically compact; the shared minimum row height is intentionally denser than the original board styling
+- keep swimlane rows vertically compact; the shared minimum row height is intentionally denser than the original board styling and can stay tight because the old per-row card counter is gone
 - collapsed columns should read as rails, not mini full columns
 - collapsed rails keep the colored status chip at the top and the count at the bottom
 

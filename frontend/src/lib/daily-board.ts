@@ -15,7 +15,6 @@ export interface DailyBoardCounts {
 
 export interface FilteredDailyRow extends DailyRow {
   cards: DailyCard[];
-  totalCardCount: number;
 }
 
 export interface FilteredDailyBoard {
@@ -147,8 +146,7 @@ export function filterDailyBoard(
     return [
       {
         ...row,
-        cards: visibleCards,
-        totalCardCount: row.cards.length
+        cards: visibleCards
       }
     ];
   });

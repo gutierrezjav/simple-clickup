@@ -959,7 +959,7 @@ input {
 }
 
 .daily-swimlane {
-  --daily-swimlane-min-height: 104px;
+  --daily-swimlane-min-height: 60px;
   display: grid;
   grid-template-columns: var(
     --daily-grid-columns,
@@ -980,7 +980,7 @@ input {
   gap: 4px;
   align-content: start;
   min-height: var(--daily-swimlane-min-height);
-  padding: 10px 12px 10px 10px;
+  padding: 8px 12px 8px 10px;
   border: none;
   border-radius: var(--radius-sm);
   overflow: hidden;
@@ -999,21 +999,24 @@ input {
 }
 
 .daily-swimlane__title {
+  display: block;
+  overflow: hidden;
   font-size: 14px;
   line-height: 1.3;
+}
+
+.daily-swimlane__title-link {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .daily-swimlane__prio {
   color: var(--text-soft);
   font-size: 11px;
   font-weight: 700;
-}
-
-.daily-swimlane__count {
-  color: var(--text-soft);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .daily-column {
@@ -1021,7 +1024,7 @@ input {
   align-content: start;
   gap: 6px;
   min-height: var(--daily-swimlane-min-height);
-  padding: 6px;
+  padding: 0;
   border: none;
   background: transparent;
 }
