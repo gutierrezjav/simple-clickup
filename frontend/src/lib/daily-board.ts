@@ -32,6 +32,11 @@ const alwaysExpandedWhenEmptyStatuses = new Set<DailyStatus>([
   "IN CODE REVIEW"
 ]);
 
+const alwaysCollapsedByDefaultStatuses = new Set<DailyStatus>([
+  "DEPLOYED TO STAGING",
+  "TESTED IN STAGING"
+]);
+
 export function getVisibleDailyStatuses(rows: Pick<DailyRow, "cards">[]): DailyStatus[] {
   const visibleStatuses = new Set<DailyStatus>();
 
@@ -48,6 +53,10 @@ export function isDailyStatusCollapsedByDefault(
   status: DailyStatus,
   visibleStatuses: ReadonlySet<DailyStatus>
 ): boolean {
+  if (alwaysCollapsedByDefaultStatuses.has(status)) {
+    return true;
+  }
+
   if (alwaysExpandedWhenEmptyStatuses.has(status)) {
     return false;
   }

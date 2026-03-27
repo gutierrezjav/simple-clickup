@@ -23,6 +23,7 @@ Recent maintenance work tightened the daily board behavior and layout:
 - task descendants inherit the correct swimlane instead of spawning accidental story rows
 - daily status columns are now client-side collapsible and expandable from the header
 - `SPRINT BACKLOG`, `IN PROGRESS`, and `IN CODE REVIEW` stay expanded by default even when empty
+- `DEPLOYED TO STAGING` and `TESTED IN STAGING` now start collapsed by default even when they contain cards
 - collapsed columns hide their cards and use a compact rail presentation
 - sticky swimlane headers now keep a flat opaque surface during horizontal scroll
 - the backend now exposes a dedicated story-status discrepancy read that compares each story against its active child-task progression

@@ -106,6 +106,16 @@ describe("filterDailyBoard", () => {
     expect(isDailyStatusCollapsedByDefault("BLOCKED", visibleStatuses)).toBe(true);
   });
 
+  it("keeps staging columns collapsed by default even when they have cards", () => {
+    const visibleStatuses = new Set<"DEPLOYED TO STAGING" | "TESTED IN STAGING">([
+      "DEPLOYED TO STAGING",
+      "TESTED IN STAGING"
+    ]);
+
+    expect(isDailyStatusCollapsedByDefault("DEPLOYED TO STAGING", visibleStatuses)).toBe(true);
+    expect(isDailyStatusCollapsedByDefault("TESTED IN STAGING", visibleStatuses)).toBe(true);
+  });
+
   it("filters cards by assignee without exposing standalone row titles as search hits", () => {
     const result = filterDailyBoard(rows, {
       search: "tasks",

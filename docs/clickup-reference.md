@@ -88,6 +88,7 @@ Observed task type IDs:
 - daily status columns keep the canonical status order
 - daily status columns can be collapsed or expanded client-side from the header
 - `SPRINT BACKLOG`, `IN PROGRESS`, and `IN CODE REVIEW` stay expanded by default even when empty
+- `DEPLOYED TO STAGING` and `TESTED IN STAGING` start collapsed by default even when they contain cards
 - collapsed status columns hide their cards until expanded again
 - truncated daily card title, custom ID, and assignee text expose their full value in a native tooltip only when the text overflows
 
