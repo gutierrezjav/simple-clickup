@@ -318,6 +318,9 @@ export function buildDailyRows(
     }))
     .filter((entry) => entry.kind === "story")
     .map((entry) => {
+      const primaryAssignee = firstAssignee(entry.task.assignees);
+      const assignee = assigneeName(primaryAssignee);
+      const primaryAssigneeAvatarUrl = assignee ? assigneeAvatarUrl(primaryAssignee) : undefined;
       const prioScore = parseNumberField(getCustomField(entry.task, "Prio score"));
       const cards = (cardsByRowId.get(entry.task.id ?? "") ?? [])
         .sort(compareByTaskMetrics)
@@ -329,6 +332,8 @@ export function buildDailyRows(
           title: entry.task.name?.trim() || "Untitled story",
           type: "story" as const,
           ...(prioScore !== undefined ? { prioScore } : {}),
+          ...(assignee ? { assignee } : {}),
+          ...(primaryAssigneeAvatarUrl ? { assigneeAvatarUrl: primaryAssigneeAvatarUrl } : {}),
           cards
         },
         prioScore,

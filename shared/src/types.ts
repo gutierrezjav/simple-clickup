@@ -38,6 +38,8 @@ export interface DailyRow {
   title: string;
   type: "story" | "tasks" | "bugs";
   prioScore?: number;
+  assignee?: string;
+  assigneeAvatarUrl?: string;
   cards: DailyCard[];
 }
 

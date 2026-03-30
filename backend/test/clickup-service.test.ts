@@ -87,7 +87,13 @@ describe("buildDailyRows", () => {
         id: "story-parent",
         name: "Top-level story",
         status: "SPRINT BACKLOG",
-        customItemId: storyTaskTypeId
+        customItemId: storyTaskTypeId,
+        assignees: [
+          {
+            username: "Alice Smith",
+            profilePicture: "https://example.com/alice.png"
+          }
+        ]
       })
     ];
 
@@ -96,6 +102,8 @@ describe("buildDailyRows", () => {
         id: "story-parent",
         title: "Top-level story",
         type: "story",
+        assignee: "Alice Smith",
+        assigneeAvatarUrl: "https://example.com/alice.png",
         cards: []
       },
       {
@@ -260,14 +268,24 @@ describe("buildDailyRows", () => {
         id: "story-parent",
         name: "Top-level story",
         status: "SPRINT BACKLOG",
-        customItemId: storyTaskTypeId
+        customItemId: storyTaskTypeId,
+        assignees: [
+          {
+            username: "Parent Owner"
+          }
+        ]
       }),
       createTask({
         id: "story-child",
         name: "Nested story",
         status: "SPRINT BACKLOG",
         parent: "story-parent",
-        customItemId: storyTaskTypeId
+        customItemId: storyTaskTypeId,
+        assignees: [
+          {
+            username: "Child Owner"
+          }
+        ]
       })
     ];
 
@@ -276,12 +294,14 @@ describe("buildDailyRows", () => {
         id: "story-parent",
         title: "Top-level story",
         type: "story",
+        assignee: "Parent Owner",
         cards: []
       },
       {
         id: "story-child",
         title: "Nested story",
         type: "story",
+        assignee: "Child Owner",
         cards: []
       },
       {

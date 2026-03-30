@@ -21,6 +21,7 @@ Recent maintenance work tightened the daily board behavior and layout:
 
 - only actual story items own story swimlanes
 - story swimlanes remain visible even when a story has no child task cards yet
+- story swimlane headers now show the story assignee avatar and name instead of the old `Story` pill
 - task descendants inherit the correct swimlane instead of spawning accidental story rows
 - daily status columns are now client-side collapsible and expandable from the header
 - `SPRINT BACKLOG`, `IN PROGRESS`, and `IN CODE REVIEW` stay expanded by default even when empty

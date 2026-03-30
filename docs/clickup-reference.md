@@ -92,7 +92,8 @@ Observed task type IDs:
 - `DEPLOYED TO STAGING` and `TESTED IN STAGING` start collapsed by default even when they contain cards
 - collapsed status columns hide their cards until expanded again
 - story swimlane titles clamp to two lines and expose the full title in a native tooltip only when the text overflows
-- swimlane headers no longer show a per-row card counter; the compact header keeps only the kind pill, story title, and optional prio
+- story swimlane headers show the story assignee avatar and name in place of the old `Story` kind pill
+- swimlane headers no longer show a per-row card counter; the compact header keeps only the swimlane lead, story title, and optional prio
 - truncated daily card title, custom ID, and assignee text expose their full value in a native tooltip only when the text overflows
 
 ## Daily Meeting Helper

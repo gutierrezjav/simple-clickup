@@ -998,6 +998,24 @@ input {
   gap: 8px;
 }
 
+.daily-swimlane__story-assignee {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.daily-swimlane__story-assignee .avatar-chip {
+  width: 20px;
+  height: 20px;
+}
+
+.daily-swimlane__story-assignee .task-assignee__name {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-soft);
+}
+
 .daily-swimlane__title {
   display: block;
   overflow: hidden;

@@ -8,7 +8,7 @@ import {
 import { useEffect, useState, type CSSProperties } from "react";
 import { DailyCard } from "../components/daily/daily-card";
 import { ResourceState } from "../components/resource-state";
-import { TaskTitleLink } from "../components/task/task-primitives";
+import { TaskAssigneeInline, TaskTitleLink } from "../components/task/task-primitives";
 import {
   ClickUpApiError,
   fetchDailyPageData,
@@ -168,6 +168,26 @@ function getSwimlaneMeta(rowType: DailyRow["type"]) {
   }
 }
 
+function renderSwimlaneHeaderLead(row: ReturnType<typeof filterDailyBoard>["rows"][number]) {
+  if (row.type === "story") {
+    return (
+      <TaskAssigneeInline
+        assignee={row.assignee}
+        avatarUrl={row.assigneeAvatarUrl}
+        className="daily-swimlane__story-assignee"
+        compact
+      />
+    );
+  }
+
+  const swimlaneMeta = getSwimlaneMeta(row.type);
+  return (
+    <span className={`pill pill--kind pill--${swimlaneMeta.pillModifier}`}>
+      {swimlaneMeta.label}
+    </span>
+  );
+}
+
 function renderSwimlaneTitle(row: ReturnType<typeof filterDailyBoard>["rows"][number]) {
   if (row.type !== "story") {
     return row.title;
@@ -318,15 +338,11 @@ function renderDailyGrid({
         </div>
         <div className="daily-board__body">
           {rows.map((row) => {
-            const swimlaneMeta = getSwimlaneMeta(row.type);
-
             return (
               <section className={`daily-swimlane daily-swimlane--${row.type}`} key={row.id}>
                 <div className="daily-swimlane__header">
                   <div className="daily-swimlane__header-top">
-                    <span className={`pill pill--kind pill--${swimlaneMeta.pillModifier}`}>
-                      {swimlaneMeta.label}
-                    </span>
+                    {renderSwimlaneHeaderLead(row)}
                     {typeof row.prioScore === "number" ? (
                       <span className="daily-swimlane__prio">Prio {row.prioScore}</span>
                     ) : null}
