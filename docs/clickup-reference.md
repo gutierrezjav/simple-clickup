@@ -86,6 +86,8 @@ Observed task type IDs:
 - one extra row for standalone tasks
 - one extra row for standalone bugs
 - daily filters are client-side only
+- the assignee filter includes story assignees, not only card assignees
+- when an assignee is selected, story rows stay visible if the story itself is assigned to that person even when no child cards match
 - daily status columns keep the canonical status order
 - daily status columns can be collapsed or expanded client-side from the header
 - `SPRINT BACKLOG`, `IN PROGRESS`, and `IN CODE REVIEW` stay expanded by default even when empty
@@ -99,7 +101,7 @@ Observed task type IDs:
 ## Daily Meeting Helper
 
 - the daily page includes a frontend-only `Next` helper in the filter toolbar
-- the helper uses the current assignee filter list as its source roster
+- the helper uses the current assignee filter list as its source roster, including story owners who currently have no visible task cards
 - `Unassigned` and `Javier Gutierrez` are excluded from the helper rotation
 - `Jessica Nilsson` is always moved to the end when she is present in the assignee list
 - the first `Next` click starts a randomized order; later clicks keep advancing the stored order until it ends

@@ -22,6 +22,7 @@ Recent maintenance work tightened the daily board behavior and layout:
 - only actual story items own story swimlanes
 - story swimlanes remain visible even when a story has no child task cards yet
 - story swimlane headers now show the story assignee avatar and name instead of the old `Story` pill
+- story assignees now participate in the assignee filter and can keep a story row visible even when no child cards match
 - task descendants inherit the correct swimlane instead of spawning accidental story rows
 - daily status columns are now client-side collapsible and expandable from the header
 - `SPRINT BACKLOG`, `IN PROGRESS`, and `IN CODE REVIEW` stay expanded by default even when empty
@@ -31,7 +32,7 @@ Recent maintenance work tightened the daily board behavior and layout:
 - the backend now exposes a dedicated story-status discrepancy read that compares each story against its active child-task progression
 - the daily page triggers that discrepancy read lazily after the board loads and shows a dismissible warning banner when stories are out of sync
 - the daily page now includes a frontend-only `Next` helper for standups that rotates through assignee filter names
-- the `Next` helper skips `Unassigned` and `Javier Gutierrez`, keeps `Jessica Nilsson` last when present, and preserves its stored order across manual filter changes and refreshes
+- the `Next` helper skips `Unassigned` and `Javier Gutierrez`, keeps `Jessica Nilsson` last when present, includes story-only assignees from the filter list, and preserves its stored order across manual filter changes and refreshes
 - after a round has started, the `Next` button now previews the upcoming speaker via a subtle first-name tooltip
 - story swimlane titles now clamp to two lines and show the full title in a native overflow tooltip
 - swimlane headers no longer show the old `x / n cards` counter, and the shared minimum row height is tighter again

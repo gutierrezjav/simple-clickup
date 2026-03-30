@@ -18,7 +18,7 @@ The active read-only roadmap and the Lightsail deployment plan are complete. The
 - daily keeps story rows visible even before any child task cards exist
 - daily story swimlane headers show the story assignee avatar and name instead of the old `Story` pill
 - daily keeps task-parent hierarchies inside the correct inherited swimlane instead of promoting parent tasks into story rows
-- daily supports local search and assignee filters plus filtered totals
+- daily supports local search and assignee filters plus filtered totals, and story assignees now participate in the assignee filter even without matching child cards
 - daily includes a frontend-only `Next` helper that cycles through assignee filter names for standup facilitation
 - after a round has started, the `Next` button shows a subtle tooltip preview of the upcoming speaker using only their first name
 - daily status columns are client-side collapsible and expandable from the header, and collapsed columns hide their cards
@@ -27,7 +27,7 @@ The active read-only roadmap and the Lightsail deployment plan are complete. The
 - daily cards are top-aligned in each status column
 - daily swimlane headers keep a sticky flat surface during horizontal scrolling, and the card layout is denser than the original board styling
 - truncated daily card title, custom ID, and assignee text now expose the full value in a native tooltip only when the text overflows
-- the `Next` helper uses the current assignee filter list, skips `Unassigned` and `Javier Gutierrez`, keeps `Jessica Nilsson` last when present, and preserves its stored order across search, manual assignee changes, clear-filters, and refresh actions
+- the `Next` helper uses the current assignee filter list, including story-only assignees, skips `Unassigned` and `Javier Gutierrez`, keeps `Jessica Nilsson` last when present, and preserves its stored order across search, manual assignee changes, clear-filters, and refresh actions
 - the current daily board design guidance is documented in [docs/clickup-reference.md](/data/simple-clickup/docs/clickup-reference.md) and [docs/clickup-v1-plan.md](/data/simple-clickup/docs/clickup-v1-plan.md)
 
 ### Backend
