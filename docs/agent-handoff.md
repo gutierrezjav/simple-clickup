@@ -20,6 +20,7 @@ The application implementation is complete. The read-only roadmap is closed, the
 Recent maintenance work tightened the daily board behavior and layout:
 
 - only actual story items own story swimlanes
+- story swimlanes remain visible even when a story has no child task cards yet
 - task descendants inherit the correct swimlane instead of spawning accidental story rows
 - daily status columns are now client-side collapsible and expandable from the header
 - `SPRINT BACKLOG`, `IN PROGRESS`, and `IN CODE REVIEW` stay expanded by default even when empty

@@ -133,7 +133,7 @@ export function filterDailyBoard(
       ? row.type === "story"
         ? storyTitleMatches || visibleCards.length > 0
         : visibleCards.length > 0
-      : row.cards.length > 0;
+      : row.type === "story" || row.cards.length > 0;
 
     if (!rowIsVisible) {
       return [];

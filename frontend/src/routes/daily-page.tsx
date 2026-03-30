@@ -259,7 +259,7 @@ function renderDailyGrid({
     "--daily-board-min-width": `${totalBoardWidth + 48}px`
   } as CSSProperties;
 
-  if (!filtersActive && !counts.totalCards) {
+  if (!filtersActive && rows.length === 0) {
     return (
       <ResourceState
         message="The backend returned no cards for the tracked daily statuses."

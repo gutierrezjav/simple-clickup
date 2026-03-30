@@ -81,6 +81,38 @@ describe("buildDailyRows", () => {
     });
   });
 
+  it("keeps a story row visible even when the story has no child tasks", () => {
+    const tasks = [
+      createTask({
+        id: "story-parent",
+        name: "Top-level story",
+        status: "SPRINT BACKLOG",
+        customItemId: storyTaskTypeId
+      })
+    ];
+
+    expect(buildDailyRows(tasks, taskTypeMap)).toEqual([
+      {
+        id: "story-parent",
+        title: "Top-level story",
+        type: "story",
+        cards: []
+      },
+      {
+        id: "tasks-row",
+        title: "Tasks",
+        type: "tasks",
+        cards: []
+      },
+      {
+        id: "bugs-row",
+        title: "Bugs",
+        type: "bugs",
+        cards: []
+      }
+    ]);
+  });
+
   it("keeps top-level task parents and their subtasks in the shared tasks swimlane", () => {
     const tasks = [
       createTask({
@@ -220,6 +252,51 @@ describe("buildDailyRows", () => {
       type: "story",
       cards: [{ id: "task-grandchild", status: "IN CODE REVIEW" }]
     });
+  });
+
+  it("keeps nested story rows even when no descendant tasks are visible", () => {
+    const tasks = [
+      createTask({
+        id: "story-parent",
+        name: "Top-level story",
+        status: "SPRINT BACKLOG",
+        customItemId: storyTaskTypeId
+      }),
+      createTask({
+        id: "story-child",
+        name: "Nested story",
+        status: "SPRINT BACKLOG",
+        parent: "story-parent",
+        customItemId: storyTaskTypeId
+      })
+    ];
+
+    expect(buildDailyRows(tasks, taskTypeMap)).toEqual([
+      {
+        id: "story-parent",
+        title: "Top-level story",
+        type: "story",
+        cards: []
+      },
+      {
+        id: "story-child",
+        title: "Nested story",
+        type: "story",
+        cards: []
+      },
+      {
+        id: "tasks-row",
+        title: "Tasks",
+        type: "tasks",
+        cards: []
+      },
+      {
+        id: "bugs-row",
+        title: "Bugs",
+        type: "bugs",
+        cards: []
+      }
+    ]);
   });
 
   it("preserves the first assignee avatar URL on daily cards", () => {

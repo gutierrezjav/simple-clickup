@@ -281,37 +281,6 @@ export function buildDailyRows(
     return rowId;
   };
 
-  const hasVisibleDailyContentByTaskId = new Map<string, boolean>();
-  const hasVisibleDailyContent = (taskId: string): boolean => {
-    const cachedValue = hasVisibleDailyContentByTaskId.get(taskId);
-    if (cachedValue !== undefined) {
-      return cachedValue;
-    }
-
-    const childIds = childIdsByParentId.get(taskId) ?? [];
-
-    for (const childId of childIds) {
-      const child = taskById.get(childId);
-      if (!child) {
-        continue;
-      }
-
-      const kind = taskKindById.get(childId);
-      if (kind !== "story" && allowedStatuses.has(normalizeStatus(child.status))) {
-        hasVisibleDailyContentByTaskId.set(taskId, true);
-        return true;
-      }
-
-      if (hasVisibleDailyContent(childId)) {
-        hasVisibleDailyContentByTaskId.set(taskId, true);
-        return true;
-      }
-    }
-
-    hasVisibleDailyContentByTaskId.set(taskId, false);
-    return false;
-  };
-
   const cardsByRowId = new Map<
     string,
     Array<{ card: DailyCard; orderindex: string | null | undefined; prioScore: number | undefined }>
@@ -366,7 +335,6 @@ export function buildDailyRows(
         orderindex: entry.task.orderindex
       };
     })
-    .filter((entry) => hasVisibleDailyContent(entry.row.id))
     .sort(compareByTaskMetrics)
     .map((entry) => entry.row);
 

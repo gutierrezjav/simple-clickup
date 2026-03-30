@@ -15,6 +15,7 @@ The active read-only roadmap and the Lightsail deployment plan are complete. The
 - `/planning` is no longer part of the app
 - route-level loading, retry, rate-limit, and empty states are implemented
 - daily renders story rows, standalone task/bug rows, nested stories as rows, and visible ancestors
+- daily keeps story rows visible even before any child task cards exist
 - daily keeps task-parent hierarchies inside the correct inherited swimlane instead of promoting parent tasks into story rows
 - daily supports local search and assignee filters plus filtered totals
 - daily includes a frontend-only `Next` helper that cycles through assignee filter names for standup facilitation

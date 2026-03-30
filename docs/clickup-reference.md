@@ -76,12 +76,13 @@ Observed task type IDs:
 
 - one row per story
 - only user-story items create dedicated story swimlanes
+- story rows stay visible even when a story has no child task cards yet
 - story itself is a row header, not a board card
 - nested stories are rows, not cards
 - only non-story children render as cards
 - tasks with subtasks stay normal tasks, not story rows
 - non-story descendants inherit the swimlane of their nearest non-story or story ancestor
-- ancestor story rows remain visible when descendant active work exists
+- ancestor story rows remain visible when descendant active work exists, and empty story rows still remain on the board
 - one extra row for standalone tasks
 - one extra row for standalone bugs
 - daily filters are client-side only

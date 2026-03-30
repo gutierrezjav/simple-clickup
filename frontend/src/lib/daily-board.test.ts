@@ -32,6 +32,12 @@ const rows: DailyRow[] = [
     ]
   },
   {
+    id: "story-without-cards",
+    title: "Empty story row",
+    type: "story",
+    cards: []
+  },
+  {
     id: "tasks-row",
     title: "Tasks",
     type: "tasks",
@@ -60,8 +66,10 @@ describe("filterDailyBoard", () => {
     expect(result.counts.visibleCards).toBe(3);
     expect(result.counts.totalByStatus["SPRINT BACKLOG"]).toBe(1);
     expect(result.counts.visibleByStatus["IN PROGRESS"]).toBe(1);
-    expect(result.rows).toHaveLength(2);
+    expect(result.rows).toHaveLength(3);
     expect(result.rows[0]?.cards).toHaveLength(2);
+    expect(result.rows[1]?.id).toBe("story-without-cards");
+    expect(result.rows[1]?.cards).toHaveLength(0);
   });
 
   it("keeps a story row visible when the story title matches search", () => {
@@ -124,6 +132,16 @@ describe("filterDailyBoard", () => {
 
     expect(result.rows).toHaveLength(0);
     expect(result.hasVisibleCards).toBe(false);
+  });
+
+  it("keeps empty story rows visible on the default board", () => {
+    const result = filterDailyBoard(rows, {
+      search: "",
+      assignee: ""
+    });
+
+    expect(result.rows.map((row) => row.id)).toContain("story-without-cards");
+    expect(result.hasVisibleCards).toBe(true);
   });
 
   it("keeps a title-matched story row even when the assignee filter removes every card", () => {
