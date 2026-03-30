@@ -12,6 +12,7 @@ const rows: DailyRow[] = [
     title: "Telemetry setting fixes",
     type: "story",
     prioScore: 50,
+    assignee: "Story Owner",
     cards: [
       {
         id: "card-1",
@@ -35,6 +36,7 @@ const rows: DailyRow[] = [
     id: "story-without-cards",
     title: "Empty story row",
     type: "story",
+    assignee: "Alice Smith",
     cards: []
   },
   {
@@ -134,6 +136,15 @@ describe("filterDailyBoard", () => {
     expect(result.hasVisibleCards).toBe(false);
   });
 
+  it("includes story assignees in the assignee filter options", () => {
+    const result = filterDailyBoard(rows, {
+      search: "",
+      assignee: ""
+    });
+
+    expect(result.assigneeOptions).toEqual(["Alice Smith", "Michele Bolognini", "Story Owner"]);
+  });
+
   it("keeps empty story rows visible on the default board", () => {
     const result = filterDailyBoard(rows, {
       search: "",
@@ -142,6 +153,17 @@ describe("filterDailyBoard", () => {
 
     expect(result.rows.map((row) => row.id)).toContain("story-without-cards");
     expect(result.hasVisibleCards).toBe(true);
+  });
+
+  it("keeps a story row visible when the story assignee matches the assignee filter", () => {
+    const result = filterDailyBoard(rows, {
+      search: "",
+      assignee: "Alice Smith"
+    });
+
+    expect(result.rows.map((row) => row.id)).toEqual(["story-row", "story-without-cards"]);
+    expect(result.rows[0]?.cards.map((card) => card.id)).toEqual(["card-2"]);
+    expect(result.rows[1]?.cards).toHaveLength(0);
   });
 
   it("keeps a title-matched story row even when the assignee filter removes every card", () => {

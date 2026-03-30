@@ -77,8 +77,8 @@ function normalizeText(value: string): string {
   return value.trim().toLowerCase();
 }
 
-function matchesAssignee(card: DailyCard, assignee: string): boolean {
-  return assignee === "" || getAssigneeDisplayName(card.assignee) === assignee;
+function matchesAssigneeName(value: string | undefined, assignee: string): boolean {
+  return assignee === "" || getAssigneeDisplayName(value) === assignee;
 }
 
 function matchesCardSearch(card: DailyCard, searchTerm: string): boolean {
@@ -93,7 +93,13 @@ function matchesCardSearch(card: DailyCard, searchTerm: string): boolean {
 
 export function getDailyAssigneeOptions(rows: DailyRow[]): string[] {
   const assignees = [
-    ...new Set(rows.flatMap((row) => row.cards.map((card) => getAssigneeDisplayName(card.assignee))))
+    ...new Set(
+      rows.flatMap((row) => {
+        const cardAssignees = row.cards.map((card) => getAssigneeDisplayName(card.assignee));
+        const storyAssignees = row.type === "story" ? [getAssigneeDisplayName(row.assignee)] : [];
+        return [...cardAssignees, ...storyAssignees];
+      })
+    )
   ];
 
   const namedAssignees = assignees
@@ -126,12 +132,13 @@ export function filterDailyBoard(
       row.type === "story" && searchTerm !== ""
         ? row.title.toLowerCase().includes(searchTerm)
         : false;
-    const assigneeCards = row.cards.filter((card) => matchesAssignee(card, assignee));
+    const storyAssigneeMatches = row.type === "story" && matchesAssigneeName(row.assignee, assignee);
+    const assigneeCards = row.cards.filter((card) => matchesAssigneeName(card.assignee, assignee));
     const matchingCards = assigneeCards.filter((card) => matchesCardSearch(card, searchTerm));
     const visibleCards = storyTitleMatches ? assigneeCards : matchingCards;
     const rowIsVisible = filtersActive
       ? row.type === "story"
-        ? storyTitleMatches || visibleCards.length > 0
+        ? storyTitleMatches || (searchTerm === "" && storyAssigneeMatches) || visibleCards.length > 0
         : visibleCards.length > 0
       : row.type === "story" || row.cards.length > 0;
 
