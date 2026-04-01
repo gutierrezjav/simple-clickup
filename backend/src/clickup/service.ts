@@ -476,6 +476,11 @@ export function buildStoryStatusDiscrepancyReport(
         return [];
       }
 
+      const primaryAssignee = firstAssignee(story.assignees);
+      const storyAssignee = assigneeName(primaryAssignee);
+      const storyAssigneeAvatarUrl = storyAssignee
+        ? assigneeAvatarUrl(primaryAssignee)
+        : undefined;
       const childStatuses = activeChildren.map(
         (task) => normalizeStatus(task.status) as StoryProgressStatus
       );
@@ -495,6 +500,8 @@ export function buildStoryStatusDiscrepancyReport(
             storyId,
             storyCustomId: story.custom_id ?? story.id ?? "unknown-story",
             storyTitle: story.name?.trim() || "Untitled story",
+            ...(storyAssignee ? { storyAssignee } : {}),
+            ...(storyAssigneeAvatarUrl ? { storyAssigneeAvatarUrl } : {}),
             actualStatus,
             expectedStatus,
             activeChildCount: activeChildren.length,

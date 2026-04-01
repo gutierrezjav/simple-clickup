@@ -52,6 +52,8 @@ export interface StoryStatusDiscrepancy {
   storyId: string;
   storyCustomId: string;
   storyTitle: string;
+  storyAssignee?: string;
+  storyAssigneeAvatarUrl?: string;
   actualStatus: string;
   expectedStatus: StoryProgressStatus;
   activeChildCount: number;

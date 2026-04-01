@@ -421,14 +421,25 @@ function renderStoryStatusWarning(
       <ul className="story-status-warning__list">
         {report.discrepancies.map((discrepancy) => (
           <li className="story-status-warning__item" key={discrepancy.storyId}>
-            <a
-              className="task-link story-status-warning__link"
-              href={getClickUpTaskUrl(discrepancy.storyId)}
-              rel="noreferrer"
-              target="_blank"
-            >
-              {discrepancy.storyCustomId} {discrepancy.storyTitle}
-            </a>
+            <div className="story-status-warning__item-header">
+              <a
+                className="task-link story-status-warning__link"
+                href={getClickUpTaskUrl(discrepancy.storyId)}
+                rel="noreferrer"
+                target="_blank"
+              >
+                {discrepancy.storyCustomId} {discrepancy.storyTitle}
+              </a>
+              {discrepancy.storyAssignee ? (
+                <TaskAssigneeInline
+                  assignee={discrepancy.storyAssignee}
+                  avatarUrl={discrepancy.storyAssigneeAvatarUrl}
+                  className="story-status-warning__assignee"
+                  nameClassName="story-status-warning__assignee-name"
+                  compact
+                />
+              ) : null}
+            </div>
             <p className="story-status-warning__detail">
               Expected <strong>{discrepancy.expectedStatus}</strong>, currently{" "}
               <strong>{discrepancy.actualStatus}</strong>. Active child tasks:{" "}

@@ -359,7 +359,13 @@ describe("buildStoryStatusDiscrepancyReport", () => {
         name: "Telemetry setting fixes",
         status: "refined",
         customItemId: storyTaskTypeId,
-        orderindex: "1"
+        orderindex: "1",
+        assignees: [
+          {
+            username: "Alice Smith",
+            profilePicture: "https://example.com/alice.png"
+          }
+        ]
       }),
       createTask({
         id: "task-parent",
@@ -392,6 +398,8 @@ describe("buildStoryStatusDiscrepancyReport", () => {
           storyId: "story-parent",
           storyCustomId: "STORY-PARENT",
           storyTitle: "Telemetry setting fixes",
+          storyAssignee: "Alice Smith",
+          storyAssigneeAvatarUrl: "https://example.com/alice.png",
           actualStatus: "REFINED",
           expectedStatus: "IN PROGRESS",
           activeChildCount: 3,

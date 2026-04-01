@@ -679,8 +679,32 @@ input {
   border-top: 0;
 }
 
+.story-status-warning__item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 14px;
+  flex-wrap: wrap;
+}
+
 .story-status-warning__link {
+  min-width: 0;
   font-weight: 700;
+}
+
+.story-status-warning__assignee {
+  max-width: min(100%, 240px);
+  color: var(--text-soft);
+}
+
+.story-status-warning__assignee .avatar-chip {
+  width: 20px;
+  height: 20px;
+  font-size: 9px;
+}
+
+.story-status-warning__assignee-name {
+  color: var(--text-soft);
 }
 
 .story-status-warning__detail {
