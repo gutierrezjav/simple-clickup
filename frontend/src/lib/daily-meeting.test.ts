@@ -13,13 +13,14 @@ function createSequenceRandom(values: number[]): () => number {
 }
 
 describe("getEligibleDailyMeetingRoster", () => {
-  it("excludes Unassigned and Javier Gutierrez and keeps Jessica Nilsson last", () => {
+  it("excludes Unassigned, Javier Gutierrez, and Basil Weibel and keeps Jessica Nilsson last", () => {
     expect(
       getEligibleDailyMeetingRoster([
         "Unassigned",
         "Alice Smith",
         "Jessica Nilsson",
         "Javier Gutierrez",
+        "Basil Weibel",
         "Bob Jones"
       ])
     ).toEqual(["Alice Smith", "Bob Jones", "Jessica Nilsson"]);
@@ -106,7 +107,7 @@ describe("advanceDailyMeetingRound", () => {
 
   it("returns no selection when every assignee is excluded", () => {
     const result = advanceDailyMeetingRound({
-      assigneeOptions: ["Unassigned", "Javier Gutierrez"],
+      assigneeOptions: ["Unassigned", "Javier Gutierrez", "Basil Weibel"],
       round: null
     });
 

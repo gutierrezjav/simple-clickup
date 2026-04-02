@@ -1,4 +1,8 @@
-const excludedDailyMeetingNames = new Set(["Unassigned", "Javier Gutierrez"]);
+const excludedDailyMeetingNames = new Set([
+  "Unassigned",
+  "Javier Gutierrez",
+  "Basil Weibel"
+]);
 const finalDailyMeetingSpeaker = "Jessica Nilsson";
 const defaultDailyMeetingProgressSegmentCount = 9;
 export interface DailyMeetingRound {

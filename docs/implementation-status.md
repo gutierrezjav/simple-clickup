@@ -1,6 +1,6 @@
 # Implementation Status
 
-Last updated: 2026-03-26
+Last updated: 2026-04-02
 
 ## Summary
 
@@ -27,7 +27,7 @@ The active read-only roadmap and the Lightsail deployment plan are complete. The
 - daily cards are top-aligned in each status column
 - daily swimlane headers keep a sticky flat surface during horizontal scrolling, and the card layout is denser than the original board styling
 - truncated daily card title, custom ID, and assignee text now expose the full value in a native tooltip only when the text overflows
-- the `Next` helper uses the current assignee filter list, including story-only assignees, skips `Unassigned` and `Javier Gutierrez`, keeps `Jessica Nilsson` last when present, and preserves its stored order across search, manual assignee changes, clear-filters, and refresh actions
+- the `Next` helper uses the current assignee filter list, including story-only assignees, skips `Unassigned`, `Javier Gutierrez`, and `Basil Weibel`, keeps `Jessica Nilsson` last when present, and preserves its stored order across search, manual assignee changes, clear-filters, and refresh actions
 - the current daily board design guidance is documented in [docs/clickup-reference.md](/data/simple-clickup/docs/clickup-reference.md) and [docs/clickup-v1-plan.md](/data/simple-clickup/docs/clickup-v1-plan.md)
 
 ### Backend

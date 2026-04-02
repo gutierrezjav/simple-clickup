@@ -7,7 +7,7 @@ Add a frontend-only daily-meeting helper on the `/daily` page that drives the ex
 Behavior:
 
 - the helper uses the current assignee dropdown options as the source roster
-- `Unassigned` and `Javier Gutierrez` are always excluded from the speaking order
+- `Unassigned`, `Javier Gutierrez`, and `Basil Weibel` are always excluded from the speaking order
 - `Jessica Nilsson` is moved to the end of the order only if she is already present in the roster
 - the first click on `Next` starts a new round with a randomized order
 - once a round has started, the `Next` button may show a subtle tooltip preview of the upcoming speaker using only their first name
@@ -35,6 +35,7 @@ Behavior:
   - start from the existing assignee filter options
   - drop `Unassigned`
   - drop `Javier Gutierrez`
+  - drop `Basil Weibel`
   - if `Jessica Nilsson` is present, remove her from the shuffled set and append her last
   - if Jessica is absent, do not invent or append her
 - round rules:
@@ -74,6 +75,7 @@ Behavior:
 - add pure unit tests for the sequencing helper:
   - excludes `Unassigned`
   - excludes `Javier Gutierrez`
+  - excludes `Basil Weibel`
   - keeps `Jessica Nilsson` last when present
   - does not add Jessica when absent
   - first `Next` starts a randomized round
@@ -87,7 +89,7 @@ Behavior:
 
 - `Use the names in the filter list` means the current assignee dropdown options already shown on `/daily`
 - `Unassigned` is never a speaker
-- `Javier Gutierrez` is always excluded from helper-driven rotation, even if he appears in the filter list
+- `Javier Gutierrez` and `Basil Weibel` are always excluded from helper-driven rotation, even if they appear in the filter list
 - manual assignee changes are treated as temporary interruptions for viewing, not as edits to the stored speaking order
 - the selected assignee filter is the current-speaker indicator shown by the page
 - when the round ends, the next click clears the assignee filter rather than auto-starting a new round

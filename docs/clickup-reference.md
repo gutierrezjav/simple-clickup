@@ -1,6 +1,6 @@
 # ClickUp Reference
 
-Last updated: 2026-03-26
+Last updated: 2026-04-02
 
 ## Target
 
@@ -102,7 +102,7 @@ Observed task type IDs:
 
 - the daily page includes a frontend-only `Next` helper in the filter toolbar
 - the helper uses the current assignee filter list as its source roster, including story owners who currently have no visible task cards
-- `Unassigned` and `Javier Gutierrez` are excluded from the helper rotation
+- `Unassigned`, `Javier Gutierrez`, and `Basil Weibel` are excluded from the helper rotation
 - `Jessica Nilsson` is always moved to the end when she is present in the assignee list
 - the first `Next` click starts a randomized order; later clicks keep advancing the stored order until it ends
 - once a round has started, the `Next` button shows a subtle tooltip preview of the next speaker using only their first name
