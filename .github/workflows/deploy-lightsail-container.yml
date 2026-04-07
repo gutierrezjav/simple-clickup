@@ -22,6 +22,8 @@ concurrency:
 # CLICKUP_HTTP_TIMEOUT_MS
 # Required GitHub secrets for ClickUp OAuth:
 # SESSION_SECRET, CLICKUP_CLIENT_ID, CLICKUP_CLIENT_SECRET
+# Optional GitHub secrets for daily meeting helper config:
+# DAILY_MEETING_EXCLUDED_ASSIGNEES, DAILY_MEETING_FINAL_SPEAKER
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -119,5 +121,7 @@ jobs:
           CLICKUP_HTTP_TIMEOUT_MS: ${{ vars.CLICKUP_HTTP_TIMEOUT_MS }}
           CLICKUP_CLIENT_ID: ${{ secrets.CLICKUP_CLIENT_ID }}
           CLICKUP_CLIENT_SECRET: ${{ secrets.CLICKUP_CLIENT_SECRET }}
+          DAILY_MEETING_EXCLUDED_ASSIGNEES: ${{ secrets.DAILY_MEETING_EXCLUDED_ASSIGNEES }}
+          DAILY_MEETING_FINAL_SPEAKER: ${{ secrets.DAILY_MEETING_FINAL_SPEAKER }}
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
         run: ./scripts/deploy-lightsail-container.sh
