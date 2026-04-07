@@ -67,6 +67,11 @@ Core env vars for OAuth-enabled local or deployed use:
 
 Other supported env vars cover the API base URL, target workspace/list, request timeout, cache TTL, port, and secure-cookie toggle.
 
+Daily meeting helper env vars:
+
+- `DAILY_MEETING_EXCLUDED_ASSIGNEES`: optional comma-separated assignee names to exclude from the `Next` rotation
+- `DAILY_MEETING_FINAL_SPEAKER`: optional assignee name that should always be placed last in the `Next` rotation
+
 ## Container And Deployment
 
 Production runs as one container that serves both the frontend bundle and the backend API.

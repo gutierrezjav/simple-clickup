@@ -1,10 +1,12 @@
 import type {
+  DailyMeetingConfig,
   DailyRow,
   StoryStatusDiscrepancyReport,
   VerificationSummary
 } from "@custom-clickup/shared";
 
 export interface DailyPageData {
+  dailyMeeting: DailyMeetingConfig;
   rows: DailyRow[];
 }
 
@@ -69,7 +71,7 @@ async function fetchClickUpResource<T>(path: string): Promise<T> {
 }
 
 export function fetchDailyPageData(): Promise<DailyPageData> {
-  return fetchClickUpResource<{ rows: DailyRow[] }>("/api/clickup/daily");
+  return fetchClickUpResource<DailyPageData>("/api/clickup/daily");
 }
 
 export function fetchVerificationPageData(): Promise<VerificationPageData> {

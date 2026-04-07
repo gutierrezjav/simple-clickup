@@ -137,6 +137,10 @@ const optionalSecretSchema = z.preprocess((value) => {
   return trimmed === "" ? undefined : trimmed;
 }, z.string().min(16).optional());
 
+const commaSeparatedStringListSchema = z.string().optional().transform((value) => {
+  return value?.split(",").map((entry) => entry.trim()).filter(Boolean) ?? [];
+});
+
 const envSchema = z.object({
   PORT: z.coerce.number().default(4000),
   LOG_FORMAT: z.enum(["pretty", "json"]).default("pretty"),
@@ -150,6 +154,8 @@ const envSchema = z.object({
   CLICKUP_TARGET_LIST_ID: z.string().trim().min(1).default(clickupTarget.listId),
   CLICKUP_READ_CACHE_TTL_MS: z.coerce.number().int().positive().default(30_000),
   CLICKUP_HTTP_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
+  DAILY_MEETING_EXCLUDED_ASSIGNEES: commaSeparatedStringListSchema,
+  DAILY_MEETING_FINAL_SPEAKER: optionalNonEmptyStringSchema,
   SESSION_SECRET: optionalSecretSchema,
   SESSION_COOKIE_SECURE: booleanEnvSchema.default(false)
 }).superRefine((env, ctx) => {

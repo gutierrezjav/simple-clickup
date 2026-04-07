@@ -1,6 +1,7 @@
 import {
   dailyStatuses,
   type DailyCard as DailyCardModel,
+  type DailyMeetingConfig,
   type DailyStatus,
   type DailyRow,
   type StoryStatusDiscrepancyReport
@@ -472,6 +473,10 @@ function renderDailyMeetingProgressIndicator(round: DailyMeetingRound | null) {
   );
 }
 
+const defaultDailyMeetingConfig: DailyMeetingConfig = {
+  excludedAssignees: []
+};
+
 export function DailyPage({
   loader = fetchDailyPageData,
   storyStatusLoader = fetchStoryStatusDiscrepancyReportData
@@ -487,7 +492,11 @@ export function DailyPage({
   const [statusCollapseOverrides, setStatusCollapseOverrides] = useState<StatusCollapseOverrides>({});
   const sortedRows = data ? sortDailyRows(data.rows) : [];
   const filteredBoard = filterDailyBoard(sortedRows, filters);
-  const eligibleMeetingRoster = getEligibleDailyMeetingRoster(filteredBoard.assigneeOptions);
+  const dailyMeetingConfig = data?.dailyMeeting ?? defaultDailyMeetingConfig;
+  const eligibleMeetingRoster = getEligibleDailyMeetingRoster(
+    filteredBoard.assigneeOptions,
+    dailyMeetingConfig
+  );
   const nextMeetingSpeaker = getNextDailyMeetingSpeaker(meetingRound);
   useTopBarAction({
     disabled: isRefreshing,
@@ -560,6 +569,7 @@ export function DailyPage({
   function handleNextSpeaker() {
     const nextMeetingStep = advanceDailyMeetingRound({
       assigneeOptions: filteredBoard.assigneeOptions,
+      config: dailyMeetingConfig,
       round: meetingRound
     });
 

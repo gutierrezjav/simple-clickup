@@ -102,8 +102,9 @@ Observed task type IDs:
 
 - the daily page includes a frontend-only `Next` helper in the filter toolbar
 - the helper uses the current assignee filter list as its source roster, including story owners who currently have no visible task cards
-- `Unassigned`, `Javier Gutierrez`, and `Basil Weibel` are excluded from the helper rotation
-- `Jessica Nilsson` is always moved to the end when she is present in the assignee list
+- `Unassigned` is always excluded from the helper rotation
+- backend-configured excluded assignees are also removed from the helper rotation
+- an optional backend-configured final speaker is always moved to the end when present in the assignee list
 - the first `Next` click starts a randomized order; later clicks keep advancing the stored order until it ends
 - once a round has started, the `Next` button shows a subtle tooltip preview of the next speaker using only their first name
 - manual search changes, manual assignee changes, `Clear filters`, and `Refresh` do not reset the stored `Next` order

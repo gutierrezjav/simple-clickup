@@ -329,7 +329,7 @@ describe("buildDailyRows", () => {
         orderindex: "1",
         assignees: [
           {
-            username: "Javier Gutierrez",
+            username: "Example User",
             profilePicture: avatarUrl
           }
         ]
@@ -343,7 +343,7 @@ describe("buildDailyRows", () => {
       cards: [
         {
           id: "task-with-avatar",
-          assignee: "Javier Gutierrez",
+          assignee: "Example User",
           assigneeAvatarUrl: avatarUrl
         }
       ]

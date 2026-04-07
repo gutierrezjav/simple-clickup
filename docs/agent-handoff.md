@@ -32,7 +32,7 @@ Recent maintenance work tightened the daily board behavior and layout:
 - the backend now exposes a dedicated story-status discrepancy read that compares each story against its active child-task progression
 - the daily page triggers that discrepancy read lazily after the board loads and shows a dismissible warning banner when stories are out of sync
 - the daily page now includes a frontend-only `Next` helper for standups that rotates through assignee filter names
-- the `Next` helper skips `Unassigned`, `Javier Gutierrez`, and `Basil Weibel`, keeps `Jessica Nilsson` last when present, includes story-only assignees from the filter list, and preserves its stored order across manual filter changes and refreshes
+- the `Next` helper always skips `Unassigned`, supports backend-configured excluded assignees plus an optional backend-configured final speaker, includes story-only assignees from the filter list, and preserves its stored order across manual filter changes and refreshes
 - after a round has started, the `Next` button now previews the upcoming speaker via a subtle first-name tooltip
 - story swimlane titles now clamp to two lines and show the full title in a native overflow tooltip
 - swimlane headers no longer show the old `x / n cards` counter, and the shared minimum row height is tighter again

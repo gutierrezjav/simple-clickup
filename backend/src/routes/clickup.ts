@@ -1,5 +1,8 @@
 import { Router, type Request, type Response } from "express";
-import { clickupTarget } from "@custom-clickup/shared";
+import {
+  clickupTarget,
+  type DailyMeetingConfig
+} from "@custom-clickup/shared";
 import { config } from "../config.js";
 import { ClickUpServiceError } from "../clickup/errors.js";
 import { buildVerificationSummary } from "../clickup/verification.js";
@@ -18,6 +21,15 @@ const readServiceByToken = new Map<string, ClickUpReadService>();
 type ReadServiceResponseFactory = (
   readService: ClickUpReadService
 ) => Promise<Record<string, unknown>>;
+
+function getDailyMeetingConfig(): DailyMeetingConfig {
+  return {
+    excludedAssignees: config.DAILY_MEETING_EXCLUDED_ASSIGNEES,
+    ...(config.DAILY_MEETING_FINAL_SPEAKER
+      ? { finalSpeaker: config.DAILY_MEETING_FINAL_SPEAKER }
+      : {})
+  };
+}
 
 function getSessionOptions(): SessionCookieOptions | null {
   if (!config.SESSION_SECRET) {
@@ -117,6 +129,7 @@ async function sendReadServiceResponse(
 
 clickupRouter.get("/daily", async (req, res) => {
   await sendReadServiceResponse(req, res, async (readService) => ({
+    dailyMeeting: getDailyMeetingConfig(),
     rows: await readService.getDailyRows()
   }));
 });

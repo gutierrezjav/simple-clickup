@@ -7,8 +7,9 @@ Add a frontend-only daily-meeting helper on the `/daily` page that drives the ex
 Behavior:
 
 - the helper uses the current assignee dropdown options as the source roster
-- `Unassigned`, `Javier Gutierrez`, and `Basil Weibel` are always excluded from the speaking order
-- `Jessica Nilsson` is moved to the end of the order only if she is already present in the roster
+- `Unassigned` is always excluded from the speaking order
+- backend-configured excluded assignees are always excluded from the speaking order
+- an optional backend-configured final speaker is moved to the end of the order only if they are already present in the roster
 - the first click on `Next` starts a new round with a randomized order
 - once a round has started, the `Next` button may show a subtle tooltip preview of the upcoming speaker using only their first name
 - each later click advances to the next name in that stored order and updates the assignee filter to that person
@@ -18,8 +19,8 @@ Behavior:
 
 ## Public Interfaces
 
-- no backend changes
-- no shared type or API changes
+- backend env config now supplies the helper's configurable exclusions and optional final speaker
+- the `/daily` response now includes the helper config alongside the board rows
 - no server persistence
 - frontend-only state inside the daily page, with the sequencing logic extracted into a small pure helper module for testability
 
@@ -34,10 +35,9 @@ Behavior:
 - roster rules:
   - start from the existing assignee filter options
   - drop `Unassigned`
-  - drop `Javier Gutierrez`
-  - drop `Basil Weibel`
-  - if `Jessica Nilsson` is present, remove her from the shuffled set and append her last
-  - if Jessica is absent, do not invent or append her
+  - drop any backend-configured excluded assignees
+  - if a backend-configured final speaker is present, remove them from the shuffled set and append them last
+  - if the configured final speaker is absent, do not invent or append them
 - round rules:
   - first `Next` click when no active round exists creates a fresh order and selects the first speaker
   - later `Next` clicks move to the next speaker in the stored order
@@ -74,10 +74,9 @@ Behavior:
 
 - add pure unit tests for the sequencing helper:
   - excludes `Unassigned`
-  - excludes `Javier Gutierrez`
-  - excludes `Basil Weibel`
-  - keeps `Jessica Nilsson` last when present
-  - does not add Jessica when absent
+  - excludes backend-configured assignees
+  - keeps the configured final speaker last when present
+  - does not add the configured final speaker when absent
   - first `Next` starts a randomized round
   - repeated `Next` walks the stored order without reshuffling mid-round
   - manual assignee selection does not reset the round
@@ -89,7 +88,7 @@ Behavior:
 
 - `Use the names in the filter list` means the current assignee dropdown options already shown on `/daily`
 - `Unassigned` is never a speaker
-- `Javier Gutierrez` and `Basil Weibel` are always excluded from helper-driven rotation, even if they appear in the filter list
+- backend-configured excluded assignees are always excluded from helper-driven rotation, even if they appear in the filter list
 - manual assignee changes are treated as temporary interruptions for viewing, not as edits to the stored speaking order
 - the selected assignee filter is the current-speaker indicator shown by the page
 - when the round ends, the next click clears the assignee filter rather than auto-starting a new round

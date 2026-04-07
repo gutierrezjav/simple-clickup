@@ -1,3 +1,4 @@
+import type { DailyMeetingConfig } from "@custom-clickup/shared";
 import { describe, expect, it } from "vitest";
 import {
   advanceDailyMeetingRound,
@@ -12,22 +13,32 @@ function createSequenceRandom(values: number[]): () => number {
   return () => values[index++] ?? 0;
 }
 
+const configuredDailyMeeting: DailyMeetingConfig = {
+  excludedAssignees: ["Excluded Person One", "Excluded Person Two"],
+  finalSpeaker: "Tail Speaker"
+};
+
+const finalSpeakerDailyMeeting: DailyMeetingConfig = {
+  excludedAssignees: [],
+  finalSpeaker: "Final Speaker"
+};
+
 describe("getEligibleDailyMeetingRoster", () => {
-  it("excludes Unassigned, Javier Gutierrez, and Basil Weibel and keeps Jessica Nilsson last", () => {
+  it("excludes Unassigned and configured assignees, then keeps the configured final speaker last", () => {
     expect(
       getEligibleDailyMeetingRoster([
         "Unassigned",
         "Alice Smith",
-        "Jessica Nilsson",
-        "Javier Gutierrez",
-        "Basil Weibel",
+        "Tail Speaker",
+        "Excluded Person One",
+        "Excluded Person Two",
         "Bob Jones"
-      ])
-    ).toEqual(["Alice Smith", "Bob Jones", "Jessica Nilsson"]);
+      ], configuredDailyMeeting)
+    ).toEqual(["Alice Smith", "Bob Jones", "Tail Speaker"]);
   });
 
-  it("does not append Jessica Nilsson when she is not in the filter list", () => {
-    expect(getEligibleDailyMeetingRoster(["Alice Smith", "Bob Jones"])).toEqual([
+  it("does not append the configured final speaker when they are not in the filter list", () => {
+    expect(getEligibleDailyMeetingRoster(["Alice Smith", "Bob Jones"], configuredDailyMeeting)).toEqual([
       "Alice Smith",
       "Bob Jones"
     ]);
@@ -37,47 +48,53 @@ describe("getEligibleDailyMeetingRoster", () => {
 describe("advanceDailyMeetingRound", () => {
   it("starts a randomized round on the first Next click", () => {
     const result = advanceDailyMeetingRound({
-      assigneeOptions: ["Alice Smith", "Bob Jones", "Jessica Nilsson"],
+      assigneeOptions: ["Alice Smith", "Bob Jones", "Final Speaker"],
+      config: finalSpeakerDailyMeeting,
       random: createSequenceRandom([0]),
       round: null
     });
 
     expect(result.assignee).toBe("Bob Jones");
-    expect(result.round?.order).toEqual(["Bob Jones", "Alice Smith", "Jessica Nilsson"]);
+    expect(result.round?.order).toEqual(["Bob Jones", "Alice Smith", "Final Speaker"]);
     expect(result.round?.currentIndex).toBe(0);
   });
 
   it("advances through the stored order without reshuffling mid-round", () => {
     const started = advanceDailyMeetingRound({
-      assigneeOptions: ["Alice Smith", "Bob Jones", "Jessica Nilsson"],
+      assigneeOptions: ["Alice Smith", "Bob Jones", "Final Speaker"],
+      config: finalSpeakerDailyMeeting,
       random: createSequenceRandom([0]),
       round: null
     });
 
     const second = advanceDailyMeetingRound({
-      assigneeOptions: ["Alice Smith", "Bob Jones", "Jessica Nilsson"],
+      assigneeOptions: ["Alice Smith", "Bob Jones", "Final Speaker"],
+      config: finalSpeakerDailyMeeting,
       round: started.round ?? null
     });
     const third = advanceDailyMeetingRound({
-      assigneeOptions: ["Alice Smith", "Bob Jones", "Jessica Nilsson"],
+      assigneeOptions: ["Alice Smith", "Bob Jones", "Final Speaker"],
+      config: finalSpeakerDailyMeeting,
       round: second.round ?? null
     });
 
     expect(second.assignee).toBe("Alice Smith");
-    expect(second.round?.order).toEqual(["Bob Jones", "Alice Smith", "Jessica Nilsson"]);
-    expect(third.assignee).toBe("Jessica Nilsson");
+    expect(second.round?.order).toEqual(["Bob Jones", "Alice Smith", "Final Speaker"]);
+    expect(third.assignee).toBe("Final Speaker");
     expect(third.round?.currentIndex).toBe(2);
   });
 
   it("resumes the stored order after a manual assignee interruption", () => {
     const started = advanceDailyMeetingRound({
-      assigneeOptions: ["Alice Smith", "Bob Jones", "Jessica Nilsson"],
+      assigneeOptions: ["Alice Smith", "Bob Jones", "Final Speaker"],
+      config: finalSpeakerDailyMeeting,
       random: createSequenceRandom([0]),
       round: null
     });
 
     const resumed = advanceDailyMeetingRound({
-      assigneeOptions: ["Alice Smith", "Bob Jones", "Jessica Nilsson"],
+      assigneeOptions: ["Alice Smith", "Bob Jones", "Final Speaker"],
+      config: finalSpeakerDailyMeeting,
       round: started.round ?? null
     });
 
@@ -87,27 +104,31 @@ describe("advanceDailyMeetingRound", () => {
 
   it("clears the selection after the final speaker", () => {
     const started = advanceDailyMeetingRound({
-      assigneeOptions: ["Alice Smith", "Jessica Nilsson"],
+      assigneeOptions: ["Alice Smith", "Final Speaker"],
+      config: finalSpeakerDailyMeeting,
       random: createSequenceRandom([0]),
       round: null
     });
     const finalSpeaker = advanceDailyMeetingRound({
-      assigneeOptions: ["Alice Smith", "Jessica Nilsson"],
+      assigneeOptions: ["Alice Smith", "Final Speaker"],
+      config: finalSpeakerDailyMeeting,
       round: started.round ?? null
     });
     const cleared = advanceDailyMeetingRound({
-      assigneeOptions: ["Alice Smith", "Jessica Nilsson"],
+      assigneeOptions: ["Alice Smith", "Final Speaker"],
+      config: finalSpeakerDailyMeeting,
       round: finalSpeaker.round ?? null
     });
 
-    expect(finalSpeaker.assignee).toBe("Jessica Nilsson");
+    expect(finalSpeaker.assignee).toBe("Final Speaker");
     expect(cleared.assignee).toBe("");
     expect(cleared.round).toBeNull();
   });
 
   it("returns no selection when every assignee is excluded", () => {
     const result = advanceDailyMeetingRound({
-      assigneeOptions: ["Unassigned", "Javier Gutierrez", "Basil Weibel"],
+      assigneeOptions: ["Unassigned", "Excluded Person One", "Excluded Person Two"],
+      config: configuredDailyMeeting,
       round: null
     });
 
@@ -117,18 +138,20 @@ describe("advanceDailyMeetingRound", () => {
 
   it("keeps advancing the stored order even if the assignee list changes", () => {
     const started = advanceDailyMeetingRound({
-      assigneeOptions: ["Alice Smith", "Bob Jones", "Jessica Nilsson"],
+      assigneeOptions: ["Alice Smith", "Bob Jones", "Final Speaker"],
+      config: finalSpeakerDailyMeeting,
       random: createSequenceRandom([0]),
       round: null
     });
 
     const changedRoster = advanceDailyMeetingRound({
-      assigneeOptions: ["Alice Smith", "Jessica Nilsson", "New Person"],
+      assigneeOptions: ["Alice Smith", "Final Speaker", "New Person"],
+      config: finalSpeakerDailyMeeting,
       round: started.round ?? null
     });
 
     expect(changedRoster.assignee).toBe("Alice Smith");
-    expect(changedRoster.round?.order).toEqual(["Bob Jones", "Alice Smith", "Jessica Nilsson"]);
+    expect(changedRoster.round?.order).toEqual(["Bob Jones", "Alice Smith", "Final Speaker"]);
   });
 });
 
@@ -141,7 +164,7 @@ describe("getDailyMeetingProgressCount", () => {
     expect(
       getDailyMeetingProgressCount({
         currentIndex: 2,
-        order: ["Alice Smith", "Bob Jones", "Jessica Nilsson"]
+        order: ["Alice Smith", "Bob Jones", "Final Speaker"]
       })
     ).toBe(9);
   });
@@ -150,13 +173,13 @@ describe("getDailyMeetingProgressCount", () => {
     expect(
       getDailyMeetingProgressCount({
         currentIndex: 0,
-        order: ["Alice Smith", "Bob Jones", "Charlie Brown", "Jessica Nilsson"]
+        order: ["Alice Smith", "Bob Jones", "Charlie Brown", "Final Speaker"]
       })
     ).toBe(3);
     expect(
       getDailyMeetingProgressCount({
         currentIndex: 1,
-        order: ["Alice Smith", "Bob Jones", "Charlie Brown", "Jessica Nilsson"]
+        order: ["Alice Smith", "Bob Jones", "Charlie Brown", "Final Speaker"]
       })
     ).toBe(5);
   });
@@ -171,7 +194,7 @@ describe("getNextDailyMeetingSpeaker", () => {
     expect(
       getNextDailyMeetingSpeaker({
         currentIndex: 0,
-        order: ["Alice Smith", "Bob Jones", "Jessica Nilsson"]
+        order: ["Alice Smith", "Bob Jones", "Final Speaker"]
       })
     ).toBe("Bob Jones");
   });
@@ -180,7 +203,7 @@ describe("getNextDailyMeetingSpeaker", () => {
     expect(
       getNextDailyMeetingSpeaker({
         currentIndex: 2,
-        order: ["Alice Smith", "Bob Jones", "Jessica Nilsson"]
+        order: ["Alice Smith", "Bob Jones", "Final Speaker"]
       })
     ).toBeNull();
   });

@@ -43,6 +43,11 @@ export interface DailyRow {
   cards: DailyCard[];
 }
 
+export interface DailyMeetingConfig {
+  excludedAssignees: string[];
+  finalSpeaker?: string;
+}
+
 export interface NamedCountSummary {
   name: string;
   count: number;
