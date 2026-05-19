@@ -57,6 +57,42 @@ input {
   font: inherit;
 }
 
+.visible-tooltip {
+  position: fixed;
+  z-index: 1000;
+  max-width: min(300px, calc(100vw - 24px));
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(31, 42, 61, 0.96);
+  box-shadow: 0 10px 24px rgba(26, 45, 80, 0.18);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.35;
+  opacity: 0;
+  pointer-events: none;
+  text-align: left;
+  transform: translate(-50%, -100%);
+  transition:
+    opacity 0.12s ease,
+    transform 0.12s ease;
+  white-space: normal;
+  word-break: normal;
+}
+
+.visible-tooltip[data-placement="bottom"] {
+  transform: translate(-50%, 0);
+}
+
+.visible-tooltip[data-visible="true"] {
+  opacity: 1;
+  transform: translate(-50%, calc(-100% - 2px));
+}
+
+.visible-tooltip[data-placement="bottom"][data-visible="true"] {
+  transform: translate(-50%, 2px);
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

@@ -10,6 +10,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { DailyCard } from "../components/daily/daily-card";
 import { ResourceState } from "../components/resource-state";
 import { TaskAssigneeInline, TaskTitleLink } from "../components/task/task-primitives";
+import { useVisibleTooltip } from "../components/visible-tooltip";
 import {
   ClickUpApiError,
   fetchDailyPageData,
@@ -169,6 +170,39 @@ function getSwimlaneMeta(rowType: DailyRow["type"]) {
   }
 }
 
+interface DailyStatusColumnHeaderProps {
+  collapsed: boolean;
+  count: string;
+  onToggle: () => void;
+  status: DailyStatus;
+}
+
+function DailyStatusColumnHeader({
+  collapsed,
+  count,
+  onToggle,
+  status
+}: DailyStatusColumnHeaderProps) {
+  return (
+    <button
+      aria-expanded={!collapsed}
+      className="daily-column-header daily-column-header--toggle"
+      data-collapsed={collapsed ? "true" : "false"}
+      data-status={status}
+      onClick={onToggle}
+      type="button"
+    >
+      <span className="daily-column-header__label">{status}</span>
+      <span className="daily-column-header__count">{count}</span>
+      {collapsed ? (
+        <span className="daily-column-header__collapsed-label">
+          {getCollapsedStatusLabel(status)}
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
 function renderSwimlaneHeaderLead(row: ReturnType<typeof filterDailyBoard>["rows"][number]) {
   if (row.type === "story") {
     return (
@@ -307,33 +341,21 @@ function renderDailyGrid({
           <div className="daily-board__header-label">Swimlane</div>
           {dailyStatuses.map((status) => {
             const collapsed = isStatusCollapsed(status);
+            const count = formatColumnCount(
+              counts.visibleByStatus[status],
+              counts.totalByStatus[status],
+              filtersActive,
+              collapsed
+            );
 
             return (
-              <button
-                aria-expanded={!collapsed}
-                className="daily-column-header daily-column-header--toggle"
-                data-collapsed={collapsed ? "true" : "false"}
-                data-status={status}
+              <DailyStatusColumnHeader
+                collapsed={collapsed}
+                count={count}
                 key={status}
-                onClick={() => onToggleStatus(status, collapsed)}
-                title={`${collapsed ? "Expand" : "Collapse"} ${status} column`}
-                type="button"
-              >
-                <span className="daily-column-header__label">{status}</span>
-                <span className="daily-column-header__count">
-                  {formatColumnCount(
-                    counts.visibleByStatus[status],
-                    counts.totalByStatus[status],
-                    filtersActive,
-                    collapsed
-                  )}
-                </span>
-                {collapsed ? (
-                  <span className="daily-column-header__collapsed-label">
-                    {getCollapsedStatusLabel(status)}
-                  </span>
-                ) : null}
-              </button>
+                onToggle={() => onToggleStatus(status, collapsed)}
+                status={status}
+              />
             );
           })}
         </div>
@@ -498,6 +520,9 @@ export function DailyPage({
     dailyMeetingConfig
   );
   const nextMeetingSpeaker = getNextDailyMeetingSpeaker(meetingRound);
+  const nextSpeakerTooltip = useVisibleTooltip<HTMLButtonElement>(
+    nextMeetingSpeaker ? `Next up: ${getFirstName(nextMeetingSpeaker)}` : undefined
+  );
   useTopBarAction({
     disabled: isRefreshing,
     label: isRefreshing ? "Refreshing..." : "Refresh",
@@ -650,10 +675,12 @@ export function DailyPage({
           className="toolbar-button"
           disabled={!meetingRound && eligibleMeetingRoster.length === 0}
           onClick={handleNextSpeaker}
-          title={nextMeetingSpeaker ? `Next up: ${getFirstName(nextMeetingSpeaker)}` : undefined}
+          ref={nextSpeakerTooltip.ref}
+          {...nextSpeakerTooltip.tooltipProps}
           type="button"
         >
           Next
+          {nextSpeakerTooltip.tooltip}
         </button>
         <button
           className="toolbar-button"

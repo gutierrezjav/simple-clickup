@@ -1,13 +1,13 @@
 import {
   useEffectEvent,
   useLayoutEffect,
-  useRef,
   useState,
   type ReactNode
 } from "react";
 import { getAssigneeDisplayName } from "../../lib/assignee";
 import { getClickUpTaskUrl } from "../../lib/clickup-task-url";
 import { AssigneeAvatar } from "../assignee-avatar";
+import { useVisibleTooltip } from "../visible-tooltip";
 
 function joinClassNames(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
@@ -18,16 +18,16 @@ function hasTextOverflow(element: HTMLElement) {
 }
 
 function useOverflowTooltip<T extends HTMLElement>(text: string) {
-  const ref = useRef<T | null>(null);
   const [isOverflowing, setIsOverflowing] = useState(false);
+  const visibleTooltip = useVisibleTooltip<T>(isOverflowing ? text : undefined);
 
   const updateOverflow = useEffectEvent(() => {
-    const element = ref.current;
+    const element = visibleTooltip.ref.current;
     setIsOverflowing(element ? hasTextOverflow(element) : false);
   });
 
   useLayoutEffect(() => {
-    const element = ref.current;
+    const element = visibleTooltip.ref.current;
     if (!element) {
       return;
     }
@@ -50,8 +50,9 @@ function useOverflowTooltip<T extends HTMLElement>(text: string) {
   }, [text]);
 
   return {
-    ref,
-    title: isOverflowing ? text : undefined
+    ref: visibleTooltip.ref,
+    tooltip: visibleTooltip.tooltip,
+    tooltipProps: visibleTooltip.tooltipProps
   };
 }
 
@@ -71,9 +72,10 @@ export function TaskTitleLink({ taskId, title, className }: TaskTitleLinkProps) 
       rel="noreferrer"
       target="_blank"
       ref={tooltip.ref}
-      title={tooltip.title}
+      {...tooltip.tooltipProps}
     >
       {title}
+      {tooltip.tooltip}
     </a>
   );
 }
@@ -103,8 +105,13 @@ export function TaskIdentityBlock({
     <div className={joinClassNames("task-identity", className)}>
       {chips ? <div className="task-identity__chips">{chips}</div> : null}
       <div className="task-identity__eyebrow">
-        <span className="task-identity__id" ref={customIdTooltip.ref} title={customIdTooltip.title}>
+        <span
+          className="task-identity__id"
+          ref={customIdTooltip.ref}
+          {...customIdTooltip.tooltipProps}
+        >
           {customId}
+          {customIdTooltip.tooltip}
         </span>
         {eyebrowEnd ? <span className="task-identity__eyebrow-side">{eyebrowEnd}</span> : null}
       </div>
@@ -152,9 +159,10 @@ export function TaskAssigneeInline({
       <span
         className={joinClassNames("task-assignee__name", nameClassName)}
         ref={assigneeTooltip.ref}
-        title={assigneeTooltip.title}
+        {...assigneeTooltip.tooltipProps}
       >
         {displayName}
+        {assigneeTooltip.tooltip}
       </span>
     </span>
   );
