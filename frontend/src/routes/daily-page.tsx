@@ -521,7 +521,11 @@ export function DailyPage({
   );
   const nextMeetingSpeaker = getNextDailyMeetingSpeaker(meetingRound);
   const nextSpeakerTooltip = useVisibleTooltip<HTMLButtonElement>(
-    nextMeetingSpeaker ? `Next up: ${getFirstName(nextMeetingSpeaker)}` : undefined
+    nextMeetingSpeaker ? `Next up: ${getFirstName(nextMeetingSpeaker)}` : undefined,
+    {
+      showOnActiveLabelChange: false,
+      showOnFocus: false
+    }
   );
   useTopBarAction({
     disabled: isRefreshing,

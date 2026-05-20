@@ -21,6 +21,11 @@ interface TooltipSize {
   height: number;
 }
 
+interface VisibleTooltipOptions {
+  showOnFocus?: boolean;
+  showOnActiveLabelChange?: boolean;
+}
+
 const tooltipDelayMs = 180;
 const tooltipFadeMs = 120;
 const tooltipGap = 8;
@@ -45,7 +50,13 @@ function getTooltipPosition(element: HTMLElement, tooltipSize?: TooltipSize): To
   };
 }
 
-export function useVisibleTooltip<T extends HTMLElement>(label: string | undefined) {
+export function useVisibleTooltip<T extends HTMLElement>(
+  label: string | undefined,
+  {
+    showOnActiveLabelChange = true,
+    showOnFocus = true
+  }: VisibleTooltipOptions = {}
+) {
   const id = useId();
   const ref = useRef<T | null>(null);
   const tooltipRef = useRef<HTMLSpanElement | null>(null);
@@ -113,7 +124,7 @@ export function useVisibleTooltip<T extends HTMLElement>(label: string | undefin
       return;
     }
 
-    if (isTargetActive) {
+    if (isTargetActive && showOnActiveLabelChange) {
       window.clearTimeout(hideTimerRef.current);
       window.clearTimeout(showTimerRef.current);
       showTimerRef.current = window.setTimeout(() => {
@@ -121,7 +132,7 @@ export function useVisibleTooltip<T extends HTMLElement>(label: string | undefin
         setIsMounted(true);
       }, tooltipDelayMs);
     }
-  }, [isTargetActive, label]);
+  }, [isTargetActive, label, showOnActiveLabelChange]);
 
   useLayoutEffect(() => {
     if (!isMounted || !label) {
@@ -170,8 +181,8 @@ export function useVisibleTooltip<T extends HTMLElement>(label: string | undefin
     tooltip,
     tooltipProps: {
       "aria-describedby": isOpen && label ? id : undefined,
-      onBlur: (_event: FocusEvent<T>) => hideTooltip(),
-      onFocus: (_event: FocusEvent<T>) => showTooltip(),
+      onBlur: showOnFocus ? (_event: FocusEvent<T>) => hideTooltip() : undefined,
+      onFocus: showOnFocus ? (_event: FocusEvent<T>) => showTooltip() : undefined,
       onPointerEnter: (_event: PointerEvent<T>) => showTooltip(),
       onPointerLeave: (_event: PointerEvent<T>) => hideTooltip()
     }
