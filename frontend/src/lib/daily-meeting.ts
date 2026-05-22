@@ -64,16 +64,30 @@ export function getEligibleDailyMeetingRoster(
   const uniqueNames = [...new Set(assigneeOptions.map(normalizeName).filter(Boolean))].filter(
     (name) => !excludedDailyMeetingNames.has(name)
   );
-  const includesFinalSpeaker = finalDailyMeetingSpeaker
-    ? uniqueNames.includes(finalDailyMeetingSpeaker)
+  const canUseFinalSpeaker = finalDailyMeetingSpeaker
+    ? !excludedDailyMeetingNames.has(finalDailyMeetingSpeaker)
     : false;
   const nonFinalSpeakers = uniqueNames.filter((name) => name !== finalDailyMeetingSpeaker);
 
-  if (!includesFinalSpeaker || !finalDailyMeetingSpeaker) {
+  if (!canUseFinalSpeaker || !finalDailyMeetingSpeaker) {
     return nonFinalSpeakers;
   }
 
   return [...nonFinalSpeakers, finalDailyMeetingSpeaker];
+}
+
+export function getDailyMeetingFilterOptions(
+  assigneeOptions: string[],
+  config: DailyMeetingConfig
+): string[] {
+  const finalDailyMeetingSpeaker = getFinalDailyMeetingSpeaker(config);
+  const uniqueNames = [...new Set(assigneeOptions.map(normalizeName).filter(Boolean))];
+
+  if (!finalDailyMeetingSpeaker || uniqueNames.includes(finalDailyMeetingSpeaker)) {
+    return uniqueNames;
+  }
+
+  return [...uniqueNames, finalDailyMeetingSpeaker];
 }
 
 export function getDailyMeetingProgressCount(
@@ -84,7 +98,12 @@ export function getDailyMeetingProgressCount(
     return 0;
   }
 
-  return Math.max(1, Math.min(segmentCount, Math.ceil(((round.currentIndex + 1) / round.order.length) * segmentCount)));
+  const selectedSpeakerCount = round.currentIndex + 1;
+  if (selectedSpeakerCount <= 0) {
+    return 0;
+  }
+
+  return Math.min(segmentCount, selectedSpeakerCount);
 }
 
 export function getNextDailyMeetingSpeaker(round: DailyMeetingRound | null): string | null {

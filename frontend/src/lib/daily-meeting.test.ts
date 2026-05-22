@@ -2,6 +2,7 @@ import type { DailyMeetingConfig } from "@custom-clickup/shared";
 import { describe, expect, it } from "vitest";
 import {
   advanceDailyMeetingRound,
+  getDailyMeetingFilterOptions,
   getDailyMeetingProgressCount,
   getEligibleDailyMeetingRoster,
   getNextDailyMeetingSpeaker
@@ -37,11 +38,26 @@ describe("getEligibleDailyMeetingRoster", () => {
     ).toEqual(["Alice Smith", "Bob Jones", "Tail Speaker"]);
   });
 
-  it("does not append the configured final speaker when they are not in the filter list", () => {
+  it("appends the configured final speaker even when they are not in the filter list", () => {
     expect(getEligibleDailyMeetingRoster(["Alice Smith", "Bob Jones"], configuredDailyMeeting)).toEqual([
       "Alice Smith",
-      "Bob Jones"
+      "Bob Jones",
+      "Tail Speaker"
     ]);
+  });
+});
+
+describe("getDailyMeetingFilterOptions", () => {
+  it("keeps existing filter options and appends the configured final speaker when absent", () => {
+    expect(
+      getDailyMeetingFilterOptions(["Unassigned", "Alice Smith", "Bob Jones"], configuredDailyMeeting)
+    ).toEqual(["Unassigned", "Alice Smith", "Bob Jones", "Tail Speaker"]);
+  });
+
+  it("does not duplicate the configured final speaker", () => {
+    expect(
+      getDailyMeetingFilterOptions(["Alice Smith", "Tail Speaker"], configuredDailyMeeting)
+    ).toEqual(["Alice Smith", "Tail Speaker"]);
   });
 });
 
@@ -128,7 +144,9 @@ describe("advanceDailyMeetingRound", () => {
   it("returns no selection when every assignee is excluded", () => {
     const result = advanceDailyMeetingRound({
       assigneeOptions: ["Unassigned", "Excluded Person One", "Excluded Person Two"],
-      config: configuredDailyMeeting,
+      config: {
+        excludedAssignees: ["Excluded Person One", "Excluded Person Two"]
+      },
       round: null
     });
 
@@ -166,22 +184,25 @@ describe("getDailyMeetingProgressCount", () => {
         currentIndex: 2,
         order: ["Alice Smith", "Bob Jones", "Final Speaker"]
       })
-    ).toBe(9);
+    ).toBe(3);
   });
 
-  it("returns a proportional segment count while the round is in progress", () => {
+  it("lights one segment for the first selected speaker", () => {
     expect(
       getDailyMeetingProgressCount({
         currentIndex: 0,
         order: ["Alice Smith", "Bob Jones", "Charlie Brown", "Final Speaker"]
       })
-    ).toBe(3);
+    ).toBe(1);
+  });
+
+  it("lights one additional segment for each selected speaker", () => {
     expect(
       getDailyMeetingProgressCount({
         currentIndex: 1,
         order: ["Alice Smith", "Bob Jones", "Charlie Brown", "Final Speaker"]
       })
-    ).toBe(5);
+    ).toBe(2);
   });
 });
 

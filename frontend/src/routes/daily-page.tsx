@@ -21,6 +21,7 @@ import {
 } from "../lib/clickup-api";
 import {
   advanceDailyMeetingRound,
+  getDailyMeetingFilterOptions,
   getDailyMeetingProgressCount,
   getEligibleDailyMeetingRoster,
   getNextDailyMeetingSpeaker,
@@ -515,6 +516,10 @@ export function DailyPage({
   const sortedRows = data ? sortDailyRows(data.rows) : [];
   const filteredBoard = filterDailyBoard(sortedRows, filters);
   const dailyMeetingConfig = data?.dailyMeeting ?? defaultDailyMeetingConfig;
+  const dailyMeetingAssigneeOptions = getDailyMeetingFilterOptions(
+    filteredBoard.assigneeOptions,
+    dailyMeetingConfig
+  );
   const eligibleMeetingRoster = getEligibleDailyMeetingRoster(
     filteredBoard.assigneeOptions,
     dailyMeetingConfig
@@ -668,7 +673,7 @@ export function DailyPage({
             <option value="" hidden>
               Filter assignee
             </option>
-            {filteredBoard.assigneeOptions.map((assignee) => (
+            {dailyMeetingAssigneeOptions.map((assignee) => (
               <option key={assignee} value={assignee}>
                 {assignee === "Unassigned" ? "<< unassigned >>" : assignee}
               </option>
