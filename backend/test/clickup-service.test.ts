@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ClickUpClient } from "../src/clickup/client.js";
 import {
+  buildSprintPlanningReport,
   buildDailyRows,
   buildStoryStatusDiscrepancyReport,
   createClickUpReadService
@@ -9,6 +10,8 @@ import type { ClickUpTaskPayload } from "../src/clickup/types.js";
 
 const storyTaskTypeId = 1;
 const bugTaskTypeId = 2;
+const sprintFieldId = "sprint-field";
+const hourMs = 3_600_000;
 const taskTypeMap = new Map<number, string>([
   [storyTaskTypeId, "User Story"],
   [bugTaskTypeId, "Bug"]
@@ -22,7 +25,12 @@ function createTask({
   customItemId,
   orderindex,
   tags,
-  assignees
+  assignees,
+  timeEstimate,
+  timeSpent,
+  sprintValue,
+  prioScore,
+  subtasks
 }: {
   id: string;
   name: string;
@@ -32,7 +40,31 @@ function createTask({
   orderindex?: string;
   tags?: Array<{ name: string }>;
   assignees?: Array<{ username?: string; email?: string; profilePicture?: string | null }>;
+  timeEstimate?: number;
+  timeSpent?: number;
+  sprintValue?: string | number;
+  prioScore?: number;
+  subtasks?: ClickUpTaskPayload[];
 }): ClickUpTaskPayload {
+  const customFields = [
+    sprintValue !== undefined
+      ? {
+          id: sprintFieldId,
+          name: "Sprint",
+          type: "drop_down",
+          value: sprintValue
+        }
+      : undefined,
+    prioScore !== undefined
+      ? {
+          id: "prio-field",
+          name: "Prio score",
+          type: "number",
+          value: prioScore
+        }
+      : undefined
+  ].filter((field): field is NonNullable<typeof field> => Boolean(field));
+
   return {
     id,
     custom_id: id.toUpperCase(),
@@ -42,7 +74,32 @@ function createTask({
     ...(parent ? { parent } : {}),
     ...(tags ? { tags } : {}),
     ...(assignees ? { assignees } : {}),
+    ...(timeEstimate !== undefined ? { time_estimate: timeEstimate } : {}),
+    ...(timeSpent !== undefined ? { time_spent: timeSpent } : {}),
+    ...(customFields.length > 0 ? { custom_fields: customFields } : {}),
+    ...(subtasks ? { subtasks } : {}),
     status: { status }
+  };
+}
+
+function createPlanningMetadata() {
+  return {
+    dayHours: 8,
+    listCustomFields: [
+      {
+        id: sprintFieldId,
+        name: "Sprint",
+        type: "drop_down",
+        type_config: {
+          options: [
+            { id: "w22-option", name: "W22", orderindex: 21 },
+            { id: "w24-option", name: "W24 - CURRENT", orderindex: 23 },
+            { id: "w25-option", name: "W25", orderindex: 24 }
+          ]
+        }
+      }
+    ],
+    viewId: "234bx-100375"
   };
 }
 
@@ -485,6 +542,155 @@ describe("buildStoryStatusDiscrepancyReport", () => {
   });
 });
 
+describe("buildSprintPlanningReport", () => {
+  it("rolls parent and subtask time into sprint planning rows", () => {
+    const report = buildSprintPlanningReport(
+      [
+        createTask({
+          id: "story-w24",
+          name: "Story W24",
+          status: "SPRINT BACKLOG",
+          customItemId: storyTaskTypeId,
+          sprintValue: 23,
+          prioScore: 10,
+          timeEstimate: 2 * hourMs,
+          timeSpent: hourMs,
+          subtasks: [
+            createTask({
+              id: "task-child",
+              name: "Child",
+              parent: "story-w24",
+              status: "IN PROGRESS",
+              timeEstimate: 6 * hourMs,
+              timeSpent: 2 * hourMs
+            })
+          ]
+        })
+      ],
+      taskTypeMap,
+      createPlanningMetadata()
+    );
+
+    expect(report.totals).toMatchObject({
+      estimateHours: 8,
+      trackedHours: 3,
+      remainingHours: 5,
+      remainingDays: 0.625,
+      missingEstimateCount: 0,
+      rowCount: 1
+    });
+    expect(report.sprints).toEqual([
+      expect.objectContaining({
+        label: "W24 - CURRENT",
+        weekNumber: 24,
+        estimateHours: 8,
+        trackedHours: 3,
+        remainingHours: 5,
+        rowCount: 1
+      })
+    ]);
+    expect(report.rows).toEqual([
+      expect.objectContaining({
+        taskId: "story-w24",
+        taskCustomId: "STORY-W24",
+        taskType: "User Story",
+        sprintLabel: "W24 - CURRENT",
+        sprintWeekNumber: 24,
+        prioScore: 10,
+        estimateHours: 8,
+        trackedHours: 3,
+        remainingHours: 5,
+        remainingDays: 0.625,
+        rolledSubtaskCount: 1,
+        missingEstimate: false
+      })
+    ]);
+  });
+
+  it("sorts generic sprint labels by week number and prio score", () => {
+    const report = buildSprintPlanningReport(
+      [
+        createTask({
+          id: "w25-no-prio",
+          name: "W25 no prio",
+          status: "SPRINT BACKLOG",
+          sprintValue: "w25-option",
+          timeEstimate: hourMs
+        }),
+        createTask({
+          id: "w24-prio-20",
+          name: "W24 prio 20",
+          status: "SPRINT BACKLOG",
+          sprintValue: "w24-option",
+          prioScore: 20,
+          timeEstimate: hourMs
+        }),
+        createTask({
+          id: "w22-prio-50",
+          name: "W22 prio 50",
+          status: "SPRINT BACKLOG",
+          sprintValue: "w22-option",
+          prioScore: 50,
+          timeEstimate: hourMs
+        }),
+        createTask({
+          id: "w24-prio-5",
+          name: "W24 prio 5",
+          status: "SPRINT BACKLOG",
+          sprintValue: "w24-option",
+          prioScore: 5,
+          timeEstimate: hourMs
+        })
+      ],
+      taskTypeMap,
+      createPlanningMetadata()
+    );
+
+    expect(report.sprints.map((sprint) => sprint.label)).toEqual([
+      "W22",
+      "W24 - CURRENT",
+      "W25"
+    ]);
+    expect(report.rows.map((row) => row.taskId)).toEqual([
+      "w22-prio-50",
+      "w24-prio-5",
+      "w24-prio-20",
+      "w25-no-prio"
+    ]);
+  });
+
+  it("does not report visible subtasks as separate top-level planning rows", () => {
+    const child = createTask({
+      id: "visible-child",
+      name: "Visible child",
+      parent: "visible-parent",
+      status: "IN PROGRESS",
+      timeEstimate: 3 * hourMs,
+      timeSpent: hourMs
+    });
+
+    const report = buildSprintPlanningReport(
+      [
+        createTask({
+          id: "visible-parent",
+          name: "Visible parent",
+          status: "SPRINT BACKLOG",
+          sprintValue: 23,
+          timeEstimate: 5 * hourMs,
+          subtasks: [child]
+        }),
+        child
+      ],
+      taskTypeMap,
+      createPlanningMetadata()
+    );
+
+    expect(report.rows.map((row) => row.taskId)).toEqual(["visible-parent"]);
+    expect(report.totals.estimateHours).toBe(8);
+    expect(report.totals.trackedHours).toBe(1);
+  });
+});
+
 describe("createClickUpReadService", () => {
   it("keeps daily reads working when optional ClickUp custom fields are removed", async () => {
     vi.spyOn(ClickUpClient.prototype, "getCustomTaskTypes").mockResolvedValue([
@@ -554,5 +760,86 @@ describe("createClickUpReadService", () => {
         })
       ]
     });
+  });
+
+  it("loads sprint planning through the session-backed read service", async () => {
+    vi.spyOn(ClickUpClient.prototype, "getCustomTaskTypes").mockResolvedValue([
+      {
+        id: storyTaskTypeId,
+        name: "User Story"
+      }
+    ]);
+    vi.spyOn(
+      ClickUpClient.prototype as unknown as {
+        getListCustomFields: (listId: string) => Promise<unknown>;
+      },
+      "getListCustomFields"
+    ).mockResolvedValue(createPlanningMetadata().listCustomFields);
+    const getViewTasks = vi.spyOn(
+      ClickUpClient.prototype as unknown as {
+        getViewTasks: (viewId: string) => Promise<ClickUpTaskPayload[]>;
+      },
+      "getViewTasks"
+    ).mockResolvedValue([
+      createTask({
+        id: "story-w24",
+        name: "Story W24",
+        status: "SPRINT BACKLOG",
+        customItemId: storyTaskTypeId,
+        sprintValue: 23,
+        timeEstimate: 2 * hourMs
+      })
+    ]);
+    const getTask = vi.spyOn(
+      ClickUpClient.prototype as unknown as {
+        getTask: (taskId: string, options: { subtasks: boolean }) => Promise<ClickUpTaskPayload>;
+      },
+      "getTask"
+    ).mockResolvedValue(
+      createTask({
+        id: "story-w24",
+        name: "Story W24",
+        status: "SPRINT BACKLOG",
+        customItemId: storyTaskTypeId,
+        sprintValue: 23,
+        timeEstimate: 2 * hourMs,
+        subtasks: [
+          createTask({
+            id: "task-child",
+            name: "Child",
+            parent: "story-w24",
+            status: "IN PROGRESS",
+            timeEstimate: 6 * hourMs
+          })
+        ]
+      })
+    );
+
+    const service = createClickUpReadService({
+      accessToken: "test-token",
+      baseUrl: "https://example.invalid/api/v2",
+      cacheTtlMs: 1_000,
+      listId: "list-1",
+      teamId: "team-1",
+      timeoutMs: 1_000,
+      tokenSource: "session"
+    });
+
+    await expect(
+      (
+        service as unknown as {
+          getSprintPlanningReport: () => Promise<{ rows: Array<{ estimateHours: number }> }>;
+        }
+      ).getSprintPlanningReport()
+    ).resolves.toMatchObject({
+      rows: [
+        {
+          taskId: "story-w24",
+          estimateHours: 8
+        }
+      ]
+    });
+    expect(getViewTasks).toHaveBeenCalledWith("234bx-100375");
+    expect(getTask).toHaveBeenCalledWith("story-w24", { subtasks: true });
   });
 });

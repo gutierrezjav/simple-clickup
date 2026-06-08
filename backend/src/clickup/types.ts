@@ -42,7 +42,10 @@ export interface ClickUpTaskPayload {
   assignees?: ClickUpUserPayload[];
   tags?: ClickUpTagPayload[];
   custom_fields?: ClickUpCustomFieldPayload[];
+  time_estimate?: number | string | null;
+  time_spent?: number | string | null;
   subtasks?: ClickUpTaskPayload[];
+  url?: string | null;
 }
 
 export interface ClickUpCustomTaskTypePayload {

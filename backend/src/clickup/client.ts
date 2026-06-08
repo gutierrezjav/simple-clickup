@@ -3,6 +3,7 @@ import { clickupLogger } from "../logging.js";
 import { ClickUpServiceError } from "./errors.js";
 import { resolveClickUpAuthorizationHeader } from "./token.js";
 import type {
+  ClickUpCustomFieldPayload,
   ClickUpCustomTaskTypePayload,
   ClickUpRateLimitState,
   ClickUpTaskPayload,
@@ -122,6 +123,22 @@ function parseTaskArray(payload: unknown): ClickUpTaskPayload[] {
   }
 
   throw new ClickUpServiceError("Unexpected ClickUp tasks response shape.", 502);
+}
+
+function parseTaskPayload(payload: unknown): ClickUpTaskPayload {
+  if (isRecord(payload) && typeof payload.id === "string") {
+    return payload as ClickUpTaskPayload;
+  }
+
+  throw new ClickUpServiceError("Unexpected ClickUp task response shape.", 502);
+}
+
+function parseCustomFields(payload: unknown): ClickUpCustomFieldPayload[] {
+  if (isRecord(payload) && Array.isArray(payload.fields)) {
+    return payload.fields as ClickUpCustomFieldPayload[];
+  }
+
+  throw new ClickUpServiceError("Unexpected ClickUp custom fields response shape.", 502);
 }
 
 function parseLastPage(payload: unknown): boolean | undefined {
@@ -333,6 +350,61 @@ export class ClickUpClient {
 
     throw new ClickUpServiceError("ClickUp task pagination exceeded the safety limit.", 502);
   }
+
+  async getViewTasks(viewId: string): Promise<ClickUpTaskPayload[]> {
+    const tasks: ClickUpTaskPayload[] = [];
+
+    for (let page = 0; page < maxPaginationPages; page += 1) {
+      const payload = await this.#getJson(`/view/${viewId}/task`, {
+        page,
+        query: [["page", String(page)]]
+      });
+      const pageTasks = parseTaskArray(payload);
+      const remainingSlots = clickUpTaskFetchLimit - tasks.length;
+
+      if (remainingSlots > 0) {
+        tasks.push(...pageTasks.slice(0, remainingSlots));
+      }
+
+      if (tasks.length >= clickUpTaskFetchLimit) {
+        this.#logger.warn(
+          {
+            event: "request:task-limit-reached",
+            fetched_tasks: tasks.length,
+            limit: clickUpTaskFetchLimit,
+            view_id: viewId
+          },
+          "ClickUp view task fetch reached the safety limit."
+        );
+        return tasks;
+      }
+
+      if (parseLastPage(payload) ?? pageTasks.length === 0) {
+        return tasks;
+      }
+    }
+
+    throw new ClickUpServiceError("ClickUp view task pagination exceeded the safety limit.", 502);
+  }
+
+  async getTask(
+    taskId: string,
+    options: { subtasks?: boolean } = {}
+  ): Promise<ClickUpTaskPayload> {
+    const payload = await this.#getJson(`/task/${taskId}`, {
+      query: [
+        ["include_subtasks", String(options.subtasks ?? false)]
+      ]
+    });
+
+    return parseTaskPayload(payload);
+  }
+
+  async getListCustomFields(listId: string): Promise<ClickUpCustomFieldPayload[]> {
+    const payload = await this.#getJson(`/list/${listId}/field`);
+    return parseCustomFields(payload);
+  }
+
   async getCustomTaskTypes(): Promise<ClickUpCustomTaskTypePayload[]> {
     const payload = await this.#getJson(`/team/${this.#teamId}/custom_item`);
     return parseCustomTaskTypes(payload);

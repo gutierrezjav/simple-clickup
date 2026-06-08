@@ -1,6 +1,7 @@
 import type {
   DailyMeetingConfig,
   DailyRow,
+  SprintPlanningReport,
   StoryStatusDiscrepancyReport,
   VerificationSummary
 } from "@custom-clickup/shared";
@@ -12,6 +13,10 @@ export interface DailyPageData {
 
 export interface VerificationPageData {
   summary: VerificationSummary;
+}
+
+export interface PlanningPageData {
+  report: SprintPlanningReport;
 }
 
 export interface StoryStatusDiscrepancyReportData {
@@ -72,6 +77,10 @@ async function fetchClickUpResource<T>(path: string): Promise<T> {
 
 export function fetchDailyPageData(): Promise<DailyPageData> {
   return fetchClickUpResource<DailyPageData>("/api/clickup/daily");
+}
+
+export function fetchPlanningPageData(): Promise<PlanningPageData> {
+  return fetchClickUpResource<PlanningPageData>("/api/clickup/planning");
 }
 
 export function fetchVerificationPageData(): Promise<VerificationPageData> {

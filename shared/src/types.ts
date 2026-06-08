@@ -71,6 +71,47 @@ export interface StoryStatusDiscrepancyReport {
   discrepancies: StoryStatusDiscrepancy[];
 }
 
+export interface SprintPlanningTotals {
+  estimateHours: number;
+  trackedHours: number;
+  remainingHours: number;
+  remainingDays: number;
+  missingEstimateCount: number;
+  rowCount: number;
+}
+
+export interface SprintPlanningSprintSummary extends SprintPlanningTotals {
+  label: string;
+  weekNumber?: number;
+}
+
+export interface SprintPlanningRow {
+  taskId: string;
+  taskCustomId: string;
+  title: string;
+  taskType: string;
+  status: string;
+  assignees: string[];
+  sprintLabel: string;
+  sprintWeekNumber?: number;
+  prioScore?: number;
+  url?: string;
+  estimateHours: number;
+  trackedHours: number;
+  remainingHours: number;
+  remainingDays: number;
+  rolledSubtaskCount: number;
+  missingEstimate: boolean;
+}
+
+export interface SprintPlanningReport {
+  viewId: string;
+  dayHours: number;
+  totals: SprintPlanningTotals;
+  sprints: SprintPlanningSprintSummary[];
+  rows: SprintPlanningRow[];
+}
+
 export interface VerificationSummary {
   schema: {
     workspaceId: string;

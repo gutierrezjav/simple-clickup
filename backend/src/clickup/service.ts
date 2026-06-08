@@ -1,8 +1,13 @@
 import {
+  clickupTarget,
   dailyStatuses,
   storyStatusProgression,
   type DailyCard,
   type DailyRow,
+  type SprintPlanningReport,
+  type SprintPlanningRow,
+  type SprintPlanningSprintSummary,
+  type SprintPlanningTotals,
   type StoryProgressStatus,
   type StoryStatusDiscrepancyReport
 } from "@custom-clickup/shared";
@@ -43,8 +48,20 @@ interface ClickUpTaskMetadataSnapshot {
   taskTypeMap: Map<number, string>;
 }
 
+export interface SprintPlanningReportMetadata {
+  dayHours?: number;
+  listCustomFields: ClickUpCustomFieldPayload[];
+  viewId: string;
+}
+
 type TaskKind = "story" | "standalone-task" | "standalone-bug" | "subtask";
-type ReadTarget = "daily" | "story-status-discrepancies";
+type ReadTarget = "daily" | "story-status-discrepancies" | "planning";
+const defaultSprintPlanningDayHours = 8;
+const unassignedSprintLabel = "Unassigned Sprint";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
 
 const metadataCacheTtlMultiplier = 5;
 const storyStatusProgressionSet = new Set<string>(storyStatusProgression);
@@ -522,6 +539,335 @@ export function buildStoryStatusDiscrepancyReport(
   };
 }
 
+function parseMilliseconds(value: number | string | null | undefined): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return 0;
+}
+
+function hasTimeEstimate(task: ClickUpTaskPayload): boolean {
+  const value = task.time_estimate;
+
+  if (typeof value === "number") {
+    return Number.isFinite(value);
+  }
+
+  if (typeof value === "string" && value.trim() !== "") {
+    return Number.isFinite(Number(value));
+  }
+
+  return false;
+}
+
+function toHours(milliseconds: number): number {
+  return milliseconds / 3_600_000;
+}
+
+function parseSprintWeekNumber(label: string): number | undefined {
+  const match = /^W\s*(\d+)/i.exec(label.trim());
+  if (!match) {
+    return undefined;
+  }
+
+  const weekNumber = Number(match[1]);
+  return Number.isSafeInteger(weekNumber) ? weekNumber : undefined;
+}
+
+function getStringCandidate(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed || undefined;
+  }
+
+  return undefined;
+}
+
+function resolveDropdownOptionName(
+  rawValue: unknown,
+  fields: Array<ClickUpCustomFieldPayload | undefined>
+): string | undefined {
+  const options = fields.flatMap((field) => field?.type_config?.options ?? []);
+
+  if (isRecord(rawValue)) {
+    const directName =
+      getStringCandidate(rawValue.name) ??
+      getStringCandidate(rawValue.label);
+    if (directName) {
+      return directName;
+    }
+
+    return resolveDropdownOptionName(rawValue.value, fields);
+  }
+
+  const rawValueString =
+    typeof rawValue === "string" || typeof rawValue === "number"
+      ? String(rawValue)
+      : undefined;
+
+  if (!rawValueString) {
+    return undefined;
+  }
+
+  const matchedOption = options.find((option) => {
+    const optionId = option.id === undefined || option.id === null ? undefined : String(option.id);
+    const optionOrderindex =
+      option.orderindex === undefined || option.orderindex === null
+        ? undefined
+        : String(option.orderindex);
+    const optionName = option.name?.trim();
+
+    return (
+      optionId === rawValueString ||
+      optionOrderindex === rawValueString ||
+      optionName === rawValueString
+    );
+  });
+
+  return matchedOption?.name?.trim() || getStringCandidate(rawValue);
+}
+
+function getSprintCustomField(
+  task: ClickUpTaskPayload,
+  listCustomFields: ClickUpCustomFieldPayload[]
+): {
+  field: ClickUpCustomFieldPayload | undefined;
+  listField: ClickUpCustomFieldPayload | undefined;
+} {
+  const field = task.custom_fields?.find((customField) => customField.name === "Sprint");
+  const listField =
+    (field?.id
+      ? listCustomFields.find((customField) => customField.id === field.id)
+      : undefined) ??
+    listCustomFields.find((customField) => customField.name === "Sprint");
+
+  return {
+    field,
+    listField
+  };
+}
+
+function resolveSprintLabel(
+  task: ClickUpTaskPayload,
+  listCustomFields: ClickUpCustomFieldPayload[]
+): string {
+  const { field, listField } = getSprintCustomField(task, listCustomFields);
+  const label = resolveDropdownOptionName(field?.value, [field, listField]);
+
+  return label ?? unassignedSprintLabel;
+}
+
+function getTaskTypeName(
+  task: ClickUpTaskPayload,
+  taskTypeMap: Map<number, string>
+): string {
+  return taskTypeMap.get(task.custom_item_id ?? Number.NaN)?.trim() || "Task";
+}
+
+function getTaskAssigneeNames(task: ClickUpTaskPayload): string[] {
+  return (task.assignees ?? [])
+    .map((assignee) => assigneeName(assignee))
+    .filter((name): name is string => Boolean(name));
+}
+
+function compareOptionalNumbers(left: number | undefined, right: number | undefined): number {
+  return (left ?? Number.POSITIVE_INFINITY) - (right ?? Number.POSITIVE_INFINITY);
+}
+
+function compareSprintLabels(
+  left: { sprintLabel: string; sprintWeekNumber?: number },
+  right: { sprintLabel: string; sprintWeekNumber?: number }
+): number {
+  const weekDelta = compareOptionalNumbers(left.sprintWeekNumber, right.sprintWeekNumber);
+  if (weekDelta !== 0) {
+    return weekDelta;
+  }
+
+  return left.sprintLabel.localeCompare(right.sprintLabel);
+}
+
+function createEmptySprintPlanningTotals(): SprintPlanningTotals {
+  return {
+    estimateHours: 0,
+    trackedHours: 0,
+    remainingHours: 0,
+    remainingDays: 0,
+    missingEstimateCount: 0,
+    rowCount: 0
+  };
+}
+
+function addRowToSprintPlanningTotals(
+  totals: SprintPlanningTotals,
+  row: SprintPlanningRow
+): void {
+  totals.estimateHours += row.estimateHours;
+  totals.trackedHours += row.trackedHours;
+  totals.remainingHours += row.remainingHours;
+  totals.remainingDays += row.remainingDays;
+  totals.missingEstimateCount += row.missingEstimate ? 1 : 0;
+  totals.rowCount += 1;
+}
+
+function getVisiblePlanningRowTasks(tasks: ClickUpTaskPayload[]): ClickUpTaskPayload[] {
+  const flatTasks = flattenTasks(tasks);
+  const visibleTaskIds = new Set(flatTasks.map((task) => task.id).filter(Boolean));
+
+  return flatTasks.filter((task) => {
+    if (!task.id) {
+      return false;
+    }
+
+    return !task.parent || !visibleTaskIds.has(task.parent);
+  });
+}
+
+function toSprintPlanningRow(
+  task: ClickUpTaskPayload,
+  taskTypeMap: Map<number, string>,
+  metadata: Required<SprintPlanningReportMetadata>
+): {
+  orderindex: string | null | undefined;
+  row: SprintPlanningRow;
+} {
+  const rolledTasks = flattenTasks([task]);
+  const estimateMs = rolledTasks.reduce(
+    (total, rolledTask) => total + parseMilliseconds(rolledTask.time_estimate),
+    0
+  );
+  const trackedMs = rolledTasks.reduce(
+    (total, rolledTask) => total + parseMilliseconds(rolledTask.time_spent),
+    0
+  );
+  const remainingMs = estimateMs - trackedMs;
+  const sprintLabel = resolveSprintLabel(task, metadata.listCustomFields);
+  const sprintWeekNumber = parseSprintWeekNumber(sprintLabel);
+  const prioScore = parseNumberField(getCustomField(task, "Prio score"));
+  const estimateHours = toHours(estimateMs);
+  const trackedHours = toHours(trackedMs);
+  const remainingHours = toHours(remainingMs);
+  const taskId = task.id ?? "unknown-task";
+
+  const row: SprintPlanningRow = {
+    taskId,
+    taskCustomId: task.custom_id ?? taskId,
+    title: task.name?.trim() || "Untitled ClickUp task",
+    taskType: getTaskTypeName(task, taskTypeMap),
+    status: normalizeStatus(task.status),
+    assignees: getTaskAssigneeNames(task),
+    sprintLabel,
+    ...(sprintWeekNumber !== undefined ? { sprintWeekNumber } : {}),
+    ...(prioScore !== undefined ? { prioScore } : {}),
+    ...(task.url?.trim() ? { url: task.url.trim() } : {}),
+    estimateHours,
+    trackedHours,
+    remainingHours,
+    remainingDays: remainingHours / metadata.dayHours,
+    rolledSubtaskCount: Math.max(0, rolledTasks.length - 1),
+    missingEstimate: !rolledTasks.some(hasTimeEstimate)
+  };
+
+  return {
+    orderindex: task.orderindex,
+    row
+  };
+}
+
+function compareSprintPlanningRows(
+  left: { orderindex: string | null | undefined; row: SprintPlanningRow },
+  right: { orderindex: string | null | undefined; row: SprintPlanningRow }
+): number {
+  const sprintDelta = compareSprintLabels(left.row, right.row);
+  if (sprintDelta !== 0) {
+    return sprintDelta;
+  }
+
+  const prioDelta = compareOptionalNumbers(left.row.prioScore, right.row.prioScore);
+  if (prioDelta !== 0) {
+    return prioDelta;
+  }
+
+  const orderDelta = parseOrderIndex(left.orderindex) - parseOrderIndex(right.orderindex);
+  if (orderDelta !== 0) {
+    return orderDelta;
+  }
+
+  const customIdDelta = left.row.taskCustomId.localeCompare(right.row.taskCustomId);
+  if (customIdDelta !== 0) {
+    return customIdDelta;
+  }
+
+  return left.row.title.localeCompare(right.row.title);
+}
+
+function buildSprintPlanningSprintSummaries(
+  rows: SprintPlanningRow[]
+): SprintPlanningSprintSummary[] {
+  const totalsByLabel = new Map<string, SprintPlanningSprintSummary>();
+
+  for (const row of rows) {
+    const existing = totalsByLabel.get(row.sprintLabel);
+    const summary =
+      existing ??
+      ({
+        label: row.sprintLabel,
+        ...(row.sprintWeekNumber !== undefined ? { weekNumber: row.sprintWeekNumber } : {}),
+        ...createEmptySprintPlanningTotals()
+      } satisfies SprintPlanningSprintSummary);
+
+    addRowToSprintPlanningTotals(summary, row);
+    totalsByLabel.set(row.sprintLabel, summary);
+  }
+
+  return [...totalsByLabel.values()].sort((left, right) =>
+    compareSprintLabels(
+      {
+        sprintLabel: left.label,
+        ...(left.weekNumber !== undefined ? { sprintWeekNumber: left.weekNumber } : {})
+      },
+      {
+        sprintLabel: right.label,
+        ...(right.weekNumber !== undefined ? { sprintWeekNumber: right.weekNumber } : {})
+      }
+    )
+  );
+}
+
+export function buildSprintPlanningReport(
+  tasks: ClickUpTaskPayload[],
+  taskTypeMap: Map<number, string>,
+  metadata: SprintPlanningReportMetadata
+): SprintPlanningReport {
+  const resolvedMetadata: Required<SprintPlanningReportMetadata> = {
+    dayHours: metadata.dayHours ?? defaultSprintPlanningDayHours,
+    listCustomFields: metadata.listCustomFields,
+    viewId: metadata.viewId
+  };
+  const rowEntries = getVisiblePlanningRowTasks(tasks)
+    .map((task) => toSprintPlanningRow(task, taskTypeMap, resolvedMetadata))
+    .sort(compareSprintPlanningRows);
+  const rows = rowEntries.map((entry) => entry.row);
+  const totals = createEmptySprintPlanningTotals();
+
+  for (const row of rows) {
+    addRowToSprintPlanningTotals(totals, row);
+  }
+
+  return {
+    viewId: resolvedMetadata.viewId,
+    dayHours: resolvedMetadata.dayHours,
+    totals,
+    sprints: buildSprintPlanningSprintSummaries(rows),
+    rows
+  };
+}
+
 function createCachedLoader<T>(
   cacheTtlMs: number,
   load: () => Promise<T>
@@ -562,6 +908,7 @@ function createCachedLoader<T>(
 
 export interface ClickUpReadService {
   getDailyRows(): Promise<DailyRow[]>;
+  getSprintPlanningReport(): Promise<SprintPlanningReport>;
   getStoryStatusDiscrepancyReport(): Promise<StoryStatusDiscrepancyReport>;
 }
 
@@ -607,6 +954,43 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
 
     return buildDailyRows(tasks, metadata.value.taskTypeMap);
   });
+
+  const getVisiblePlanningTaskIds = (tasks: ClickUpTaskPayload[]): string[] => {
+    const flatTasks = flattenTasks(tasks);
+    const visibleTaskIds = new Set(flatTasks.map((task) => task.id).filter(Boolean));
+    const detailTargetIds = flatTasks
+      .filter((task) => task.id && (!task.parent || !visibleTaskIds.has(task.parent)))
+      .map((task) => task.id)
+      .filter((taskId): taskId is string => Boolean(taskId));
+
+    return [...new Set(detailTargetIds)];
+  };
+
+  const loadSprintPlanning = createCachedLoader(
+    config.cacheTtlMs,
+    async (): Promise<SprintPlanningReport> => {
+      const [metadata, listCustomFields, viewTasks] = await Promise.all([
+        loadTaskMetadata(),
+        client.getListCustomFields(config.listId),
+        client.getViewTasks(clickupTarget.planningViewId)
+      ]);
+      const detailedTasks = await Promise.all(
+        getVisiblePlanningTaskIds(viewTasks).map((taskId) =>
+          client.getTask(taskId, { subtasks: true })
+        )
+      );
+
+      return buildSprintPlanningReport(
+        detailedTasks.length > 0 ? detailedTasks : viewTasks,
+        metadata.value.taskTypeMap,
+        {
+          dayHours: defaultSprintPlanningDayHours,
+          listCustomFields,
+          viewId: clickupTarget.planningViewId
+        }
+      );
+    }
+  );
 
   const loadStoryStatusDiscrepancies = createCachedLoader(
     config.cacheTtlMs,
@@ -666,6 +1050,13 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
   return {
     async getDailyRows() {
       return runLogicalRead("daily", loadDaily, (rows) => rows.length);
+    },
+    async getSprintPlanningReport() {
+      return runLogicalRead(
+        "planning",
+        loadSprintPlanning,
+        (report) => report.rows.length
+      );
     },
     async getStoryStatusDiscrepancyReport() {
       return runLogicalRead(

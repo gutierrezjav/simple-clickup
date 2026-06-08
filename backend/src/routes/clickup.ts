@@ -134,6 +134,12 @@ clickupRouter.get("/daily", async (req, res) => {
   }));
 });
 
+clickupRouter.get("/planning", async (req, res) => {
+  await sendReadServiceResponse(req, res, async (readService) => ({
+    report: await readService.getSprintPlanningReport()
+  }));
+});
+
 clickupRouter.get("/story-status-discrepancies", async (req, res) => {
   await sendReadServiceResponse(req, res, async (readService) => ({
     report: await readService.getStoryStatusDiscrepancyReport()

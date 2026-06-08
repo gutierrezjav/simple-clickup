@@ -1,12 +1,13 @@
 # ClickUp Reference
 
-Last updated: 2026-04-02
+Last updated: 2026-06-08
 
 ## Target
 
 - Workspace ID: `2199933`
 - List: `R&D WingtraCloud > All Tasks > Wingtra Cloud Dev`
 - List ID: `901500224401`
+- Sprint planning view ID: `234bx-100375`
 
 ## Status Model
 
@@ -40,9 +41,9 @@ Last updated: 2026-04-02
 
 ## Product Scope
 
-- the planning view has been discontinued and is no longer part of the active app
-- `/planning` is not part of the shipped route surface
-- all active behavior and verification rules below apply to the daily board
+- `/daily` is the primary daily board route
+- `/planning` is a read-only sprint planning report backed by the configured ClickUp planning view
+- `/verify` is hidden from navigation and supports targeted live verification
 - ClickUp reads are backend-only and require an OAuth-backed session
 - there is no runtime mock/live mode split and no env-token fallback path
 
@@ -110,6 +111,19 @@ Observed task type IDs:
 - manual search changes, manual assignee changes, `Clear filters`, and `Refresh` do not reset the stored `Next` order
 - if new people appear in the assignee list after a round starts, they are not injected into the current stored order; they can still be selected manually
 - after the final speaker, the next `Next` click clears the assignee filter and resets the helper round
+
+## Sprint Planning Behavior
+
+- planning membership comes from `GET /view/234bx-100375/task`, so the ClickUp view filters own report scope
+- sprint labels are read from the `Sprint` custom field for each visible row
+- any sprint label is accepted, including `W22`, `W24 - CURRENT`, `W25`, `W26`, and future labels
+- the ` - CURRENT` suffix is display-only and is never used for filtering or grouping logic
+- rows are grouped by the actual Sprint label and sprint groups are ordered by parsed week number, oldest first
+- labels that do not parse as `W<number>` sort after numbered sprint labels
+- rows within a sprint sort by ascending `Prio score`; missing `Prio score` sorts last
+- estimate, tracked, remaining hours, and remaining days are calculated by the backend from the parent task plus subtasks
+- remaining time is `estimate - tracked` and is not clamped when negative
+- missing estimates are treated as zero for arithmetic and surfaced as planning gaps
 
 ## Daily Board Design Guidelines
 

@@ -108,4 +108,22 @@ describe("createApp", () => {
     };
     expect("report" in payload || "message" in payload).toBe(true);
   });
+
+  it("serves the planning endpoint on the backend handler path", async () => {
+    const response = await fetch(`${baseUrl}/api/clickup/planning`, {
+      headers: {
+        Accept: "application/json"
+      }
+    });
+
+    expect(response.headers.get("content-type")).toContain("application/json");
+    expect(response.status).toBeGreaterThanOrEqual(200);
+    expect(response.status).toBeLessThan(500);
+
+    const payload = (await response.json()) as {
+      report?: unknown;
+      message?: string;
+    };
+    expect("report" in payload || "message" in payload).toBe(true);
+  });
 });

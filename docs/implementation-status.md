@@ -1,18 +1,18 @@
 # Implementation Status
 
-Last updated: 2026-04-02
+Last updated: 2026-06-08
 
 ## Summary
 
-The active read-only roadmap and the Lightsail deployment plan are complete. The repo now has a verified read-only ClickUp client centered on the daily board, a TypeScript `Express` backend, shared normalized types, and a GitHub Actions deployment path for Amazon Lightsail Container Service.
+The active read-only roadmap and the Lightsail deployment plan are complete. The repo now has a verified read-only ClickUp client centered on the daily board and sprint planning report, a TypeScript `Express` backend, shared normalized types, and a GitHub Actions deployment path for Amazon Lightsail Container Service.
 
 ## What Has Been Done
 
 ### Frontend
 
 - `/daily` is the primary product route
+- `/planning` is a visible sprint planning report backed by the configured ClickUp planning view
 - `/verify` remains available for targeted live verification but is hidden from the main navigation
-- `/planning` is no longer part of the app
 - route-level loading, retry, rate-limit, and empty states are implemented
 - daily renders story rows, standalone task/bug rows, nested stories as rows, and visible ancestors
 - daily keeps story rows visible even before any child task cards exist
@@ -24,6 +24,7 @@ The active read-only roadmap and the Lightsail deployment plan are complete. The
 - daily status columns are client-side collapsible and expandable from the header, and collapsed columns hide their cards
 - `SPRINT BACKLOG`, `IN PROGRESS`, and `IN CODE REVIEW` no longer auto-collapse when empty, though manual collapsing still works
 - daily lazily requests story-status discrepancy data after the board loads and shows a dismissible warning banner when parent stories fall behind their active child-task progression
+- planning shows tasks visible in ClickUp view `234bx-100375`, groups them by Sprint label, sorts by sprint week and `Prio score`, and calculates parent plus subtask estimate/tracked/remaining time
 - daily cards are top-aligned in each status column
 - daily swimlane headers keep a sticky flat surface during horizontal scrolling, and the card layout is denser than the original board styling
 - truncated daily card title, custom ID, and assignee text now expose the full value in a native tooltip only when the text overflows
@@ -34,16 +35,15 @@ The active read-only roadmap and the Lightsail deployment plan are complete. The
 
 - `/health`, `/auth`, and `/api/clickup` route groups are implemented
 - OAuth start and callback flows are implemented
-- session-backed reads support `daily`, `story-status-discrepancies`, and verification summaries
+- session-backed reads support `daily`, `planning`, `story-status-discrepancies`, and verification summaries
 - ClickUp reads include metadata caching, task caching, request deduplication, and rate-limit handling
-- backend normalization converts ClickUp responses into the shared daily shapes and the story-status discrepancy report
-- the discontinued planning loader and planning route have been removed from the active app
+- backend normalization converts ClickUp responses into the shared daily shapes, the sprint planning report, and the story-status discrepancy report
 - unused mode toggles, token env fallback, and non-active API helpers were removed
 
 ### Shared
 
-- normalized types exist for daily and story-status discrepancy data, plus the verification summary schema shape
-- canonical daily statuses and the ClickUp target constants are shared between frontend and backend
+- normalized types exist for daily, sprint planning, and story-status discrepancy data, plus the verification summary schema shape
+- canonical daily statuses and the ClickUp target constants, including the planning view id, are shared between frontend and backend
 
 ### Deployment
 
@@ -55,7 +55,6 @@ The active read-only roadmap and the Lightsail deployment plan are complete. The
 ## Remaining Work
 
 - no active implementation work remains on the current roadmap
-- the old planning view has been discontinued and is no longer planned
 - future targeted fixes are only needed if new live mismatches or deployment regressions are observed
 - all mutation work remains outside this completed read-only project
 
@@ -63,6 +62,7 @@ The active read-only roadmap and the Lightsail deployment plan are complete. The
 
 - The headless browser used by automation does not share your local authenticated ClickUp browser session.
 - `/verify` is intentionally hidden from the main navigation even though it remains a supported route.
+- `/planning` depends on the configured ClickUp view membership; changes to that view's filters change the report scope.
 
 ## Main Entry Points
 
@@ -71,3 +71,4 @@ The active read-only roadmap and the Lightsail deployment plan are complete. The
 - [docs/clickup-reference.md](/data/simple-clickup/docs/clickup-reference.md): stable behavior and data reference
 - [backend/src/clickup/service.ts](/data/simple-clickup/backend/src/clickup/service.ts): core read normalization
 - [frontend/src/routes/daily-page.tsx](/data/simple-clickup/frontend/src/routes/daily-page.tsx): daily board UI
+- [frontend/src/routes/planning-page.tsx](/data/simple-clickup/frontend/src/routes/planning-page.tsx): sprint planning report UI
