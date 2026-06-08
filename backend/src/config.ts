@@ -153,7 +153,7 @@ const envSchema = z.object({
   CLICKUP_TARGET_TEAM_ID: z.string().trim().min(1).default(clickupTarget.workspaceId),
   CLICKUP_TARGET_LIST_ID: z.string().trim().min(1).default(clickupTarget.listId),
   CLICKUP_READ_CACHE_TTL_MS: z.coerce.number().int().positive().default(30_000),
-  CLICKUP_HTTP_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
+  CLICKUP_HTTP_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
   DAILY_MEETING_EXCLUDED_ASSIGNEES: commaSeparatedStringListSchema,
   DAILY_MEETING_FINAL_SPEAKER: optionalNonEmptyStringSchema,
   SESSION_SECRET: optionalSecretSchema,

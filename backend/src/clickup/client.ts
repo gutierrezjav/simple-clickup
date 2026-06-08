@@ -30,7 +30,7 @@ const clickUpTaskFetchLimit = 500;
 const defaultRequestsPerMinute = 100;
 const localRateLimitRatio = 0.9;
 const lowBudgetWarningRatio = 0.1;
-const maxClickUpTimeoutMs = 10_000;
+const maxClickUpTimeoutMs = 30_000;
 const maxPaginationPages = 100;
 const rollingWindowMs = 60_000;
 

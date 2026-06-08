@@ -5,7 +5,11 @@ import type {
   SprintPlanningTotals
 } from "@custom-clickup/shared";
 import { ResourceState } from "../components/resource-state";
-import { getClickUpTaskUrl } from "../lib/clickup-task-url";
+import {
+  TaskAssigneeInline,
+  TaskIdentityBlock,
+  TaskPriorityLabel
+} from "../components/task/task-primitives";
 import {
   ClickUpApiError,
   fetchPlanningPageData,
@@ -14,8 +18,7 @@ import {
   type PlanningPageData
 } from "../lib/clickup-api";
 import {
-  formatPlanningDays,
-  formatPlanningHours,
+  formatPlanningTime,
   getRemainingTimeTone
 } from "../lib/sprint-planning";
 import { useResourceLoader } from "../lib/use-resource-loader";
@@ -107,14 +110,13 @@ function PlanningTotals({ totals }: { totals: SprintPlanningTotals }) {
   return (
     <section className="planning-totals" aria-label="Sprint planning totals">
       <PlanningMetric label="Rows" value={totals.rowCount} />
-      <PlanningMetric label="Estimate" value={formatPlanningHours(totals.estimateHours)} />
-      <PlanningMetric label="Tracked" value={formatPlanningHours(totals.trackedHours)} />
+      <PlanningMetric label="Estimate" value={formatPlanningTime(totals.estimateHours)} />
+      <PlanningMetric label="Tracked" value={formatPlanningTime(totals.trackedHours)} />
       <PlanningMetric
         label="Remaining"
         tone={getRemainingTimeTone(totals.remainingHours)}
-        value={formatPlanningHours(totals.remainingHours)}
+        value={formatPlanningTime(totals.remainingHours)}
       />
-      <PlanningMetric label="Remaining days" value={formatPlanningDays(totals.remainingDays)} />
       <PlanningMetric
         label="Missing estimate"
         tone={totals.missingEstimateCount > 0 ? "warning" : "neutral"}
@@ -135,41 +137,81 @@ function PlanningSprintSummary({ sprint }: { sprint: SprintPlanningSprintSummary
       </div>
       <div className="planning-sprint-summary__metrics">
         <span>{sprint.rowCount} rows</span>
-        <span>{formatPlanningHours(sprint.estimateHours)} est.</span>
-        <span>{formatPlanningHours(sprint.remainingHours)} rem.</span>
+        <span>{formatPlanningTime(sprint.estimateHours)} est.</span>
+        <span>{formatPlanningTime(sprint.remainingHours)} rem.</span>
       </div>
     </div>
   );
 }
 
+function getTaskTypePillClassName(taskType: string): string {
+  const normalizedTaskType = taskType.trim().toLowerCase();
+
+  if (normalizedTaskType.includes("bug")) {
+    return "pill pill--standalone-bug";
+  }
+
+  if (normalizedTaskType.includes("story")) {
+    return "pill pill--story";
+  }
+
+  if (normalizedTaskType.includes("subtask")) {
+    return "pill pill--subtask";
+  }
+
+  return "pill pill--standalone-task";
+}
+
+function PlanningAssignees({ assignees }: { assignees: string[] }) {
+  const visibleAssignees = assignees.length > 0 ? assignees : [undefined];
+
+  return (
+    <div className="planning-table__assignees">
+      {visibleAssignees.map((assignee, index) => (
+        <TaskAssigneeInline
+          assignee={assignee}
+          avatarUrl={undefined}
+          className="planning-table__assignee"
+          compact
+          key={assignee ?? `unassigned-${index}`}
+          nameClassName="planning-table__assignee-name"
+        />
+      ))}
+    </div>
+  );
+}
+
 function PlanningRow({ row }: { row: SprintPlanningRow }) {
-  const rowUrl = row.url ?? getClickUpTaskUrl(row.taskId);
   const remainingTone = getRemainingTimeTone(row.remainingHours);
 
   return (
     <tr className="planning-table__row" data-missing-estimate={row.missingEstimate ? "true" : "false"}>
+      <td className="planning-table__task-cell">
+        <TaskIdentityBlock
+          chips={
+            <>
+              <span className="pill pill--status pill--status-compact">{row.status}</span>
+              <span className={getTaskTypePillClassName(row.taskType)}>{row.taskType}</span>
+            </>
+          }
+          className="planning-table__identity"
+          customId={row.taskCustomId}
+          taskId={row.taskId}
+          title={row.title}
+          titleClassName="planning-table__title"
+        />
+      </td>
       <td>
-        <a className="task-link planning-table__id" href={rowUrl} rel="noreferrer" target="_blank">
-          {row.taskCustomId}
-        </a>
+        <PlanningAssignees assignees={row.assignees} />
       </td>
-      <td className="planning-table__title-cell">
-        <a className="task-link planning-table__title" href={rowUrl} rel="noreferrer" target="_blank">
-          {row.title}
-        </a>
-        <div className="planning-table__meta">
-          <span className="pill pill--status pill--status-compact">{row.status}</span>
-          <span>{row.taskType}</span>
-        </div>
+      <td>
+        <TaskPriorityLabel prioScore={row.prioScore} />
       </td>
-      <td>{row.assignees.length > 0 ? row.assignees.join(", ") : "Unassigned"}</td>
-      <td>{typeof row.prioScore === "number" ? row.prioScore : "No prio"}</td>
-      <td className="planning-table__number">{formatPlanningHours(row.estimateHours)}</td>
-      <td className="planning-table__number">{formatPlanningHours(row.trackedHours)}</td>
+      <td className="planning-table__number">{formatPlanningTime(row.estimateHours)}</td>
+      <td className="planning-table__number">{formatPlanningTime(row.trackedHours)}</td>
       <td className="planning-table__number" data-tone={remainingTone}>
-        {formatPlanningHours(row.remainingHours)}
+        {formatPlanningTime(row.remainingHours)}
       </td>
-      <td className="planning-table__number">{formatPlanningDays(row.remainingDays)}</td>
       <td className="planning-table__number">{row.rolledSubtaskCount}</td>
       <td>{row.missingEstimate ? <span className="badge">Missing</span> : null}</td>
     </tr>
@@ -195,13 +237,11 @@ function PlanningSprintSection({
           <thead>
             <tr>
               <th>Task</th>
-              <th>Title</th>
               <th>Assignees</th>
               <th>Prio</th>
               <th>Estimate</th>
               <th>Tracked</th>
               <th>Remaining</th>
-              <th>Days</th>
               <th>Subs</th>
               <th>Estimate gap</th>
             </tr>

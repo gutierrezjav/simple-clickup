@@ -375,7 +375,7 @@ input {
 
 .planning-table {
   width: 100%;
-  min-width: 1120px;
+  min-width: 980px;
   border-collapse: separate;
   border-spacing: 0;
   overflow: hidden;
@@ -405,36 +405,37 @@ input {
   background: #fffaf1;
 }
 
-.planning-table__id {
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
+.planning-table__task-cell {
+  width: 42%;
+  min-width: 340px;
 }
 
-.planning-table__title-cell {
-  min-width: 320px;
+.planning-table__identity {
+  max-width: 560px;
 }
 
-.planning-table__title {
-  display: -webkit-box;
-  overflow: hidden;
-  max-width: 520px;
+.planning-table__title,
+.planning-table__title .task-link {
   color: var(--text-strong);
   font-weight: 700;
-  line-height: 1.25;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
 }
 
-.planning-table__meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+.planning-table__assignees {
+  display: grid;
   gap: 6px;
-  margin-top: 6px;
-  color: var(--text-soft);
-  font-size: 12px;
+  min-width: 0;
+}
+
+.planning-table__assignee {
+  max-width: 190px;
+}
+
+.planning-table__assignee-name {
+  color: var(--text-body);
+}
+
+.planning-table__identity .task-identity__chips {
+  flex-wrap: wrap;
 }
 
 .planning-table__number {
