@@ -1098,7 +1098,8 @@ input {
   background: var(--panel-bg);
 }
 
-.daily-column-header {
+.daily-column-header,
+.task-status-pill {
   --status-accent: #c4cfdd;
   --status-chip-text: #3d4a5b;
   --status-header-bg: #f8fafc;
@@ -1301,56 +1302,64 @@ input {
   background: linear-gradient(180deg, var(--status-header-bg) 0%, rgba(255, 255, 255, 0.98) 100%);
 }
 
-.daily-column-header[data-status="BLOCKED"] {
+.daily-column-header[data-status="BLOCKED"],
+.task-status-pill[data-status="BLOCKED"] {
   --status-accent: #5b616d;
   --status-chip-text: #ffffff;
   --status-header-bg: #f1f3f6;
   --status-border: #d7dde5;
 }
 
-.daily-column-header[data-status="SPRINT BACKLOG"] {
+.daily-column-header[data-status="SPRINT BACKLOG"],
+.task-status-pill[data-status="SPRINT BACKLOG"] {
   --status-accent: #9c8768;
   --status-chip-text: #ffffff;
   --status-header-bg: #f7f1e7;
   --status-border: #e6d7c3;
 }
 
-.daily-column-header[data-status="IN PROGRESS"] {
+.daily-column-header[data-status="IN PROGRESS"],
+.task-status-pill[data-status="IN PROGRESS"] {
   --status-accent: #f2c53d;
   --status-chip-text: #5e4300;
   --status-header-bg: #fff8d9;
   --status-border: #efd98a;
 }
 
-.daily-column-header[data-status="IN CODE REVIEW"] {
+.daily-column-header[data-status="IN CODE REVIEW"],
+.task-status-pill[data-status="IN CODE REVIEW"] {
   --status-accent: #f1b146;
   --status-chip-text: #5b3900;
   --status-header-bg: #fff2dd;
   --status-border: #efcb8c;
 }
 
-.daily-column-header[data-status="DEPLOYED TO DEV"] {
+.daily-column-header[data-status="DEPLOYED TO DEV"],
+.task-status-pill[data-status="DEPLOYED TO DEV"] {
   --status-accent: #a98ad9;
   --status-chip-text: #ffffff;
   --status-header-bg: #f1ebfb;
   --status-border: #ddcff6;
 }
 
-.daily-column-header[data-status="TESTED IN DEV"] {
+.daily-column-header[data-status="TESTED IN DEV"],
+.task-status-pill[data-status="TESTED IN DEV"] {
   --status-accent: #be59d0;
   --status-chip-text: #ffffff;
   --status-header-bg: #f8eafc;
   --status-border: #e8c9f0;
 }
 
-.daily-column-header[data-status="DEPLOYED TO STAGING"] {
+.daily-column-header[data-status="DEPLOYED TO STAGING"],
+.task-status-pill[data-status="DEPLOYED TO STAGING"] {
   --status-accent: #3997ea;
   --status-chip-text: #ffffff;
   --status-header-bg: #eaf4ff;
   --status-border: #cae1f8;
 }
 
-.daily-column-header[data-status="TESTED IN STAGING"] {
+.daily-column-header[data-status="TESTED IN STAGING"],
+.task-status-pill[data-status="TESTED IN STAGING"] {
   --status-accent: #5c73c7;
   --status-chip-text: #ffffff;
   --status-header-bg: #edf1fb;

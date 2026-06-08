@@ -616,7 +616,14 @@ function resolveDropdownOptionName(
       return directName;
     }
 
-    return resolveDropdownOptionName(rawValue.value, fields);
+    return (
+      resolveDropdownOptionName(rawValue.value, fields) ??
+      resolveDropdownOptionName(rawValue.id, fields) ??
+      resolveDropdownOptionName(rawValue.option_id, fields) ??
+      resolveDropdownOptionName(rawValue.optionId, fields) ??
+      resolveDropdownOptionName(rawValue.orderindex, fields) ??
+      resolveDropdownOptionName(rawValue.orderIndex, fields)
+    );
   }
 
   const rawValueString =
@@ -634,7 +641,7 @@ function resolveDropdownOptionName(
       option.orderindex === undefined || option.orderindex === null
         ? undefined
         : String(option.orderindex);
-    const optionName = option.name?.trim();
+    const optionName = option.name?.trim() || option.label?.trim();
 
     return (
       optionId === rawValueString ||
@@ -643,7 +650,7 @@ function resolveDropdownOptionName(
     );
   });
 
-  return matchedOption?.name?.trim() || getStringCandidate(rawValue);
+  return matchedOption?.name?.trim() || matchedOption?.label?.trim() || getStringCandidate(rawValue);
 }
 
 function resolveCustomFieldDisplayValue(
@@ -740,10 +747,22 @@ function getTaskTypeName(
   return taskTypeMap.get(task.custom_item_id ?? Number.NaN)?.trim() || "Task";
 }
 
-function getTaskAssigneeNames(task: ClickUpTaskPayload): string[] {
+function getTaskAssignees(task: ClickUpTaskPayload): SprintPlanningRow["assignees"] {
   return (task.assignees ?? [])
-    .map((assignee) => assigneeName(assignee))
-    .filter((name): name is string => Boolean(name));
+    .map((assignee) => {
+      const name = assigneeName(assignee);
+      const avatarUrl = assigneeAvatarUrl(assignee);
+
+      if (!name) {
+        return undefined;
+      }
+
+      return {
+        name,
+        ...(avatarUrl ? { avatarUrl } : {})
+      };
+    })
+    .filter((assignee): assignee is SprintPlanningRow["assignees"][number] => Boolean(assignee));
 }
 
 function compareOptionalNumbers(left: number | undefined, right: number | undefined): number {
@@ -897,7 +916,7 @@ function toSprintPlanningRow(
     taskType: getTaskTypeName(task, taskTypeMap),
     ...(epic ? { epic } : {}),
     status: normalizeStatus(task.status),
-    assignees: getTaskAssigneeNames(task),
+    assignees: getTaskAssignees(task),
     ...(budget ? { budget } : {}),
     sprintLabel,
     ...(sprintWeekNumber !== undefined ? { sprintWeekNumber } : {}),

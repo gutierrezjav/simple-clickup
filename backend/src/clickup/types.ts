@@ -16,6 +16,7 @@ export interface ClickUpTagPayload {
 
 export interface ClickUpCustomFieldOptionPayload {
   id?: string | number | null;
+  label?: string | null;
   name?: string | null;
   orderindex?: string | number | null;
 }

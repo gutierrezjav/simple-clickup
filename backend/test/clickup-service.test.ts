@@ -673,18 +673,24 @@ describe("buildSprintPlanningReport", () => {
           sprintValue: 23,
           prioScore: 5,
           timeEstimate: 12 * hourMs,
+          assignees: [
+            {
+              username: "Planning Owner",
+              profilePicture: "https://example.invalid/avatar.png"
+            }
+          ],
           customFields: [
             {
               id: "epic-field",
               name: "Epic",
               type: "drop_down",
-              value: "network-option"
+              value: { id: "network-option" }
             },
             {
               id: "budget-field",
               name: "Budget",
               type: "drop_down",
-              value: 1
+              value: { orderindex: 1 }
             }
           ]
         })
@@ -719,6 +725,12 @@ describe("buildSprintPlanningReport", () => {
     );
 
     expect(report.rows[0]).toMatchObject({
+      assignees: [
+        {
+          avatarUrl: "https://example.invalid/avatar.png",
+          name: "Planning Owner"
+        }
+      ],
       epic: "Network PPK",
       budget: "New Features"
     });

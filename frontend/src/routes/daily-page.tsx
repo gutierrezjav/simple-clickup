@@ -9,7 +9,11 @@ import {
 import { useEffect, useState, type CSSProperties } from "react";
 import { DailyCard } from "../components/daily/daily-card";
 import { ResourceState } from "../components/resource-state";
-import { TaskAssigneeInline, TaskTitleLink } from "../components/task/task-primitives";
+import {
+  TaskAssigneeInline,
+  TaskStatusPill,
+  TaskTitleLink
+} from "../components/task/task-primitives";
 import { useVisibleTooltip } from "../components/visible-tooltip";
 import {
   ClickUpApiError,
@@ -193,7 +197,7 @@ function DailyStatusColumnHeader({
       onClick={onToggle}
       type="button"
     >
-      <span className="daily-column-header__label">{status}</span>
+      <TaskStatusPill status={status} />
       <span className="daily-column-header__count">{count}</span>
       {collapsed ? (
         <span className="daily-column-header__collapsed-label">

@@ -85,6 +85,11 @@ export interface SprintPlanningSprintSummary extends SprintPlanningTotals {
   weekNumber?: number;
 }
 
+export interface SprintPlanningAssignee {
+  name: string;
+  avatarUrl?: string;
+}
+
 export interface SprintPlanningRow {
   taskId: string;
   taskCustomId: string;
@@ -92,7 +97,7 @@ export interface SprintPlanningRow {
   taskType: string;
   epic?: string;
   status: string;
-  assignees: string[];
+  assignees: SprintPlanningAssignee[];
   budget?: string;
   sprintLabel: string;
   sprintWeekNumber?: number;

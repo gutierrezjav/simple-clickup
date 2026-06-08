@@ -7,7 +7,8 @@ import type {
 import { ResourceState } from "../components/resource-state";
 import {
   TaskAssigneeInline,
-  TaskIdentityBlock
+  TaskIdentityBlock,
+  TaskStatusPill
 } from "../components/task/task-primitives";
 import {
   ClickUpApiError,
@@ -141,18 +142,19 @@ function PlanningSprintSummary({ sprint }: { sprint: SprintPlanningSprintSummary
   );
 }
 
-function PlanningAssignees({ assignees }: { assignees: string[] }) {
-  const visibleAssignees = assignees.length > 0 ? assignees : [undefined];
+function PlanningAssignees({ assignees }: { assignees: SprintPlanningRow["assignees"] }) {
+  const visibleAssignees: Array<SprintPlanningRow["assignees"][number] | undefined> =
+    assignees.length > 0 ? assignees : [undefined];
 
   return (
     <div className="planning-table__assignees">
       {visibleAssignees.map((assignee, index) => (
         <TaskAssigneeInline
-          assignee={assignee}
-          avatarUrl={undefined}
+          assignee={assignee?.name}
+          avatarUrl={assignee?.avatarUrl}
           className="planning-table__assignee"
           compact
-          key={assignee ?? `unassigned-${index}`}
+          key={assignee?.name ?? `unassigned-${index}`}
           nameClassName="planning-table__assignee-name"
         />
       ))}
@@ -188,7 +190,7 @@ function PlanningRow({ row }: { row: SprintPlanningRow }) {
         <PlanningAssignees assignees={row.assignees} />
       </td>
       <td>
-        <span className="pill pill--status pill--status-compact">{row.status}</span>
+        <TaskStatusPill status={row.status} />
       </td>
       <td><PlanningFieldPill value={row.budget} /></td>
       <td className="planning-table__number">{formatPlanningTime(row.estimateHours)}</td>
@@ -196,7 +198,6 @@ function PlanningRow({ row }: { row: SprintPlanningRow }) {
       <td className="planning-table__number" data-tone={remainingTone}>
         {formatPlanningTime(row.remainingHours)}
       </td>
-      <td><span className="pill pill--status pill--status-compact">{row.sprintLabel}</span></td>
     </tr>
   );
 }
@@ -228,7 +229,6 @@ function PlanningSprintSection({
               <th>Time estimate</th>
               <th>Time tracked</th>
               <th>Time (remaining)</th>
-              <th>Sprint</th>
             </tr>
           </thead>
           <tbody>
