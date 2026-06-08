@@ -82,6 +82,7 @@ export interface SprintPlanningTotals {
 
 export interface SprintPlanningSprintSummary extends SprintPlanningTotals {
   label: string;
+  sprintColor?: string;
   weekNumber?: number;
 }
 
@@ -103,6 +104,7 @@ export interface SprintPlanningRow {
   budget?: string;
   budgetColor?: string;
   sprintLabel: string;
+  sprintColor?: string;
   sprintWeekNumber?: number;
   prioScore?: number;
   url?: string;

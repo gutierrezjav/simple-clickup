@@ -1,8 +1,7 @@
 import type {
   SprintPlanningReport,
   SprintPlanningRow,
-  SprintPlanningSprintSummary,
-  SprintPlanningTotals
+  SprintPlanningSprintSummary
 } from "@custom-clickup/shared";
 import type { CSSProperties } from "react";
 import { ResourceState } from "../components/resource-state";
@@ -19,6 +18,7 @@ import {
 } from "../lib/clickup-api";
 import {
   formatPlanningTime,
+  getPlanningSprintFooterTotals,
   getRemainingTimeTone
 } from "../lib/sprint-planning";
 import { useResourceLoader } from "../lib/use-resource-loader";
@@ -89,55 +89,20 @@ function PlanningHeader({
   );
 }
 
-function PlanningMetric({
-  label,
-  value,
-  tone = "neutral"
-}: {
-  label: string;
-  value: string | number;
-  tone?: "negative" | "neutral" | "warning";
-}) {
-  return (
-    <div className="planning-metric" data-tone={tone}>
-      <span className="planning-metric__label">{label}</span>
-      <strong className="planning-metric__value">{value}</strong>
-    </div>
-  );
-}
-
-function PlanningTotals({ totals }: { totals: SprintPlanningTotals }) {
-  return (
-    <section className="planning-totals" aria-label="Sprint planning totals">
-      <PlanningMetric label="Rows" value={totals.rowCount} />
-      <PlanningMetric label="Estimate" value={formatPlanningTime(totals.estimateHours)} />
-      <PlanningMetric label="Tracked" value={formatPlanningTime(totals.trackedHours)} />
-      <PlanningMetric
-        label="Remaining"
-        tone={getRemainingTimeTone(totals.remainingHours)}
-        value={formatPlanningTime(totals.remainingHours)}
-      />
-      <PlanningMetric
-        label="Missing estimate"
-        tone={totals.missingEstimateCount > 0 ? "warning" : "neutral"}
-        value={totals.missingEstimateCount}
-      />
-    </section>
-  );
-}
-
 function PlanningSprintSummary({ sprint }: { sprint: SprintPlanningSprintSummary }) {
+  const taskCountLabel = `${sprint.rowCount} ${sprint.rowCount === 1 ? "task" : "tasks"}`;
+
   return (
-    <div className="planning-sprint-summary">
-      <div className="planning-sprint-summary__title">
-        <span className="pill pill--status pill--status-compact">{sprint.label}</span>
-        <span className="planning-sprint-summary__week">{sprint.rowCount}</span>
-      </div>
-      <div className="planning-sprint-summary__metrics">
-        {typeof sprint.weekNumber === "number" ? <span>W{sprint.weekNumber}</span> : null}
-        <span>{formatPlanningTime(sprint.estimateHours)} est.</span>
-        <span>{formatPlanningTime(sprint.remainingHours)} rem.</span>
-      </div>
+    <div className="planning-sprint-summary" aria-label={`${sprint.label} sprint`}>
+      <h3 className="planning-sprint-summary__heading">
+        <span
+          className="planning-sprint-summary__chip"
+          style={getClickUpOptionPillStyle(sprint.sprintColor)}
+        >
+          {sprint.label}
+        </span>
+      </h3>
+      <span className="planning-sprint-summary__count">{taskCountLabel}</span>
     </div>
   );
 }
@@ -272,6 +237,25 @@ function PlanningRow({ row }: { row: SprintPlanningRow }) {
   );
 }
 
+function PlanningSprintTotalsRow({ sprint }: { sprint: SprintPlanningSprintSummary }) {
+  const totals = getPlanningSprintFooterTotals(sprint);
+
+  return (
+    <tfoot>
+      <tr className="planning-table__totals-row">
+        <th className="planning-table__totals-label" colSpan={7} scope="row">
+          Total
+        </th>
+        <td className="planning-table__number">{totals.estimate}</td>
+        <td className="planning-table__number">{totals.tracked}</td>
+        <td className="planning-table__number" data-tone={totals.remaining.tone}>
+          {totals.remaining.value}
+        </td>
+      </tr>
+    </tfoot>
+  );
+}
+
 function PlanningSprintSection({
   report,
   sprint
@@ -307,6 +291,7 @@ function PlanningSprintSection({
               <PlanningRow key={row.taskId} row={row} />
             ))}
           </tbody>
+          <PlanningSprintTotalsRow sprint={sprint} />
         </table>
       </div>
     </section>
@@ -325,7 +310,6 @@ function PlanningReportView({ report }: { report: SprintPlanningReport }) {
 
   return (
     <div className="planning-layout">
-      <PlanningTotals totals={report.totals} />
       <div className="planning-sprint-list">
         {report.sprints.map((sprint) => (
           <PlanningSprintSection key={sprint.label} report={report} sprint={sprint} />

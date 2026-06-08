@@ -778,30 +778,25 @@ function getPlanningDropdownFieldDisplayValue(
   return value ? { value } : undefined;
 }
 
-function getSprintCustomField(
+function resolveSprintDisplayValue(
   task: ClickUpTaskPayload,
   listCustomFields: ClickUpCustomFieldPayload[]
-): {
-  field: ClickUpCustomFieldPayload | undefined;
-  listField: ClickUpCustomFieldPayload | undefined;
-} {
-  const field = task.custom_fields?.find((customField) => customField.name === "Sprint");
-  const listField = getListCustomField(field, listCustomFields, "Sprint");
-
-  return {
-    field,
-    listField
-  };
+): DropdownOptionDisplayValue | undefined {
+  return getPlanningDropdownFieldDisplayValue(task, listCustomFields, "Sprint");
 }
 
 function resolveSprintLabel(
   task: ClickUpTaskPayload,
   listCustomFields: ClickUpCustomFieldPayload[]
 ): string {
-  const { field, listField } = getSprintCustomField(task, listCustomFields);
-  const label = resolveDropdownOptionName(field?.value, [field, listField]);
+  return resolveExplicitSprintLabel(task, listCustomFields) ?? unassignedSprintLabel;
+}
 
-  return label ?? unassignedSprintLabel;
+function resolveExplicitSprintLabel(
+  task: ClickUpTaskPayload,
+  listCustomFields: ClickUpCustomFieldPayload[]
+): string | undefined {
+  return resolveSprintDisplayValue(task, listCustomFields)?.value;
 }
 
 function getTaskTypeName(
@@ -903,7 +898,34 @@ function buildSprintPlanningTaskGraph(tasks: ClickUpTaskPayload[]): SprintPlanni
   };
 }
 
-function getVisiblePlanningRowTasks(graph: SprintPlanningTaskGraph): ClickUpTaskPayload[] {
+function isSamePlanningSprintLabel(left: string, right: string): boolean {
+  const leftWeekNumber = parseSprintWeekNumber(left);
+  const rightWeekNumber = parseSprintWeekNumber(right);
+
+  if (leftWeekNumber !== undefined && rightWeekNumber !== undefined) {
+    return leftWeekNumber === rightWeekNumber;
+  }
+
+  return left === right;
+}
+
+function isExplicitlyAssignedToDifferentSprint(
+  task: ClickUpTaskPayload,
+  parentSprintLabel: string,
+  listCustomFields: ClickUpCustomFieldPayload[]
+): boolean {
+  const taskSprintLabel = resolveExplicitSprintLabel(task, listCustomFields);
+
+  return (
+    taskSprintLabel !== undefined &&
+    !isSamePlanningSprintLabel(taskSprintLabel, parentSprintLabel)
+  );
+}
+
+function getVisiblePlanningRowTasks(
+  graph: SprintPlanningTaskGraph,
+  listCustomFields: ClickUpCustomFieldPayload[]
+): ClickUpTaskPayload[] {
   const visibleTaskIds = new Set(graph.flatTasks.map((task) => task.id).filter(Boolean));
 
   return graph.flatTasks.filter((task) => {
@@ -911,15 +933,30 @@ function getVisiblePlanningRowTasks(graph: SprintPlanningTaskGraph): ClickUpTask
       return false;
     }
 
-    return !task.parent || !visibleTaskIds.has(task.parent);
+    if (!task.parent || !visibleTaskIds.has(task.parent)) {
+      return true;
+    }
+
+    const parentTask = graph.taskById.get(task.parent);
+    if (!parentTask) {
+      return true;
+    }
+
+    return isExplicitlyAssignedToDifferentSprint(
+      task,
+      resolveSprintLabel(parentTask, listCustomFields),
+      listCustomFields
+    );
   });
 }
 
 function collectPlanningTaskRollup(
   task: ClickUpTaskPayload,
-  graph: SprintPlanningTaskGraph
+  graph: SprintPlanningTaskGraph,
+  listCustomFields: ClickUpCustomFieldPayload[]
 ): ClickUpTaskPayload[] {
   const rolledTasks = new Map<string, ClickUpTaskPayload>();
+  const rootSprintLabel = resolveSprintLabel(task, listCustomFields);
 
   const visit = (currentTask: ClickUpTaskPayload) => {
     const currentTaskId = currentTask.id;
@@ -930,12 +967,17 @@ function collectPlanningTaskRollup(
     rolledTasks.set(currentTaskId, currentTask);
 
     for (const subtask of currentTask.subtasks ?? []) {
-      visit(subtask);
+      if (!isExplicitlyAssignedToDifferentSprint(subtask, rootSprintLabel, listCustomFields)) {
+        visit(subtask);
+      }
     }
 
     for (const childId of graph.childIdsByParentId.get(currentTaskId) ?? []) {
       const childTask = graph.taskById.get(childId);
-      if (childTask) {
+      if (
+        childTask &&
+        !isExplicitlyAssignedToDifferentSprint(childTask, rootSprintLabel, listCustomFields)
+      ) {
         visit(childTask);
       }
     }
@@ -963,7 +1005,8 @@ function toSprintPlanningRow(
     0
   );
   const remainingMs = estimateMs - trackedMs;
-  const sprintLabel = resolveSprintLabel(task, metadata.listCustomFields);
+  const sprint = resolveSprintDisplayValue(task, metadata.listCustomFields);
+  const sprintLabel = sprint?.value ?? unassignedSprintLabel;
   const sprintWeekNumber = parseSprintWeekNumber(sprintLabel);
   const prioScore = parseNumberField(getCustomField(task, "Prio score"));
   const epic = getPlanningDropdownFieldDisplayValue(task, metadata.listCustomFields, "Epic");
@@ -987,6 +1030,7 @@ function toSprintPlanningRow(
     ...(budget ? { budget: budget.value } : {}),
     ...(budget?.color ? { budgetColor: budget.color } : {}),
     sprintLabel,
+    ...(sprint?.color ? { sprintColor: sprint.color } : {}),
     ...(sprintWeekNumber !== undefined ? { sprintWeekNumber } : {}),
     ...(prioScore !== undefined ? { prioScore } : {}),
     ...(task.url?.trim() ? { url: task.url.trim() } : {}),
@@ -1042,11 +1086,15 @@ function buildSprintPlanningSprintSummaries(
       existing ??
       ({
         label: row.sprintLabel,
+        ...(row.sprintColor ? { sprintColor: row.sprintColor } : {}),
         ...(row.sprintWeekNumber !== undefined ? { weekNumber: row.sprintWeekNumber } : {}),
         ...createEmptySprintPlanningTotals()
       } satisfies SprintPlanningSprintSummary);
 
     addRowToSprintPlanningTotals(summary, row);
+    if (!summary.sprintColor && row.sprintColor) {
+      summary.sprintColor = row.sprintColor;
+    }
     totalsByLabel.set(row.sprintLabel, summary);
   }
 
@@ -1075,11 +1123,11 @@ export function buildSprintPlanningReport(
     viewId: metadata.viewId
   };
   const graph = buildSprintPlanningTaskGraph(tasks);
-  const rowEntries = getVisiblePlanningRowTasks(graph)
+  const rowEntries = getVisiblePlanningRowTasks(graph, resolvedMetadata.listCustomFields)
     .map((task) =>
       toSprintPlanningRow(
         task,
-        collectPlanningTaskRollup(task, graph),
+        collectPlanningTaskRollup(task, graph, resolvedMetadata.listCustomFields),
         taskTypeMap,
         resolvedMetadata
       )

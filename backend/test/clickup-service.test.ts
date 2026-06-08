@@ -95,9 +95,9 @@ function createPlanningMetadata() {
         type: "drop_down",
         type_config: {
           options: [
-            { id: "w22-option", name: "W22", orderindex: 21 },
-            { id: "w24-option", name: "W24 - CURRENT", orderindex: 23 },
-            { id: "w25-option", name: "W25", orderindex: 24 }
+            { color: "#87909f", id: "w22-option", name: "W22", orderindex: 21 },
+            { color: "#a98476", id: "w24-option", name: "W24 - CURRENT", orderindex: 23 },
+            { color: "#5aa469", id: "w25-option", name: "W25", orderindex: 24 }
           ]
         }
       }
@@ -585,6 +585,7 @@ describe("buildSprintPlanningReport", () => {
     expect(report.sprints).toEqual([
       expect.objectContaining({
         label: "W24 - CURRENT",
+        sprintColor: "#a98476",
         weekNumber: 24,
         estimateHours: 8,
         trackedHours: 3,
@@ -598,6 +599,7 @@ describe("buildSprintPlanningReport", () => {
         taskCustomId: "STORY-W24",
         taskType: "User Story",
         sprintLabel: "W24 - CURRENT",
+        sprintColor: "#a98476",
         sprintWeekNumber: 24,
         prioScore: 10,
         estimateHours: 8,
@@ -804,6 +806,64 @@ describe("buildSprintPlanningReport", () => {
       remainingHours: 7,
       rolledSubtaskCount: 1
     });
+  });
+
+  it("keeps an explicitly different-sprint child as its own planning row", () => {
+    const report = buildSprintPlanningReport(
+      [
+        createTask({
+          id: "cl-7540",
+          name: "Parent story in W24",
+          status: "IN PROGRESS",
+          customItemId: storyTaskTypeId,
+          sprintValue: 23,
+          timeEstimate: 80 * hourMs,
+          timeSpent: 80 * hourMs
+        }),
+        createTask({
+          id: "cl-8778",
+          name: "Child implementation in W22",
+          parent: "cl-7540",
+          status: "SPRINT BACKLOG",
+          sprintValue: "w22-option",
+          timeEstimate: 24 * hourMs
+        })
+      ],
+      taskTypeMap,
+      createPlanningMetadata()
+    );
+
+    expect(report.rows.map((row) => row.taskId)).toEqual(["cl-8778", "cl-7540"]);
+    expect(report.rows.find((row) => row.taskId === "cl-7540")).toMatchObject({
+      sprintLabel: "W24 - CURRENT",
+      estimateHours: 80,
+      trackedHours: 80,
+      remainingHours: 0,
+      rolledSubtaskCount: 0
+    });
+    expect(report.rows.find((row) => row.taskId === "cl-8778")).toMatchObject({
+      sprintLabel: "W22",
+      estimateHours: 24,
+      trackedHours: 0,
+      remainingHours: 24,
+      rolledSubtaskCount: 0
+    });
+    expect(report.sprints).toEqual([
+      expect.objectContaining({
+        label: "W22",
+        estimateHours: 24,
+        trackedHours: 0,
+        remainingHours: 24,
+        rowCount: 1
+      }),
+      expect.objectContaining({
+        label: "W24 - CURRENT",
+        estimateHours: 80,
+        trackedHours: 80,
+        remainingHours: 0,
+        rowCount: 1
+      })
+    ]);
   });
 });
 
