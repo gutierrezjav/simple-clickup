@@ -715,11 +715,45 @@ function addRowToSprintPlanningTotals(
   totals.rowCount += 1;
 }
 
-function getVisiblePlanningRowTasks(tasks: ClickUpTaskPayload[]): ClickUpTaskPayload[] {
-  const flatTasks = flattenTasks(tasks);
-  const visibleTaskIds = new Set(flatTasks.map((task) => task.id).filter(Boolean));
+interface SprintPlanningTaskGraph {
+  childIdsByParentId: Map<string, string[]>;
+  flatTasks: ClickUpTaskPayload[];
+  taskById: Map<string, ClickUpTaskPayload>;
+}
 
-  return flatTasks.filter((task) => {
+function buildSprintPlanningTaskGraph(tasks: ClickUpTaskPayload[]): SprintPlanningTaskGraph {
+  const flatTasks = flattenTasks(tasks);
+  const childIdsByParentId = new Map<string, string[]>();
+  const taskById = new Map<string, ClickUpTaskPayload>();
+
+  for (const task of flatTasks) {
+    const taskId = task.id;
+    if (!taskId) {
+      continue;
+    }
+
+    taskById.set(taskId, task);
+
+    if (!task.parent) {
+      continue;
+    }
+
+    const currentChildIds = childIdsByParentId.get(task.parent) ?? [];
+    currentChildIds.push(taskId);
+    childIdsByParentId.set(task.parent, currentChildIds);
+  }
+
+  return {
+    childIdsByParentId,
+    flatTasks,
+    taskById
+  };
+}
+
+function getVisiblePlanningRowTasks(graph: SprintPlanningTaskGraph): ClickUpTaskPayload[] {
+  const visibleTaskIds = new Set(graph.flatTasks.map((task) => task.id).filter(Boolean));
+
+  return graph.flatTasks.filter((task) => {
     if (!task.id) {
       return false;
     }
@@ -728,15 +762,45 @@ function getVisiblePlanningRowTasks(tasks: ClickUpTaskPayload[]): ClickUpTaskPay
   });
 }
 
+function collectPlanningTaskRollup(
+  task: ClickUpTaskPayload,
+  graph: SprintPlanningTaskGraph
+): ClickUpTaskPayload[] {
+  const rolledTasks = new Map<string, ClickUpTaskPayload>();
+
+  const visit = (currentTask: ClickUpTaskPayload) => {
+    const currentTaskId = currentTask.id;
+    if (!currentTaskId || rolledTasks.has(currentTaskId)) {
+      return;
+    }
+
+    rolledTasks.set(currentTaskId, currentTask);
+
+    for (const subtask of currentTask.subtasks ?? []) {
+      visit(subtask);
+    }
+
+    for (const childId of graph.childIdsByParentId.get(currentTaskId) ?? []) {
+      const childTask = graph.taskById.get(childId);
+      if (childTask) {
+        visit(childTask);
+      }
+    }
+  };
+
+  visit(task);
+  return [...rolledTasks.values()];
+}
+
 function toSprintPlanningRow(
   task: ClickUpTaskPayload,
+  rolledTasks: ClickUpTaskPayload[],
   taskTypeMap: Map<number, string>,
   metadata: Required<SprintPlanningReportMetadata>
 ): {
   orderindex: string | null | undefined;
   row: SprintPlanningRow;
 } {
-  const rolledTasks = flattenTasks([task]);
   const estimateMs = rolledTasks.reduce(
     (total, rolledTask) => total + parseMilliseconds(rolledTask.time_estimate),
     0
@@ -849,8 +913,16 @@ export function buildSprintPlanningReport(
     listCustomFields: metadata.listCustomFields,
     viewId: metadata.viewId
   };
-  const rowEntries = getVisiblePlanningRowTasks(tasks)
-    .map((task) => toSprintPlanningRow(task, taskTypeMap, resolvedMetadata))
+  const graph = buildSprintPlanningTaskGraph(tasks);
+  const rowEntries = getVisiblePlanningRowTasks(graph)
+    .map((task) =>
+      toSprintPlanningRow(
+        task,
+        collectPlanningTaskRollup(task, graph),
+        taskTypeMap,
+        resolvedMetadata
+      )
+    )
     .sort(compareSprintPlanningRows);
   const rows = rowEntries.map((entry) => entry.row);
   const totals = createEmptySprintPlanningTotals();
@@ -955,17 +1027,6 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
     return buildDailyRows(tasks, metadata.value.taskTypeMap);
   });
 
-  const getVisiblePlanningTaskIds = (tasks: ClickUpTaskPayload[]): string[] => {
-    const flatTasks = flattenTasks(tasks);
-    const visibleTaskIds = new Set(flatTasks.map((task) => task.id).filter(Boolean));
-    const detailTargetIds = flatTasks
-      .filter((task) => task.id && (!task.parent || !visibleTaskIds.has(task.parent)))
-      .map((task) => task.id)
-      .filter((taskId): taskId is string => Boolean(taskId));
-
-    return [...new Set(detailTargetIds)];
-  };
-
   const loadSprintPlanning = createCachedLoader(
     config.cacheTtlMs,
     async (): Promise<SprintPlanningReport> => {
@@ -974,14 +1035,9 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
         client.getListCustomFields(config.listId),
         client.getViewTasks(clickupTarget.planningViewId)
       ]);
-      const detailedTasks = await Promise.all(
-        getVisiblePlanningTaskIds(viewTasks).map((taskId) =>
-          client.getTask(taskId, { subtasks: true })
-        )
-      );
 
       return buildSprintPlanningReport(
-        detailedTasks.length > 0 ? detailedTasks : viewTasks,
+        viewTasks,
         metadata.value.taskTypeMap,
         {
           dayHours: defaultSprintPlanningDayHours,

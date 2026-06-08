@@ -689,6 +689,38 @@ describe("buildSprintPlanningReport", () => {
     expect(report.totals.estimateHours).toBe(8);
     expect(report.totals.trackedHours).toBe(1);
   });
+
+  it("rolls visible child rows into their visible parent when subtasks are flat", () => {
+    const report = buildSprintPlanningReport(
+      [
+        createTask({
+          id: "flat-parent",
+          name: "Flat parent",
+          status: "SPRINT BACKLOG",
+          sprintValue: 23,
+          timeEstimate: 5 * hourMs
+        }),
+        createTask({
+          id: "flat-child",
+          name: "Flat child",
+          parent: "flat-parent",
+          status: "IN PROGRESS",
+          timeEstimate: 3 * hourMs,
+          timeSpent: hourMs
+        })
+      ],
+      taskTypeMap,
+      createPlanningMetadata()
+    );
+
+    expect(report.rows.map((row) => row.taskId)).toEqual(["flat-parent"]);
+    expect(report.rows[0]).toMatchObject({
+      estimateHours: 8,
+      trackedHours: 1,
+      remainingHours: 7,
+      rolledSubtaskCount: 1
+    });
+  });
 });
 
 describe("createClickUpReadService", () => {
@@ -788,6 +820,13 @@ describe("createClickUpReadService", () => {
         customItemId: storyTaskTypeId,
         sprintValue: 23,
         timeEstimate: 2 * hourMs
+      }),
+      createTask({
+        id: "task-child",
+        name: "Child",
+        parent: "story-w24",
+        status: "IN PROGRESS",
+        timeEstimate: 6 * hourMs
       })
     ]);
     const getTask = vi.spyOn(
@@ -840,6 +879,6 @@ describe("createClickUpReadService", () => {
       ]
     });
     expect(getViewTasks).toHaveBeenCalledWith("234bx-100375");
-    expect(getTask).toHaveBeenCalledWith("story-w24", { subtasks: true });
+    expect(getTask).not.toHaveBeenCalled();
   });
 });
