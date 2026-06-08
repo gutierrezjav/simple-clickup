@@ -589,6 +589,19 @@ function getStringCandidate(value: unknown): string | undefined {
   return undefined;
 }
 
+function getListCustomField(
+  field: ClickUpCustomFieldPayload | undefined,
+  listCustomFields: ClickUpCustomFieldPayload[],
+  fieldName: string
+): ClickUpCustomFieldPayload | undefined {
+  return (
+    (field?.id
+      ? listCustomFields.find((customField) => customField.id === field.id)
+      : undefined) ??
+    listCustomFields.find((customField) => customField.name === fieldName)
+  );
+}
+
 function resolveDropdownOptionName(
   rawValue: unknown,
   fields: Array<ClickUpCustomFieldPayload | undefined>
@@ -633,6 +646,67 @@ function resolveDropdownOptionName(
   return matchedOption?.name?.trim() || getStringCandidate(rawValue);
 }
 
+function resolveCustomFieldDisplayValue(
+  rawValue: unknown,
+  fields: Array<ClickUpCustomFieldPayload | undefined>
+): string | undefined {
+  if (Array.isArray(rawValue)) {
+    const values = rawValue
+      .map((value) => resolveCustomFieldDisplayValue(value, fields))
+      .filter((value): value is string => Boolean(value));
+
+    return values.length > 0 ? values.join(", ") : undefined;
+  }
+
+  const dropdownOptionName = resolveDropdownOptionName(rawValue, fields);
+  if (dropdownOptionName) {
+    return dropdownOptionName;
+  }
+
+  if (typeof rawValue === "number" && Number.isFinite(rawValue)) {
+    return String(rawValue);
+  }
+
+  if (typeof rawValue === "boolean") {
+    return rawValue ? "Yes" : "No";
+  }
+
+  if (!isRecord(rawValue)) {
+    return undefined;
+  }
+
+  const directValue =
+    getStringCandidate(rawValue.text) ??
+    getStringCandidate(rawValue.title) ??
+    getStringCandidate(rawValue.username) ??
+    getStringCandidate(rawValue.email);
+  if (directValue) {
+    return directValue;
+  }
+
+  return (
+    resolveCustomFieldDisplayValue(rawValue.value, fields) ??
+    resolveCustomFieldDisplayValue(rawValue.values, fields) ??
+    resolveCustomFieldDisplayValue(rawValue.items, fields)
+  );
+}
+
+function getPlanningCustomFieldDisplayValue(
+  task: ClickUpTaskPayload,
+  listCustomFields: ClickUpCustomFieldPayload[],
+  fieldName: string
+): string | undefined {
+  const field = getCustomField(task, fieldName);
+  if (!field) {
+    return undefined;
+  }
+
+  return resolveCustomFieldDisplayValue(
+    field.value,
+    [field, getListCustomField(field, listCustomFields, fieldName)]
+  );
+}
+
 function getSprintCustomField(
   task: ClickUpTaskPayload,
   listCustomFields: ClickUpCustomFieldPayload[]
@@ -641,11 +715,7 @@ function getSprintCustomField(
   listField: ClickUpCustomFieldPayload | undefined;
 } {
   const field = task.custom_fields?.find((customField) => customField.name === "Sprint");
-  const listField =
-    (field?.id
-      ? listCustomFields.find((customField) => customField.id === field.id)
-      : undefined) ??
-    listCustomFields.find((customField) => customField.name === "Sprint");
+  const listField = getListCustomField(field, listCustomFields, "Sprint");
 
   return {
     field,
@@ -813,6 +883,8 @@ function toSprintPlanningRow(
   const sprintLabel = resolveSprintLabel(task, metadata.listCustomFields);
   const sprintWeekNumber = parseSprintWeekNumber(sprintLabel);
   const prioScore = parseNumberField(getCustomField(task, "Prio score"));
+  const epic = getPlanningCustomFieldDisplayValue(task, metadata.listCustomFields, "Epic");
+  const budget = getPlanningCustomFieldDisplayValue(task, metadata.listCustomFields, "Budget");
   const estimateHours = toHours(estimateMs);
   const trackedHours = toHours(trackedMs);
   const remainingHours = toHours(remainingMs);
@@ -823,8 +895,10 @@ function toSprintPlanningRow(
     taskCustomId: task.custom_id ?? taskId,
     title: task.name?.trim() || "Untitled ClickUp task",
     taskType: getTaskTypeName(task, taskTypeMap),
+    ...(epic ? { epic } : {}),
     status: normalizeStatus(task.status),
     assignees: getTaskAssigneeNames(task),
+    ...(budget ? { budget } : {}),
     sprintLabel,
     ...(sprintWeekNumber !== undefined ? { sprintWeekNumber } : {}),
     ...(prioScore !== undefined ? { prioScore } : {}),

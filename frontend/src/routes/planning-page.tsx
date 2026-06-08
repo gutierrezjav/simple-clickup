@@ -7,8 +7,7 @@ import type {
 import { ResourceState } from "../components/resource-state";
 import {
   TaskAssigneeInline,
-  TaskIdentityBlock,
-  TaskPriorityLabel
+  TaskIdentityBlock
 } from "../components/task/task-primitives";
 import {
   ClickUpApiError,
@@ -130,36 +129,16 @@ function PlanningSprintSummary({ sprint }: { sprint: SprintPlanningSprintSummary
   return (
     <div className="planning-sprint-summary">
       <div className="planning-sprint-summary__title">
-        <span>{sprint.label}</span>
-        {typeof sprint.weekNumber === "number" ? (
-          <span className="planning-sprint-summary__week">W{sprint.weekNumber}</span>
-        ) : null}
+        <span className="pill pill--status pill--status-compact">{sprint.label}</span>
+        <span className="planning-sprint-summary__week">{sprint.rowCount}</span>
       </div>
       <div className="planning-sprint-summary__metrics">
-        <span>{sprint.rowCount} rows</span>
+        {typeof sprint.weekNumber === "number" ? <span>W{sprint.weekNumber}</span> : null}
         <span>{formatPlanningTime(sprint.estimateHours)} est.</span>
         <span>{formatPlanningTime(sprint.remainingHours)} rem.</span>
       </div>
     </div>
   );
-}
-
-function getTaskTypePillClassName(taskType: string): string {
-  const normalizedTaskType = taskType.trim().toLowerCase();
-
-  if (normalizedTaskType.includes("bug")) {
-    return "pill pill--standalone-bug";
-  }
-
-  if (normalizedTaskType.includes("story")) {
-    return "pill pill--story";
-  }
-
-  if (normalizedTaskType.includes("subtask")) {
-    return "pill pill--subtask";
-  }
-
-  return "pill pill--standalone-task";
 }
 
 function PlanningAssignees({ assignees }: { assignees: string[] }) {
@@ -181,6 +160,14 @@ function PlanningAssignees({ assignees }: { assignees: string[] }) {
   );
 }
 
+function PlanningFieldPill({ value }: { value: string | undefined }) {
+  if (!value) {
+    return <span>-</span>;
+  }
+
+  return <span className="pill pill--kind">{value}</span>;
+}
+
 function PlanningRow({ row }: { row: SprintPlanningRow }) {
   const remainingTone = getRemainingTimeTone(row.remainingHours);
 
@@ -188,12 +175,6 @@ function PlanningRow({ row }: { row: SprintPlanningRow }) {
     <tr className="planning-table__row" data-missing-estimate={row.missingEstimate ? "true" : "false"}>
       <td className="planning-table__task-cell">
         <TaskIdentityBlock
-          chips={
-            <>
-              <span className="pill pill--status pill--status-compact">{row.status}</span>
-              <span className={getTaskTypePillClassName(row.taskType)}>{row.taskType}</span>
-            </>
-          }
           className="planning-table__identity"
           customId={row.taskCustomId}
           taskId={row.taskId}
@@ -201,19 +182,21 @@ function PlanningRow({ row }: { row: SprintPlanningRow }) {
           titleClassName="planning-table__title"
         />
       </td>
+      <td className="planning-table__number">{row.prioScore ?? "-"}</td>
+      <td><PlanningFieldPill value={row.epic} /></td>
       <td>
         <PlanningAssignees assignees={row.assignees} />
       </td>
       <td>
-        <TaskPriorityLabel prioScore={row.prioScore} />
+        <span className="pill pill--status pill--status-compact">{row.status}</span>
       </td>
+      <td><PlanningFieldPill value={row.budget} /></td>
       <td className="planning-table__number">{formatPlanningTime(row.estimateHours)}</td>
       <td className="planning-table__number">{formatPlanningTime(row.trackedHours)}</td>
       <td className="planning-table__number" data-tone={remainingTone}>
         {formatPlanningTime(row.remainingHours)}
       </td>
-      <td className="planning-table__number">{row.rolledSubtaskCount}</td>
-      <td>{row.missingEstimate ? <span className="badge">Missing</span> : null}</td>
+      <td><span className="pill pill--status pill--status-compact">{row.sprintLabel}</span></td>
     </tr>
   );
 }
@@ -236,14 +219,16 @@ function PlanningSprintSection({
         <table className="planning-table">
           <thead>
             <tr>
-              <th>Task</th>
-              <th>Assignees</th>
-              <th>Prio</th>
-              <th>Estimate</th>
-              <th>Tracked</th>
-              <th>Remaining</th>
-              <th>Subs</th>
-              <th>Estimate gap</th>
+              <th>Name</th>
+              <th>Prio score</th>
+              <th>Epic</th>
+              <th>Assignee</th>
+              <th>Status</th>
+              <th>Budget</th>
+              <th>Time estimate</th>
+              <th>Time tracked</th>
+              <th>Time (remaining)</th>
+              <th>Sprint</th>
             </tr>
           </thead>
           <tbody>

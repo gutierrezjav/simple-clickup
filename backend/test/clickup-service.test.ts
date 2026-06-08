@@ -30,7 +30,8 @@ function createTask({
   timeSpent,
   sprintValue,
   prioScore,
-  subtasks
+  subtasks,
+  customFields: extraCustomFields
 }: {
   id: string;
   name: string;
@@ -45,6 +46,7 @@ function createTask({
   sprintValue?: string | number;
   prioScore?: number;
   subtasks?: ClickUpTaskPayload[];
+  customFields?: ClickUpTaskPayload["custom_fields"];
 }): ClickUpTaskPayload {
   const customFields = [
     sprintValue !== undefined
@@ -62,7 +64,8 @@ function createTask({
           type: "number",
           value: prioScore
         }
-      : undefined
+      : undefined,
+    ...(extraCustomFields ?? [])
   ].filter((field): field is NonNullable<typeof field> => Boolean(field));
 
   return {
@@ -657,6 +660,68 @@ describe("buildSprintPlanningReport", () => {
       "w24-prio-20",
       "w25-no-prio"
     ]);
+  });
+
+  it("surfaces ClickUp view custom fields used as planning columns", () => {
+    const metadata = createPlanningMetadata();
+    const report = buildSprintPlanningReport(
+      [
+        createTask({
+          id: "planning-row",
+          name: "Planning row",
+          status: "IN PROGRESS",
+          sprintValue: 23,
+          prioScore: 5,
+          timeEstimate: 12 * hourMs,
+          customFields: [
+            {
+              id: "epic-field",
+              name: "Epic",
+              type: "drop_down",
+              value: "network-option"
+            },
+            {
+              id: "budget-field",
+              name: "Budget",
+              type: "drop_down",
+              value: 1
+            }
+          ]
+        })
+      ],
+      taskTypeMap,
+      {
+        ...metadata,
+        listCustomFields: [
+          ...metadata.listCustomFields,
+          {
+            id: "epic-field",
+            name: "Epic",
+            type: "drop_down",
+            type_config: {
+              options: [
+                { id: "network-option", name: "Network PPK", orderindex: 4 }
+              ]
+            }
+          },
+          {
+            id: "budget-field",
+            name: "Budget",
+            type: "drop_down",
+            type_config: {
+              options: [
+                { id: "budget-option", name: "New Features", orderindex: 1 }
+              ]
+            }
+          }
+        ]
+      }
+    );
+
+    expect(report.rows[0]).toMatchObject({
+      epic: "Network PPK",
+      budget: "New Features"
+    });
   });
 
   it("does not report visible subtasks as separate top-level planning rows", () => {

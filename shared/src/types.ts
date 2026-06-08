@@ -90,8 +90,10 @@ export interface SprintPlanningRow {
   taskCustomId: string;
   title: string;
   taskType: string;
+  epic?: string;
   status: string;
   assignees: string[];
+  budget?: string;
   sprintLabel: string;
   sprintWeekNumber?: number;
   prioScore?: number;
