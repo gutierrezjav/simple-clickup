@@ -438,6 +438,22 @@ input {
   color: var(--text-body);
 }
 
+.planning-table__field-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 22px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: var(--panel-muted);
+  color: var(--text-strong);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
 .planning-table__identity .task-identity__chips {
   flex-wrap: wrap;
 }

@@ -35,7 +35,7 @@ function createTask({
 }: {
   id: string;
   name: string;
-  status: string;
+  status: NonNullable<ClickUpTaskPayload["status"]>;
   parent?: string;
   customItemId?: number;
   orderindex?: string;
@@ -81,7 +81,7 @@ function createTask({
     ...(timeSpent !== undefined ? { time_spent: timeSpent } : {}),
     ...(customFields.length > 0 ? { custom_fields: customFields } : {}),
     ...(subtasks ? { subtasks } : {}),
-    status: { status }
+    status: typeof status === "string" ? { status } : status
   };
 }
 
@@ -669,7 +669,10 @@ describe("buildSprintPlanningReport", () => {
         createTask({
           id: "planning-row",
           name: "Planning row",
-          status: "IN PROGRESS",
+          status: {
+            color: "#f2c53d",
+            status: "IN PROGRESS"
+          },
           sprintValue: 23,
           prioScore: 5,
           timeEstimate: 12 * hourMs,
@@ -733,6 +736,8 @@ describe("buildSprintPlanningReport", () => {
       ],
       epic: "Network PPK",
       epicColor: "#96c7f2",
+      status: "IN PROGRESS",
+      statusColor: "#f2c53d",
       budget: "New Features",
       budgetColor: "#0091ff"
     });

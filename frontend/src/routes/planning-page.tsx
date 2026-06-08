@@ -8,8 +8,7 @@ import type { CSSProperties } from "react";
 import { ResourceState } from "../components/resource-state";
 import {
   TaskAssigneeInline,
-  TaskIdentityBlock,
-  TaskStatusPill
+  TaskIdentityBlock
 } from "../components/task/task-primitives";
 import {
   ClickUpApiError,
@@ -220,7 +219,7 @@ function getClickUpOptionPillStyle(color: string | undefined): CSSProperties | u
   };
 }
 
-function PlanningFieldPill({
+function PlanningColoredPill({
   color,
   value
 }: {
@@ -232,7 +231,7 @@ function PlanningFieldPill({
   }
 
   return (
-    <span className="pill pill--kind" style={getClickUpOptionPillStyle(color)}>
+    <span className="planning-table__field-pill" style={getClickUpOptionPillStyle(color)}>
       {value}
     </span>
   );
@@ -256,14 +255,14 @@ function PlanningRow({ row }: { row: SprintPlanningRow }) {
         />
       </td>
       <td className="planning-table__number">{row.prioScore ?? "-"}</td>
-      <td><PlanningFieldPill color={row.epicColor} value={row.epic} /></td>
+      <td><PlanningColoredPill color={row.epicColor} value={row.epic} /></td>
       <td>
         <PlanningAssignees assignees={row.assignees} />
       </td>
       <td>
-        <TaskStatusPill status={row.status} />
+        <PlanningColoredPill color={row.statusColor} value={row.status} />
       </td>
-      <td><PlanningFieldPill color={row.budgetColor} value={row.budget} /></td>
+      <td><PlanningColoredPill color={row.budgetColor} value={row.budget} /></td>
       <td className="planning-table__number">{formatPlanningTime(row.estimateHours)}</td>
       <td className="planning-table__number">{formatPlanningTime(row.trackedHours)}</td>
       <td className="planning-table__number" data-tone={remainingTone}>

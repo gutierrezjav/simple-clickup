@@ -98,6 +98,7 @@ export interface SprintPlanningRow {
   epic?: string;
   epicColor?: string;
   status: string;
+  statusColor?: string;
   assignees: SprintPlanningAssignee[];
   budget?: string;
   budgetColor?: string;

@@ -1,6 +1,7 @@
 export type ClickUpTokenSource = "session" | "none";
 
 export interface ClickUpStatusPayload {
+  color?: string | null;
   status?: string | null;
 }
 

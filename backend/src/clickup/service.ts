@@ -94,6 +94,10 @@ function normalizeStatus(status: ClickUpStatusPayload | string | null | undefine
   return status?.status?.trim().toUpperCase() ?? "UNKNOWN";
 }
 
+function statusColor(status: ClickUpStatusPayload | string | null | undefined): string | undefined {
+  return typeof status === "object" && status ? status.color?.trim() || undefined : undefined;
+}
+
 function firstAssignee(assignees: ClickUpUserPayload[] | undefined): ClickUpUserPayload | undefined {
   return assignees?.[0];
 }
@@ -964,6 +968,7 @@ function toSprintPlanningRow(
   const prioScore = parseNumberField(getCustomField(task, "Prio score"));
   const epic = getPlanningDropdownFieldDisplayValue(task, metadata.listCustomFields, "Epic");
   const budget = getPlanningDropdownFieldDisplayValue(task, metadata.listCustomFields, "Budget");
+  const taskStatusColor = statusColor(task.status);
   const estimateHours = toHours(estimateMs);
   const trackedHours = toHours(trackedMs);
   const remainingHours = toHours(remainingMs);
@@ -977,6 +982,7 @@ function toSprintPlanningRow(
     ...(epic ? { epic: epic.value } : {}),
     ...(epic?.color ? { epicColor: epic.color } : {}),
     status: normalizeStatus(task.status),
+    ...(taskStatusColor ? { statusColor: taskStatusColor } : {}),
     assignees: getTaskAssignees(task),
     ...(budget ? { budget: budget.value } : {}),
     ...(budget?.color ? { budgetColor: budget.color } : {}),
