@@ -4,6 +4,7 @@ import type {
   SprintPlanningSprintSummary,
   SprintPlanningTotals
 } from "@custom-clickup/shared";
+import type { CSSProperties } from "react";
 import { ResourceState } from "../components/resource-state";
 import {
   TaskAssigneeInline,
@@ -162,12 +163,79 @@ function PlanningAssignees({ assignees }: { assignees: SprintPlanningRow["assign
   );
 }
 
-function PlanningFieldPill({ value }: { value: string | undefined }) {
+function getTaskTypePillClassName(taskType: string): string {
+  const normalizedTaskType = taskType.trim().toLowerCase();
+
+  if (normalizedTaskType.includes("bug")) {
+    return "pill pill--standalone-bug";
+  }
+
+  if (normalizedTaskType.includes("story")) {
+    return "pill pill--story";
+  }
+
+  if (normalizedTaskType.includes("subtask")) {
+    return "pill pill--subtask";
+  }
+
+  return "pill pill--standalone-task";
+}
+
+function getRgbFromHexColor(color: string): { blue: number; green: number; red: number } | undefined {
+  const normalized = color.trim().replace(/^#/, "");
+  const hex =
+    normalized.length === 3
+      ? normalized.split("").map((character) => `${character}${character}`).join("")
+      : normalized;
+
+  if (!/^[0-9a-f]{6}$/i.test(hex)) {
+    return undefined;
+  }
+
+  return {
+    red: Number.parseInt(hex.slice(0, 2), 16),
+    green: Number.parseInt(hex.slice(2, 4), 16),
+    blue: Number.parseInt(hex.slice(4, 6), 16)
+  };
+}
+
+function getReadableTextColor(backgroundColor: string): string {
+  const rgb = getRgbFromHexColor(backgroundColor);
+  if (!rgb) {
+    return "var(--text-strong)";
+  }
+
+  const yiq = (rgb.red * 299 + rgb.green * 587 + rgb.blue * 114) / 1000;
+  return yiq >= 150 ? "#1f2533" : "#ffffff";
+}
+
+function getClickUpOptionPillStyle(color: string | undefined): CSSProperties | undefined {
+  if (!color) {
+    return undefined;
+  }
+
+  return {
+    background: color,
+    color: getReadableTextColor(color)
+  };
+}
+
+function PlanningFieldPill({
+  color,
+  value
+}: {
+  color: string | undefined;
+  value: string | undefined;
+}) {
   if (!value) {
     return <span>-</span>;
   }
 
-  return <span className="pill pill--kind">{value}</span>;
+  return (
+    <span className="pill pill--kind" style={getClickUpOptionPillStyle(color)}>
+      {value}
+    </span>
+  );
 }
 
 function PlanningRow({ row }: { row: SprintPlanningRow }) {
@@ -175,6 +243,9 @@ function PlanningRow({ row }: { row: SprintPlanningRow }) {
 
   return (
     <tr className="planning-table__row" data-missing-estimate={row.missingEstimate ? "true" : "false"}>
+      <td>
+        <span className={getTaskTypePillClassName(row.taskType)}>{row.taskType}</span>
+      </td>
       <td className="planning-table__task-cell">
         <TaskIdentityBlock
           className="planning-table__identity"
@@ -185,14 +256,14 @@ function PlanningRow({ row }: { row: SprintPlanningRow }) {
         />
       </td>
       <td className="planning-table__number">{row.prioScore ?? "-"}</td>
-      <td><PlanningFieldPill value={row.epic} /></td>
+      <td><PlanningFieldPill color={row.epicColor} value={row.epic} /></td>
       <td>
         <PlanningAssignees assignees={row.assignees} />
       </td>
       <td>
         <TaskStatusPill status={row.status} />
       </td>
-      <td><PlanningFieldPill value={row.budget} /></td>
+      <td><PlanningFieldPill color={row.budgetColor} value={row.budget} /></td>
       <td className="planning-table__number">{formatPlanningTime(row.estimateHours)}</td>
       <td className="planning-table__number">{formatPlanningTime(row.trackedHours)}</td>
       <td className="planning-table__number" data-tone={remainingTone}>
@@ -220,6 +291,7 @@ function PlanningSprintSection({
         <table className="planning-table">
           <thead>
             <tr>
+              <th>Task Type</th>
               <th>Name</th>
               <th>Prio score</th>
               <th>Epic</th>

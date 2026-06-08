@@ -375,7 +375,7 @@ input {
 
 .planning-table {
   width: 100%;
-  min-width: 980px;
+  min-width: 1080px;
   border-collapse: separate;
   border-spacing: 0;
   overflow: hidden;
@@ -389,12 +389,16 @@ input {
   padding: 10px 12px;
   border-bottom: 1px solid rgba(217, 227, 239, 0.85);
   text-align: left;
-  vertical-align: top;
 }
 
 .planning-table th {
   background: #f7fafc;
   white-space: nowrap;
+  vertical-align: top;
+}
+
+.planning-table td {
+  vertical-align: middle;
 }
 
 .planning-table tbody tr:last-child td {

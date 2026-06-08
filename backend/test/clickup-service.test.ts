@@ -706,7 +706,7 @@ describe("buildSprintPlanningReport", () => {
             type: "drop_down",
             type_config: {
               options: [
-                { id: "network-option", name: "Network PPK", orderindex: 4 }
+                { color: "#96c7f2", id: "network-option", name: "Network PPK", orderindex: 4 }
               ]
             }
           },
@@ -716,7 +716,7 @@ describe("buildSprintPlanningReport", () => {
             type: "drop_down",
             type_config: {
               options: [
-                { id: "budget-option", name: "New Features", orderindex: 1 }
+                { color: "#0091ff", id: "budget-option", name: "New Features", orderindex: 1 }
               ]
             }
           }
@@ -732,7 +732,9 @@ describe("buildSprintPlanningReport", () => {
         }
       ],
       epic: "Network PPK",
-      budget: "New Features"
+      epicColor: "#96c7f2",
+      budget: "New Features",
+      budgetColor: "#0091ff"
     });
   });
 

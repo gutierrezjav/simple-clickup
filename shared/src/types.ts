@@ -96,9 +96,11 @@ export interface SprintPlanningRow {
   title: string;
   taskType: string;
   epic?: string;
+  epicColor?: string;
   status: string;
   assignees: SprintPlanningAssignee[];
   budget?: string;
+  budgetColor?: string;
   sprintLabel: string;
   sprintWeekNumber?: number;
   prioScore?: number;

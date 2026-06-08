@@ -16,6 +16,7 @@ import { ClickUpClient } from "./client.js";
 import { ClickUpServiceError } from "./errors.js";
 import type {
   ClickUpCustomFieldPayload,
+  ClickUpCustomFieldOptionPayload,
   ClickUpCustomTaskTypePayload,
   ClickUpStatusPayload,
   ClickUpTaskPayload,
@@ -602,10 +603,23 @@ function getListCustomField(
   );
 }
 
-function resolveDropdownOptionName(
+interface DropdownOptionDisplayValue {
+  color?: string;
+  value: string;
+}
+
+function getDropdownOptionLabel(option: ClickUpCustomFieldOptionPayload): string | undefined {
+  return option.name?.trim() || option.label?.trim() || undefined;
+}
+
+function getDropdownOptionColor(option: ClickUpCustomFieldOptionPayload): string | undefined {
+  return option.color?.trim() || undefined;
+}
+
+function resolveDropdownOption(
   rawValue: unknown,
   fields: Array<ClickUpCustomFieldPayload | undefined>
-): string | undefined {
+): DropdownOptionDisplayValue | undefined {
   const options = fields.flatMap((field) => field?.type_config?.options ?? []);
 
   if (isRecord(rawValue)) {
@@ -613,16 +627,22 @@ function resolveDropdownOptionName(
       getStringCandidate(rawValue.name) ??
       getStringCandidate(rawValue.label);
     if (directName) {
-      return directName;
+      const matchedOption = options.find((option) => getDropdownOptionLabel(option) === directName);
+      const color = matchedOption ? getDropdownOptionColor(matchedOption) : undefined;
+
+      return {
+        value: directName,
+        ...(color ? { color } : {})
+      };
     }
 
     return (
-      resolveDropdownOptionName(rawValue.value, fields) ??
-      resolveDropdownOptionName(rawValue.id, fields) ??
-      resolveDropdownOptionName(rawValue.option_id, fields) ??
-      resolveDropdownOptionName(rawValue.optionId, fields) ??
-      resolveDropdownOptionName(rawValue.orderindex, fields) ??
-      resolveDropdownOptionName(rawValue.orderIndex, fields)
+      resolveDropdownOption(rawValue.value, fields) ??
+      resolveDropdownOption(rawValue.id, fields) ??
+      resolveDropdownOption(rawValue.option_id, fields) ??
+      resolveDropdownOption(rawValue.optionId, fields) ??
+      resolveDropdownOption(rawValue.orderindex, fields) ??
+      resolveDropdownOption(rawValue.orderIndex, fields)
     );
   }
 
@@ -641,16 +661,36 @@ function resolveDropdownOptionName(
       option.orderindex === undefined || option.orderindex === null
         ? undefined
         : String(option.orderindex);
-    const optionName = option.name?.trim() || option.label?.trim();
+    const optionLabel = getDropdownOptionLabel(option);
 
     return (
       optionId === rawValueString ||
       optionOrderindex === rawValueString ||
-      optionName === rawValueString
+      optionLabel === rawValueString
     );
   });
 
-  return matchedOption?.name?.trim() || matchedOption?.label?.trim() || getStringCandidate(rawValue);
+  if (!matchedOption) {
+    const fallbackValue = getStringCandidate(rawValue);
+    return fallbackValue ? { value: fallbackValue } : undefined;
+  }
+
+  const value = getDropdownOptionLabel(matchedOption);
+  const color = getDropdownOptionColor(matchedOption);
+
+  return value
+    ? {
+        value,
+        ...(color ? { color } : {})
+      }
+    : undefined;
+}
+
+function resolveDropdownOptionName(
+  rawValue: unknown,
+  fields: Array<ClickUpCustomFieldPayload | undefined>
+): string | undefined {
+  return resolveDropdownOption(rawValue, fields)?.value;
 }
 
 function resolveCustomFieldDisplayValue(
@@ -712,6 +752,26 @@ function getPlanningCustomFieldDisplayValue(
     field.value,
     [field, getListCustomField(field, listCustomFields, fieldName)]
   );
+}
+
+function getPlanningDropdownFieldDisplayValue(
+  task: ClickUpTaskPayload,
+  listCustomFields: ClickUpCustomFieldPayload[],
+  fieldName: string
+): DropdownOptionDisplayValue | undefined {
+  const field = getCustomField(task, fieldName);
+  if (!field) {
+    return undefined;
+  }
+
+  const fields = [field, getListCustomField(field, listCustomFields, fieldName)];
+  const dropdownOption = resolveDropdownOption(field.value, fields);
+  if (dropdownOption) {
+    return dropdownOption;
+  }
+
+  const value = resolveCustomFieldDisplayValue(field.value, fields);
+  return value ? { value } : undefined;
 }
 
 function getSprintCustomField(
@@ -902,8 +962,8 @@ function toSprintPlanningRow(
   const sprintLabel = resolveSprintLabel(task, metadata.listCustomFields);
   const sprintWeekNumber = parseSprintWeekNumber(sprintLabel);
   const prioScore = parseNumberField(getCustomField(task, "Prio score"));
-  const epic = getPlanningCustomFieldDisplayValue(task, metadata.listCustomFields, "Epic");
-  const budget = getPlanningCustomFieldDisplayValue(task, metadata.listCustomFields, "Budget");
+  const epic = getPlanningDropdownFieldDisplayValue(task, metadata.listCustomFields, "Epic");
+  const budget = getPlanningDropdownFieldDisplayValue(task, metadata.listCustomFields, "Budget");
   const estimateHours = toHours(estimateMs);
   const trackedHours = toHours(trackedMs);
   const remainingHours = toHours(remainingMs);
@@ -914,10 +974,12 @@ function toSprintPlanningRow(
     taskCustomId: task.custom_id ?? taskId,
     title: task.name?.trim() || "Untitled ClickUp task",
     taskType: getTaskTypeName(task, taskTypeMap),
-    ...(epic ? { epic } : {}),
+    ...(epic ? { epic: epic.value } : {}),
+    ...(epic?.color ? { epicColor: epic.color } : {}),
     status: normalizeStatus(task.status),
     assignees: getTaskAssignees(task),
-    ...(budget ? { budget } : {}),
+    ...(budget ? { budget: budget.value } : {}),
+    ...(budget?.color ? { budgetColor: budget.color } : {}),
     sprintLabel,
     ...(sprintWeekNumber !== undefined ? { sprintWeekNumber } : {}),
     ...(prioScore !== undefined ? { prioScore } : {}),
