@@ -543,7 +543,8 @@ export class ClickUpClient {
         throw new ClickUpServiceError(
           "ClickUp API rate limit reached.",
           429,
-          boundedRetryAfterMs
+          boundedRetryAfterMs,
+          this.#createRateLimitStateSnapshot(Date.now())
         );
       }
 
@@ -567,7 +568,9 @@ export class ClickUpClient {
 
         throw new ClickUpServiceError(
           `ClickUp API request failed with status ${response.status}.`,
-          statusCode
+          statusCode,
+          undefined,
+          this.#createRateLimitStateSnapshot(Date.now())
         );
       }
 
@@ -575,7 +578,12 @@ export class ClickUpClient {
       try {
         payload = await response.json();
       } catch {
-        throw new ClickUpServiceError("ClickUp API returned invalid JSON.", 502);
+        throw new ClickUpServiceError(
+          "ClickUp API returned invalid JSON.",
+          502,
+          undefined,
+          this.#createRateLimitStateSnapshot(Date.now())
+        );
       }
 
       this.#logger.info(
@@ -615,7 +623,12 @@ export class ClickUpClient {
           "ClickUp API request timed out."
         );
 
-        throw new ClickUpServiceError("ClickUp API request timed out.", 504);
+        throw new ClickUpServiceError(
+          "ClickUp API request timed out.",
+          504,
+          undefined,
+          this.#createRateLimitStateSnapshot(Date.now())
+        );
       }
 
       this.#logger.error(
@@ -632,7 +645,12 @@ export class ClickUpClient {
         "Failed to reach the ClickUp API."
       );
 
-      throw new ClickUpServiceError("Failed to reach the ClickUp API.", 502);
+      throw new ClickUpServiceError(
+        "Failed to reach the ClickUp API.",
+        502,
+        undefined,
+        this.#createRateLimitStateSnapshot(Date.now())
+      );
     } finally {
       clearTimeout(timeout);
     }
@@ -652,7 +670,8 @@ export class ClickUpClient {
       throw new ClickUpServiceError(
         "ClickUp API is temporarily rate-limited.",
         429,
-        this.#rateLimitedUntil - now
+        this.#rateLimitedUntil - now,
+        this.#createRateLimitStateSnapshot(now)
       );
     }
 
@@ -683,7 +702,8 @@ export class ClickUpClient {
     throw new ClickUpServiceError(
       "ClickUp API request budget is temporarily exhausted.",
       429,
-      retryAfterMs
+      retryAfterMs,
+      this.#createRateLimitStateSnapshot(now)
     );
   }
 

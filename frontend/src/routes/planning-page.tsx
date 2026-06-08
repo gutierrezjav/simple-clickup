@@ -9,6 +9,7 @@ import { getClickUpTaskUrl } from "../lib/clickup-task-url";
 import {
   ClickUpApiError,
   fetchPlanningPageData,
+  formatClickUpRateLimitUsage,
   startClickUpOAuth,
   type PlanningPageData
 } from "../lib/clickup-api";
@@ -24,15 +25,17 @@ export interface PlanningPageProps {
 }
 
 function getPlanningErrorMessage(error: Error): string {
+  const rateLimitMessage = formatClickUpRateLimitUsage(error) ?? "";
+
   if (error instanceof ClickUpApiError && error.status === 429) {
     const retryMessage =
       typeof error.retryAfterSeconds === "number"
         ? ` Retry after about ${error.retryAfterSeconds} seconds.`
         : "";
-    return `The backend is being rate-limited by ClickUp.${retryMessage}`;
+    return `The backend is being rate-limited by ClickUp.${retryMessage}${rateLimitMessage}`;
   }
 
-  return error.message || "Sprint planning data could not be loaded.";
+  return `${error.message || "Sprint planning data could not be loaded."}${rateLimitMessage}`;
 }
 
 function isUnauthorizedError(error: Error | null | undefined): boolean {

@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
+import { ClickUpServiceError } from "../src/clickup/errors.js";
+import { createClickUpServiceErrorPayload } from "../src/routes/clickup.js";
 
 describe("createApp", () => {
   let baseUrl = "";
@@ -125,5 +127,26 @@ describe("createApp", () => {
       message?: string;
     };
     expect("report" in payload || "message" in payload).toBe(true);
+  });
+});
+
+describe("createClickUpServiceErrorPayload", () => {
+  it("includes request budget used and total values when available", () => {
+    const payload = createClickUpServiceErrorPayload(
+      new ClickUpServiceError("ClickUp API request budget is temporarily exhausted.", 429, 31_000, {
+        remainingInWindow: 0,
+        softLimitPerMinute: 90,
+        source: "workspace-plan"
+      })
+    );
+
+    expect(payload).toEqual({
+      message: "ClickUp API request budget is temporarily exhausted.",
+      rateLimit: {
+        remaining: 0,
+        total: 90,
+        used: 90
+      }
+    });
   });
 });
