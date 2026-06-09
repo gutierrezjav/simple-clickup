@@ -34,7 +34,11 @@ export function formatPlanningDays(value: number): string {
 export function formatPlanningTime(value: number): string {
   const normalizedValue = normalizePlanningTimeValue(value, visuallyZeroHoursThreshold);
 
-  if (Math.abs(normalizedValue) <= 8) {
+  if (normalizedValue === 0) {
+    return "-";
+  }
+
+  if (Math.abs(normalizedValue) >= 8) {
     return formatPlanningDays(normalizedValue / 8);
   }
 

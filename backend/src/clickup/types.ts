@@ -56,8 +56,15 @@ export interface ClickUpCustomTaskTypePayload {
   name?: string | null;
 }
 
+export interface ClickUpCustomFieldFilter {
+  fieldId: string;
+  operator: string;
+  value: unknown;
+}
+
 export interface ClickUpTaskQueryOptions {
   archived?: boolean;
+  customFields?: ClickUpCustomFieldFilter[];
   includeClosed?: boolean;
   includeTiml?: boolean;
   pageLimit?: number;

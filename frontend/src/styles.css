@@ -274,7 +274,7 @@ input {
 .planning-table th {
   color: var(--text-soft);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: 0;
   text-transform: uppercase;
 }
@@ -378,7 +378,7 @@ input {
 .planning-table__totals-label {
   color: var(--text-body);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 400;
   text-align: right;
   text-transform: none;
 }
@@ -399,7 +399,7 @@ input {
 .planning-table__title,
 .planning-table__title .task-link {
   color: var(--text-strong);
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .planning-table__assignees {
@@ -427,7 +427,7 @@ input {
   background: var(--panel-muted);
   color: var(--text-strong);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1;
   white-space: nowrap;
 }
@@ -439,9 +439,14 @@ input {
 .planning-table__number {
   color: var(--text-strong);
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
+  font-weight: 400;
   text-align: right;
   white-space: nowrap;
+}
+
+.planning-table td.planning-table__number,
+.planning-table tfoot td.planning-table__number {
+  font-weight: 400;
 }
 
 .planning-table__number[data-tone="negative"] {

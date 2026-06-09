@@ -956,6 +956,21 @@ describe("createClickUpReadService", () => {
         getViewTasks: (viewId: string) => Promise<ClickUpTaskPayload[]>;
       },
       "getViewTasks"
+    ).mockResolvedValue([]);
+    const getListTasks = vi.spyOn(
+      ClickUpClient.prototype as unknown as {
+        getListTasks: (
+          listId: string,
+          options: {
+            archived?: boolean;
+            customFields?: Array<{ fieldId: string; operator: string; value: unknown }>;
+            includeClosed?: boolean;
+            includeTiml?: boolean;
+            subtasks?: boolean;
+          }
+        ) => Promise<ClickUpTaskPayload[]>;
+      },
+      "getListTasks"
     ).mockResolvedValue([
       createTask({
         id: "story-w24",
@@ -1022,7 +1037,26 @@ describe("createClickUpReadService", () => {
         }
       ]
     });
-    expect(getViewTasks).toHaveBeenCalledWith("234bx-100375");
+    expect(getListTasks).toHaveBeenCalledWith("list-1", {
+      archived: false,
+      customFields: [
+        {
+          fieldId: sprintFieldId,
+          operator: "IS NOT NULL",
+          value: null
+        }
+      ],
+      includeClosed: false,
+      includeTiml: false,
+      statuses: [
+        "BLOCKED",
+        "SPRINT BACKLOG",
+        "IN PROGRESS",
+        "IN CODE REVIEW"
+      ],
+      subtasks: true
+    });
+    expect(getViewTasks).not.toHaveBeenCalled();
     expect(getTask).not.toHaveBeenCalled();
   });
 });

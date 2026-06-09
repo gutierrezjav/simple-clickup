@@ -273,6 +273,19 @@ function buildListTaskQuery(page: number, options: ClickUpTaskQueryOptions): Arr
     query.push(["statuses[]", status]);
   }
 
+  if (options.customFields && options.customFields.length > 0) {
+    query.push([
+      "custom_fields",
+      JSON.stringify(
+        options.customFields.map((fieldFilter) => ({
+          field_id: fieldFilter.fieldId,
+          operator: fieldFilter.operator,
+          value: fieldFilter.value
+        }))
+      )
+    ]);
+  }
+
   return query;
 }
 

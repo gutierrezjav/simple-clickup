@@ -19,14 +19,14 @@ describe("sprint planning helpers", () => {
     expect(formatPlanningDays(0.625)).toBe("0.6d");
   });
 
-  it("formats planning time in days up to 8h and hours above 8h", () => {
-    expect(formatPlanningTime(0)).toBe("0d");
-    expect(formatPlanningTime(-0.0007)).toBe("0d");
-    expect(formatPlanningTime(6.5)).toBe("0.8d");
+  it("formats planning time in hours below 8h and days at 8h or above", () => {
+    expect(formatPlanningTime(0)).toBe("-");
+    expect(formatPlanningTime(-0.0007)).toBe("-");
+    expect(formatPlanningTime(6.5)).toBe("6.5h");
     expect(formatPlanningTime(8)).toBe("1d");
-    expect(formatPlanningTime(8.25)).toBe("8.25h");
-    expect(formatPlanningTime(12)).toBe("12h");
-    expect(formatPlanningTime(32)).toBe("32h");
+    expect(formatPlanningTime(8.25)).toBe("1d");
+    expect(formatPlanningTime(12)).toBe("1.5d");
+    expect(formatPlanningTime(32)).toBe("4d");
   });
 
   it("returns a warning tone for negative remaining time", () => {
@@ -44,11 +44,28 @@ describe("sprint planning helpers", () => {
         remainingHours: -0.0007
       })
     ).toEqual({
-      estimate: "80h",
-      tracked: "80h",
+      estimate: "10d",
+      tracked: "10d",
       remaining: {
         tone: "neutral",
-        value: "0d"
+        value: "-"
+      }
+    });
+  });
+
+  it("renders zero footer totals as dashes", () => {
+    expect(
+      getPlanningSprintFooterTotals({
+        estimateHours: 0,
+        trackedHours: 0,
+        remainingHours: 0
+      })
+    ).toEqual({
+      estimate: "-",
+      tracked: "-",
+      remaining: {
+        tone: "neutral",
+        value: "-"
       }
     });
   });
@@ -61,11 +78,11 @@ describe("sprint planning helpers", () => {
         remainingHours: 64
       })
     ).toEqual({
-      estimate: "80h",
-      tracked: "16h",
+      estimate: "10d",
+      tracked: "2d",
       remaining: {
         tone: "neutral",
-        value: "64h"
+        value: "8d"
       }
     });
   });

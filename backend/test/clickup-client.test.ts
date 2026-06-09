@@ -44,6 +44,39 @@ afterEach(() => {
 });
 
 describe("ClickUpClient", () => {
+  it("serializes custom field filters for list task requests", async () => {
+    globalThis.fetch = vi.fn()
+      .mockResolvedValueOnce(createJsonResponse({ plan: "Business" }))
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          last_page: true,
+          tasks: []
+        })
+      ) as unknown as typeof fetch;
+
+    const client = createClient(30_000);
+    await client.getListTasks("list-1", {
+      customFields: [
+        {
+          fieldId: "sprint-field",
+          operator: "IS NOT NULL",
+          value: null
+        }
+      ]
+    });
+
+    const requestUrl = String((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[1]?.[0]);
+    expect(new URL(requestUrl).searchParams.get("custom_fields")).toBe(
+      JSON.stringify([
+        {
+          field_id: "sprint-field",
+          operator: "IS NOT NULL",
+          value: null
+        }
+      ])
+    );
+  });
+
   it("honors configured 30s timeouts for slow ClickUp requests", async () => {
     vi.useFakeTimers();
 
