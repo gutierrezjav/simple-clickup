@@ -17,6 +17,7 @@ import {
   type PlanningPageData
 } from "../lib/clickup-api";
 import {
+  formatPlanningRemainingTime,
   formatPlanningTime,
   getPlanningSprintFooterTotals,
   getRemainingTimeTone
@@ -231,7 +232,7 @@ function PlanningRow({ row }: { row: SprintPlanningRow }) {
       <td className="planning-table__number">{formatPlanningTime(row.estimateHours)}</td>
       <td className="planning-table__number">{formatPlanningTime(row.trackedHours)}</td>
       <td className="planning-table__number" data-tone={remainingTone}>
-        {formatPlanningTime(row.remainingHours)}
+        {formatPlanningRemainingTime(row.remainingHours)}
       </td>
     </tr>
   );

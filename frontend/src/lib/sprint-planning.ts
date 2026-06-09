@@ -45,6 +45,16 @@ export function formatPlanningTime(value: number): string {
   return formatPlanningHours(normalizedValue);
 }
 
+export function formatPlanningRemainingTime(value: number): string {
+  const normalizedValue = normalizePlanningTimeValue(value, visuallyZeroHoursThreshold);
+
+  if (normalizedValue === 0) {
+    return "0h";
+  }
+
+  return formatPlanningTime(normalizedValue);
+}
+
 export function getRemainingTimeTone(value: number): RemainingTimeTone {
   return normalizePlanningTimeValue(value, visuallyZeroHoursThreshold) < 0 ? "negative" : "neutral";
 }
@@ -59,7 +69,7 @@ export function getPlanningSprintFooterTotals(sprint: {
     tracked: formatPlanningTime(sprint.trackedHours),
     remaining: {
       tone: getRemainingTimeTone(sprint.remainingHours),
-      value: formatPlanningTime(sprint.remainingHours)
+      value: formatPlanningRemainingTime(sprint.remainingHours)
     }
   };
 }

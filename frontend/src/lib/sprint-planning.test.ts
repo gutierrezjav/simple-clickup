@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatPlanningDays,
   formatPlanningHours,
+  formatPlanningRemainingTime,
   formatPlanningTime,
   getPlanningSprintFooterTotals,
   getRemainingTimeTone
@@ -29,6 +30,13 @@ describe("sprint planning helpers", () => {
     expect(formatPlanningTime(32)).toBe("4d");
   });
 
+  it("formats zero remaining time as zero hours", () => {
+    expect(formatPlanningRemainingTime(0)).toBe("0h");
+    expect(formatPlanningRemainingTime(-0.0007)).toBe("0h");
+    expect(formatPlanningRemainingTime(6.5)).toBe("6.5h");
+    expect(formatPlanningRemainingTime(8)).toBe("1d");
+  });
+
   it("returns a warning tone for negative remaining time", () => {
     expect(getRemainingTimeTone(-0.0007)).toBe("neutral");
     expect(getRemainingTimeTone(-0.25)).toBe("negative");
@@ -48,7 +56,7 @@ describe("sprint planning helpers", () => {
       tracked: "10d",
       remaining: {
         tone: "neutral",
-        value: "-"
+        value: "0h"
       }
     });
   });
@@ -65,7 +73,7 @@ describe("sprint planning helpers", () => {
       tracked: "-",
       remaining: {
         tone: "neutral",
-        value: "-"
+        value: "0h"
       }
     });
   });

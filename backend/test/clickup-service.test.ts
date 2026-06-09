@@ -100,6 +100,11 @@ function createPlanningMetadata() {
             { color: "#5aa469", id: "w25-option", name: "W25", orderindex: 24 }
           ]
         }
+      },
+      {
+        id: "prio-field",
+        name: "Prio score",
+        type: "number"
       }
     ],
     viewId: "234bx-100375"
@@ -957,21 +962,6 @@ describe("createClickUpReadService", () => {
         getViewTasks: (viewId: string) => Promise<ClickUpTaskPayload[]>;
       },
       "getViewTasks"
-    ).mockResolvedValue([]);
-    const getListTasks = vi.spyOn(
-      ClickUpClient.prototype as unknown as {
-        getListTasks: (
-          listId: string,
-          options: {
-            archived?: boolean;
-            customFields?: Array<{ fieldId: string; operator: string; value: unknown }>;
-            includeClosed?: boolean;
-            includeTiml?: boolean;
-            subtasks?: boolean;
-          }
-        ) => Promise<ClickUpTaskPayload[]>;
-      },
-      "getListTasks"
     ).mockResolvedValue([
       createTask({
         id: "story-w24",
@@ -989,6 +979,21 @@ describe("createClickUpReadService", () => {
         timeEstimate: 6 * hourMs
       })
     ]);
+    const getListTasks = vi.spyOn(
+      ClickUpClient.prototype as unknown as {
+        getListTasks: (
+          listId: string,
+          options: {
+            archived?: boolean;
+            customFields?: Array<{ fieldId: string; operator: string; value: unknown }>;
+            includeClosed?: boolean;
+            includeTiml?: boolean;
+            subtasks?: boolean;
+          }
+        ) => Promise<ClickUpTaskPayload[]>;
+      },
+      "getListTasks"
+    ).mockResolvedValue([]);
     const getTask = vi.spyOn(
       ClickUpClient.prototype as unknown as {
         getTask: (taskId: string, options: { subtasks: boolean }) => Promise<ClickUpTaskPayload>;
@@ -1038,27 +1043,91 @@ describe("createClickUpReadService", () => {
         }
       ]
     });
-    expect(getListTasks).toHaveBeenCalledWith("list-1", {
-      archived: false,
-      customFields: [
+    expect(getViewTasks).toHaveBeenCalledWith("234bx-100375");
+    expect(getListTasks).not.toHaveBeenCalled();
+    expect(getTask).not.toHaveBeenCalled();
+  });
+
+  it("includes unassigned sprint planning tasks with and without prio scores", async () => {
+    vi.spyOn(ClickUpClient.prototype, "getCustomTaskTypes").mockResolvedValue([
+      {
+        id: storyTaskTypeId,
+        name: "User Story"
+      }
+    ]);
+    vi.spyOn(
+      ClickUpClient.prototype as unknown as {
+        getListCustomFields: (listId: string) => Promise<unknown>;
+      },
+      "getListCustomFields"
+    ).mockResolvedValue(createPlanningMetadata().listCustomFields);
+    const getViewTasks = vi.spyOn(
+      ClickUpClient.prototype as unknown as {
+        getViewTasks: (viewId: string) => Promise<ClickUpTaskPayload[]>;
+      },
+      "getViewTasks"
+    ).mockResolvedValue([
+      createTask({
+        id: "assigned-w24",
+        name: "Assigned W24",
+        status: "SPRINT BACKLOG",
+        sprintValue: 23,
+        prioScore: 5,
+        timeEstimate: hourMs
+      }),
+      createTask({
+        id: "unassigned-prio-1",
+        name: "Unassigned prio 1",
+        status: "SPRINT BACKLOG",
+        prioScore: 1,
+        timeEstimate: hourMs
+      }),
+      createTask({
+        id: "unassigned-no-prio",
+        name: "Unassigned no prio",
+        status: "SPRINT BACKLOG",
+        timeEstimate: hourMs
+      })
+    ]);
+    const getListTasks = vi.spyOn(
+      ClickUpClient.prototype as unknown as {
+        getListTasks: (listId: string, options: unknown) => Promise<ClickUpTaskPayload[]>;
+      },
+      "getListTasks"
+    ).mockResolvedValue([]);
+
+    const service = createClickUpReadService({
+      accessToken: "test-token",
+      baseUrl: "https://example.invalid/api/v2",
+      cacheTtlMs: 1_000,
+      listId: "list-1",
+      teamId: "team-1",
+      timeoutMs: 1_000,
+      tokenSource: "session"
+    });
+
+    await expect(service.getSprintPlanningReport()).resolves.toMatchObject({
+      rows: [
         {
-          fieldId: sprintFieldId,
-          operator: "IS NOT NULL",
-          value: null
+          taskId: "assigned-w24",
+          sprintLabel: "W24 - CURRENT"
+        },
+        {
+          taskId: "unassigned-prio-1",
+          sprintLabel: "Unassigned Sprint"
+        },
+        {
+          taskId: "unassigned-no-prio",
+          sprintLabel: "Unassigned Sprint"
         }
       ],
-      includeClosed: false,
-      includeTiml: false,
-      statuses: [
-        "BLOCKED",
-        "SPRINT BACKLOG",
-        "IN PROGRESS",
-        "IN CODE REVIEW"
-      ],
-      subtasks: true
+      sprints: [
+        expect.objectContaining({ label: "W24 - CURRENT" }),
+        expect.objectContaining({ label: "Unassigned Sprint" })
+      ]
     });
-    expect(getViewTasks).not.toHaveBeenCalled();
-    expect(getTask).not.toHaveBeenCalled();
+    expect(getViewTasks).toHaveBeenCalledWith("234bx-100375");
+    expect(getListTasks).not.toHaveBeenCalled();
   });
 
   it("caches sprint planning custom fields across planning cache misses", async () => {
@@ -1076,16 +1145,11 @@ describe("createClickUpReadService", () => {
       },
       "getListCustomFields"
     ).mockResolvedValue(createPlanningMetadata().listCustomFields);
-    const getListTasks = vi.spyOn(
+    const getViewTasks = vi.spyOn(
       ClickUpClient.prototype as unknown as {
-        getListTasks: (
-          listId: string,
-          options: {
-            customFields?: Array<{ fieldId: string; operator: string; value: unknown }>;
-          }
-        ) => Promise<ClickUpTaskPayload[]>;
+        getViewTasks: (viewId: string) => Promise<ClickUpTaskPayload[]>;
       },
-      "getListTasks"
+      "getViewTasks"
     ).mockResolvedValue([
       createTask({
         id: "story-w24",
@@ -1111,7 +1175,7 @@ describe("createClickUpReadService", () => {
     vi.setSystemTime(new Date("2026-06-09T12:00:01.001Z"));
     await service.getSprintPlanningReport();
 
-    expect(getListTasks).toHaveBeenCalledTimes(2);
+    expect(getViewTasks).toHaveBeenCalledTimes(2);
     expect(getListCustomFields).toHaveBeenCalledTimes(1);
   });
 });

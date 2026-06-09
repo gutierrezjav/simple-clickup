@@ -67,12 +67,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 const metadataCacheTtlMultiplier = 5;
 const listCustomFieldsCacheTtlMs = 60 * 60 * 1000;
 const storyStatusProgressionSet = new Set<string>(storyStatusProgression);
-const sprintPlanningStatuses = [
-  "BLOCKED",
-  "SPRINT BACKLOG",
-  "IN PROGRESS",
-  "IN CODE REVIEW"
-];
 
 const dailyTaskQuery: ClickUpTaskQueryOptions = {
   archived: false,
@@ -88,23 +82,6 @@ const storyStatusCheckTaskQuery: ClickUpTaskQueryOptions = {
   includeTiml: false,
   subtasks: true
 };
-
-function createSprintPlanningTaskQuery(sprintFieldId: string): ClickUpTaskQueryOptions {
-  return {
-    archived: false,
-    customFields: [
-      {
-        fieldId: sprintFieldId,
-        operator: "IS NOT NULL",
-        value: null
-      }
-    ],
-    includeClosed: false,
-    includeTiml: false,
-    statuses: sprintPlanningStatuses,
-    subtasks: true
-  };
-}
 
 function normalizeName(value: string): string {
   return value.trim().toLowerCase();
@@ -629,13 +606,6 @@ function getListCustomField(
       : undefined) ??
     listCustomFields.find((customField) => customField.name === fieldName)
   );
-}
-
-function getNamedListCustomField(
-  listCustomFields: ClickUpCustomFieldPayload[],
-  fieldName: string
-): ClickUpCustomFieldPayload | undefined {
-  return listCustomFields.find((customField) => customField.name === fieldName);
 }
 
 interface DropdownOptionDisplayValue {
@@ -1278,46 +1248,7 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
         loadTaskMetadata(),
         loadListCustomFields()
       ]);
-      const sprintFieldId = getNamedListCustomField(listCustomFields.value, "Sprint")?.id?.trim();
-      let planningTasks: ClickUpTaskPayload[];
-
-      if (sprintFieldId) {
-        try {
-          planningTasks = await client.getListTasks(
-            config.listId,
-            createSprintPlanningTaskQuery(sprintFieldId)
-          );
-        } catch (error) {
-          logger.warn(
-            {
-              err: error,
-              event: "planning:sprint-filter-fallback",
-              sprint_field_id: sprintFieldId
-            },
-            "Falling back to ClickUp planning view task fetch."
-          );
-          planningTasks = await client.getViewTasks(clickupTarget.planningViewId);
-        }
-
-        if (planningTasks.length === 0) {
-          logger.warn(
-            {
-              event: "planning:sprint-filter-empty-fallback",
-              sprint_field_id: sprintFieldId
-            },
-            "Sprint-filtered planning fetch returned no tasks; falling back to ClickUp view task fetch."
-          );
-          planningTasks = await client.getViewTasks(clickupTarget.planningViewId);
-        }
-      } else {
-        logger.warn(
-          {
-            event: "planning:sprint-field-missing-fallback"
-          },
-          "Sprint custom field was not available; falling back to ClickUp planning view task fetch."
-        );
-        planningTasks = await client.getViewTasks(clickupTarget.planningViewId);
-      }
+      const planningTasks = await client.getViewTasks(clickupTarget.planningViewId);
 
       return buildSprintPlanningReport(
         planningTasks,
