@@ -112,6 +112,7 @@ function collectCardIds(tasks: ClickUpTaskPayload[]): string[] {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 describe("buildDailyRows", () => {
@@ -1058,5 +1059,59 @@ describe("createClickUpReadService", () => {
     });
     expect(getViewTasks).not.toHaveBeenCalled();
     expect(getTask).not.toHaveBeenCalled();
+  });
+
+  it("caches sprint planning custom fields across planning cache misses", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-09T12:00:00.000Z"));
+    vi.spyOn(ClickUpClient.prototype, "getCustomTaskTypes").mockResolvedValue([
+      {
+        id: storyTaskTypeId,
+        name: "User Story"
+      }
+    ]);
+    const getListCustomFields = vi.spyOn(
+      ClickUpClient.prototype as unknown as {
+        getListCustomFields: (listId: string) => Promise<unknown>;
+      },
+      "getListCustomFields"
+    ).mockResolvedValue(createPlanningMetadata().listCustomFields);
+    const getListTasks = vi.spyOn(
+      ClickUpClient.prototype as unknown as {
+        getListTasks: (
+          listId: string,
+          options: {
+            customFields?: Array<{ fieldId: string; operator: string; value: unknown }>;
+          }
+        ) => Promise<ClickUpTaskPayload[]>;
+      },
+      "getListTasks"
+    ).mockResolvedValue([
+      createTask({
+        id: "story-w24",
+        name: "Story W24",
+        status: "SPRINT BACKLOG",
+        customItemId: storyTaskTypeId,
+        sprintValue: 23,
+        timeEstimate: 2 * hourMs
+      })
+    ]);
+
+    const service = createClickUpReadService({
+      accessToken: "test-token",
+      baseUrl: "https://example.invalid/api/v2",
+      cacheTtlMs: 1_000,
+      listId: "list-1",
+      teamId: "team-1",
+      timeoutMs: 1_000,
+      tokenSource: "session"
+    });
+
+    await service.getSprintPlanningReport();
+    vi.setSystemTime(new Date("2026-06-09T12:00:01.001Z"));
+    await service.getSprintPlanningReport();
+
+    expect(getListTasks).toHaveBeenCalledTimes(2);
+    expect(getListCustomFields).toHaveBeenCalledTimes(1);
   });
 });

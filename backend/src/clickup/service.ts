@@ -65,6 +65,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 const metadataCacheTtlMultiplier = 5;
+const listCustomFieldsCacheTtlMs = 60 * 60 * 1000;
 const storyStatusProgressionSet = new Set<string>(storyStatusProgression);
 const sprintPlanningStatuses = [
   "BLOCKED",
@@ -1256,6 +1257,10 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
       };
     }
   );
+  const loadListCustomFields = createCachedLoader(
+    listCustomFieldsCacheTtlMs,
+    () => client.getListCustomFields(config.listId)
+  );
 
   const loadDaily = createCachedLoader(config.cacheTtlMs, async (): Promise<DailyRow[]> => {
     const [metadata, tasks] = await Promise.all([
@@ -1271,9 +1276,9 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
     async (): Promise<SprintPlanningReport> => {
       const [metadata, listCustomFields] = await Promise.all([
         loadTaskMetadata(),
-        client.getListCustomFields(config.listId)
+        loadListCustomFields()
       ]);
-      const sprintFieldId = getNamedListCustomField(listCustomFields, "Sprint")?.id?.trim();
+      const sprintFieldId = getNamedListCustomField(listCustomFields.value, "Sprint")?.id?.trim();
       let planningTasks: ClickUpTaskPayload[];
 
       if (sprintFieldId) {
@@ -1319,7 +1324,7 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
         metadata.value.taskTypeMap,
         {
           dayHours: defaultSprintPlanningDayHours,
-          listCustomFields,
+          listCustomFields: listCustomFields.value,
           viewId: clickupTarget.planningViewId
         }
       );
