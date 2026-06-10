@@ -7,7 +7,7 @@ import type { CSSProperties } from "react";
 import { ResourceState } from "../components/resource-state";
 import {
   TaskAssigneeInline,
-  TaskIdentityBlock
+  TaskTitleLink
 } from "../components/task/task-primitives";
 import {
   ClickUpApiError,
@@ -211,14 +211,17 @@ function PlanningRow({ row }: { row: SprintPlanningRow }) {
       <td>
         <span className={getTaskTypePillClassName(row.taskType)}>{row.taskType}</span>
       </td>
-      <td className="planning-table__task-cell">
-        <TaskIdentityBlock
-          className="planning-table__identity"
-          customId={row.taskCustomId}
+      <td className="planning-table__task-id">
+        <TaskTitleLink
+          className="planning-table__task-id-link"
           taskId={row.taskId}
-          title={row.title}
-          titleClassName="planning-table__title"
+          title={row.taskCustomId}
         />
+      </td>
+      <td className="planning-table__task-cell">
+        <div className="planning-table__title">
+          <TaskTitleLink taskId={row.taskId} title={row.title} />
+        </div>
       </td>
       <td className="planning-table__number">{row.prioScore ?? "-"}</td>
       <td><PlanningColoredPill color={row.epicColor} value={row.epic} /></td>
@@ -244,7 +247,7 @@ function PlanningSprintTotalsRow({ sprint }: { sprint: SprintPlanningSprintSumma
   return (
     <tfoot>
       <tr className="planning-table__totals-row">
-        <th className="planning-table__totals-label" colSpan={7} scope="row">
+        <th className="planning-table__totals-label" colSpan={8} scope="row">
           Total
         </th>
         <td className="planning-table__number">{totals.estimate}</td>
@@ -276,6 +279,7 @@ function PlanningSprintSection({
           <thead>
             <tr>
               <th>Task Type</th>
+              <th>Task ID</th>
               <th>Name</th>
               <th>Prio score</th>
               <th>Epic</th>

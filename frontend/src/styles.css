@@ -348,9 +348,10 @@ input {
 
 .planning-table th,
 .planning-table td {
-  padding: 10px 12px;
+  padding: 7px 9px;
   border-bottom: 1px solid rgba(217, 227, 239, 0.85);
   font-size: 12px;
+  line-height: 1.2;
   text-align: left;
 }
 
@@ -387,12 +388,25 @@ input {
 }
 
 .planning-table__task-cell {
-  width: 42%;
-  min-width: 340px;
+  width: 38%;
+  min-width: 300px;
 }
 
-.planning-table__identity {
-  max-width: 560px;
+.planning-table__task-id {
+  width: 86px;
+  max-width: 110px;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.planning-table__task-id-link {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--accent);
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .planning-table__title,
@@ -401,9 +415,21 @@ input {
   font-weight: 400;
 }
 
+.planning-table__title {
+  max-width: 560px;
+}
+
+.planning-table__title .task-link {
+  display: block;
+  overflow: hidden;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .planning-table__assignees {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -420,8 +446,8 @@ input {
   align-items: center;
   justify-content: center;
   width: fit-content;
-  min-height: 22px;
-  padding: 3px 8px;
+  min-height: 20px;
+  padding: 2px 7px;
   border-radius: 5px;
   background: var(--panel-muted);
   color: var(--text-strong);
@@ -429,10 +455,6 @@ input {
   font-weight: 400;
   line-height: 1;
   white-space: nowrap;
-}
-
-.planning-table__identity .task-identity__chips {
-  flex-wrap: wrap;
 }
 
 .planning-table__number {
