@@ -1,5 +1,4 @@
 import {
-  clickupTarget,
   dailyStatuses,
   storyStatusProgression,
   type DailyCard,
@@ -30,6 +29,7 @@ export interface ClickUpReadServiceConfig {
   baseUrl: string;
   cacheTtlMs: number;
   listId: string;
+  planningViewId: string;
   teamId: string;
   timeoutMs: number;
   tokenSource: ClickUpTokenSource;
@@ -826,7 +826,19 @@ function getTaskAssignees(task: ClickUpTaskPayload): SprintPlanningRow["assignee
 }
 
 function compareOptionalNumbers(left: number | undefined, right: number | undefined): number {
-  return (left ?? Number.POSITIVE_INFINITY) - (right ?? Number.POSITIVE_INFINITY);
+  if (left === undefined && right === undefined) {
+    return 0;
+  }
+
+  if (left === undefined) {
+    return 1;
+  }
+
+  if (right === undefined) {
+    return -1;
+  }
+
+  return left - right;
 }
 
 function compareSprintLabels(
@@ -1248,7 +1260,7 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
         loadTaskMetadata(),
         loadListCustomFields()
       ]);
-      const planningTasks = await client.getViewTasks(clickupTarget.planningViewId);
+      const planningTasks = await client.getViewTasks(config.planningViewId);
 
       return buildSprintPlanningReport(
         planningTasks,
@@ -1256,7 +1268,7 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
         {
           dayHours: defaultSprintPlanningDayHours,
           listCustomFields: listCustomFields.value,
-          viewId: clickupTarget.planningViewId
+          viewId: config.planningViewId
         }
       );
     }

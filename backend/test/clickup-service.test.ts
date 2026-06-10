@@ -670,6 +670,36 @@ describe("buildSprintPlanningReport", () => {
     ]);
   });
 
+  it("falls through to row tie-breakers when prio scores are missing", () => {
+    const report = buildSprintPlanningReport(
+      [
+        createTask({
+          id: "later-no-prio",
+          name: "Later no prio",
+          status: "SPRINT BACKLOG",
+          orderindex: "2",
+          sprintValue: "w24-option",
+          timeEstimate: hourMs
+        }),
+        createTask({
+          id: "earlier-no-prio",
+          name: "Earlier no prio",
+          status: "SPRINT BACKLOG",
+          orderindex: "1",
+          sprintValue: "w24-option",
+          timeEstimate: hourMs
+        })
+      ],
+      taskTypeMap,
+      createPlanningMetadata()
+    );
+
+    expect(report.rows.map((row) => row.taskId)).toEqual([
+      "earlier-no-prio",
+      "later-no-prio"
+    ]);
+  });
+
   it("surfaces ClickUp view custom fields used as planning columns", () => {
     const metadata = createPlanningMetadata();
     const report = buildSprintPlanningReport(
@@ -888,6 +918,7 @@ describe("createClickUpReadService", () => {
       baseUrl: "https://example.invalid/api/v2",
       cacheTtlMs: 1_000,
       listId: "list-1",
+      planningViewId: "planning-view-override",
       teamId: "team-1",
       timeoutMs: 1_000,
       tokenSource: "session"
@@ -926,6 +957,7 @@ describe("createClickUpReadService", () => {
       baseUrl: "https://example.invalid/api/v2",
       cacheTtlMs: 1_000,
       listId: "list-1",
+      planningViewId: "planning-view-override",
       teamId: "team-1",
       timeoutMs: 1_000,
       tokenSource: "session"
@@ -1024,6 +1056,7 @@ describe("createClickUpReadService", () => {
       baseUrl: "https://example.invalid/api/v2",
       cacheTtlMs: 1_000,
       listId: "list-1",
+      planningViewId: "planning-view-override",
       teamId: "team-1",
       timeoutMs: 1_000,
       tokenSource: "session"
@@ -1043,7 +1076,7 @@ describe("createClickUpReadService", () => {
         }
       ]
     });
-    expect(getViewTasks).toHaveBeenCalledWith("234bx-100375");
+    expect(getViewTasks).toHaveBeenCalledWith("planning-view-override");
     expect(getListTasks).not.toHaveBeenCalled();
     expect(getTask).not.toHaveBeenCalled();
   });
@@ -1101,6 +1134,7 @@ describe("createClickUpReadService", () => {
       baseUrl: "https://example.invalid/api/v2",
       cacheTtlMs: 1_000,
       listId: "list-1",
+      planningViewId: "planning-view-override",
       teamId: "team-1",
       timeoutMs: 1_000,
       tokenSource: "session"
@@ -1126,7 +1160,7 @@ describe("createClickUpReadService", () => {
         expect.objectContaining({ label: "Unassigned Sprint" })
       ]
     });
-    expect(getViewTasks).toHaveBeenCalledWith("234bx-100375");
+    expect(getViewTasks).toHaveBeenCalledWith("planning-view-override");
     expect(getListTasks).not.toHaveBeenCalled();
   });
 
@@ -1166,6 +1200,7 @@ describe("createClickUpReadService", () => {
       baseUrl: "https://example.invalid/api/v2",
       cacheTtlMs: 1_000,
       listId: "list-1",
+      planningViewId: "planning-view-override",
       teamId: "team-1",
       timeoutMs: 1_000,
       tokenSource: "session"

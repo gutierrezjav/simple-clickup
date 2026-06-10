@@ -75,6 +75,7 @@ function getReadService(accessToken: string | undefined): ClickUpReadService {
     baseUrl: config.CLICKUP_API_BASE_URL,
     cacheTtlMs: config.CLICKUP_READ_CACHE_TTL_MS,
     listId: config.CLICKUP_TARGET_LIST_ID,
+    planningViewId: config.CLICKUP_PLANNING_VIEW_ID,
     teamId: config.CLICKUP_TARGET_TEAM_ID,
     timeoutMs: config.CLICKUP_HTTP_TIMEOUT_MS,
     tokenSource
