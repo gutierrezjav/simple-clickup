@@ -392,11 +392,13 @@ function PlanningTimeInput({
 }
 
 function PlanningSprintSelect({
+  color,
   disabled,
   onSave,
   options,
   value
 }: {
+  color: string | undefined;
   disabled: boolean;
   onSave: (nextValue: string) => Promise<void>;
   options: SprintPlanningSprintOption[];
@@ -413,9 +415,10 @@ function PlanningSprintSelect({
       onChange={(event) => {
         void onSave(event.target.value);
       }}
+      style={getClickUpOptionPillStyle(color)}
       value={value}
     >
-      <option value={unassignedSprintLabel}>{unassignedSprintLabel}</option>
+      <option value={unassignedSprintLabel}>-</option>
       {hasCurrentValue ? null : <option value={value}>{value}</option>}
       {options.map((option) => (
         <option key={option.label} value={option.label}>
@@ -471,14 +474,6 @@ function PlanningRow({
       </td>
       <td><PlanningColoredPill color={row.budgetColor} value={row.budget} /></td>
       <td>
-        <PlanningSprintSelect
-          disabled={isSaving}
-          onSave={(sprintLabel) => onSprintChange(row, sprintLabel)}
-          options={sprintOptions}
-          value={row.sprintLabel}
-        />
-      </td>
-      <td className="planning-table__number">
         <PlanningTimeInput
           disabled={isSaving}
           onSave={(estimateHours) => onTimeChange(row, { estimateHours })}
@@ -495,6 +490,15 @@ function PlanningRow({
       <td className="planning-table__number" data-tone={remainingTone}>
         {formatPlanningRemainingTime(row.remainingHours)}
       </td>
+      <td>
+        <PlanningSprintSelect
+          color={row.sprintColor}
+          disabled={isSaving}
+          onSave={(sprintLabel) => onSprintChange(row, sprintLabel)}
+          options={sprintOptions}
+          value={row.sprintLabel}
+        />
+      </td>
     </tr>
   );
 }
@@ -505,7 +509,7 @@ function PlanningSprintTotalsRow({ sprint }: { sprint: SprintPlanningSprintSumma
   return (
     <tfoot>
       <tr className="planning-table__totals-row">
-        <th className="planning-table__totals-label" colSpan={9} scope="row">
+        <th className="planning-table__totals-label" colSpan={8} scope="row">
           Total
         </th>
         <td className="planning-table__number">{totals.estimate}</td>
@@ -513,6 +517,7 @@ function PlanningSprintTotalsRow({ sprint }: { sprint: SprintPlanningSprintSumma
         <td className="planning-table__number" data-tone={totals.remaining.tone}>
           {totals.remaining.value}
         </td>
+        <td />
       </tr>
     </tfoot>
   );
@@ -553,10 +558,10 @@ function PlanningSprintSection({
               <th>Assignee</th>
               <th>Status</th>
               <th>Budget</th>
-              <th>Sprint</th>
               <th>Estimate</th>
               <th>Tracked</th>
               <th>Remaining</th>
+              <th>Sprint</th>
             </tr>
           </thead>
           <tbody>
