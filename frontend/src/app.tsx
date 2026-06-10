@@ -1,9 +1,14 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { ResourceState } from "./components/resource-state";
 import { TopBarActionContext, type TopBarAction } from "./lib/top-bar-action";
 import { DailyPage } from "./routes/daily-page";
+import { PlanningPage } from "./routes/planning-page";
 import { VerificationPage } from "./routes/verification-page";
+
+function getViewTabClassName({ isActive }: { isActive: boolean }): string {
+  return `view-tab${isActive ? " view-tab--active" : ""}`;
+}
 
 function AppShell({ children }: { children: ReactNode }) {
   const [topBarAction, setTopBarAction] = useState<TopBarAction | null>(null);
@@ -31,6 +36,14 @@ function AppShell({ children }: { children: ReactNode }) {
                 </div>
               ) : null}
             </div>
+            <nav className="view-tabs" aria-label="Views">
+              <NavLink className={getViewTabClassName} to="/daily">
+                Daily
+              </NavLink>
+              <NavLink className={getViewTabClassName} to="/planning">
+                Sprint Planning
+              </NavLink>
+            </nav>
           </header>
           <main className="content">{children}</main>
         </div>
@@ -42,6 +55,10 @@ function AppShell({ children }: { children: ReactNode }) {
 function getDocumentTitle(pathname: string): string {
   if (pathname.startsWith("/daily")) {
     return "Simple Clickup | Daily";
+  }
+
+  if (pathname.startsWith("/planning")) {
+    return "Simple Clickup | Sprint Planning";
   }
 
   if (pathname.startsWith("/verify")) {
@@ -80,6 +97,7 @@ export function App() {
         <Routes>
           <Route path="/" element={<Navigate replace to="/daily" />} />
           <Route path="/daily" element={<DailyPage />} />
+          <Route path="/planning" element={<PlanningPage />} />
           <Route path="/verify" element={<VerificationPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>

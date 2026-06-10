@@ -3,6 +3,7 @@ import { clickupLogger } from "../logging.js";
 import { ClickUpServiceError } from "./errors.js";
 import { resolveClickUpAuthorizationHeader } from "./token.js";
 import type {
+  ClickUpCustomFieldPayload,
   ClickUpCustomTaskTypePayload,
   ClickUpRateLimitState,
   ClickUpTaskPayload,
@@ -29,7 +30,7 @@ const clickUpTaskFetchLimit = 500;
 const defaultRequestsPerMinute = 100;
 const localRateLimitRatio = 0.9;
 const lowBudgetWarningRatio = 0.1;
-const maxClickUpTimeoutMs = 10_000;
+const maxClickUpTimeoutMs = 30_000;
 const maxPaginationPages = 100;
 const rollingWindowMs = 60_000;
 
@@ -122,6 +123,22 @@ function parseTaskArray(payload: unknown): ClickUpTaskPayload[] {
   }
 
   throw new ClickUpServiceError("Unexpected ClickUp tasks response shape.", 502);
+}
+
+function parseTaskPayload(payload: unknown): ClickUpTaskPayload {
+  if (isRecord(payload) && typeof payload.id === "string") {
+    return payload as ClickUpTaskPayload;
+  }
+
+  throw new ClickUpServiceError("Unexpected ClickUp task response shape.", 502);
+}
+
+function parseCustomFields(payload: unknown): ClickUpCustomFieldPayload[] {
+  if (isRecord(payload) && Array.isArray(payload.fields)) {
+    return payload.fields as ClickUpCustomFieldPayload[];
+  }
+
+  throw new ClickUpServiceError("Unexpected ClickUp custom fields response shape.", 502);
 }
 
 function parseLastPage(payload: unknown): boolean | undefined {
@@ -256,6 +273,19 @@ function buildListTaskQuery(page: number, options: ClickUpTaskQueryOptions): Arr
     query.push(["statuses[]", status]);
   }
 
+  if (options.customFields && options.customFields.length > 0) {
+    query.push([
+      "custom_fields",
+      JSON.stringify(
+        options.customFields.map((fieldFilter) => ({
+          field_id: fieldFilter.fieldId,
+          operator: fieldFilter.operator,
+          value: fieldFilter.value
+        }))
+      )
+    ]);
+  }
+
   return query;
 }
 
@@ -333,6 +363,61 @@ export class ClickUpClient {
 
     throw new ClickUpServiceError("ClickUp task pagination exceeded the safety limit.", 502);
   }
+
+  async getViewTasks(viewId: string): Promise<ClickUpTaskPayload[]> {
+    const tasks: ClickUpTaskPayload[] = [];
+
+    for (let page = 0; page < maxPaginationPages; page += 1) {
+      const payload = await this.#getJson(`/view/${viewId}/task`, {
+        page,
+        query: [["page", String(page)]]
+      });
+      const pageTasks = parseTaskArray(payload);
+      const remainingSlots = clickUpTaskFetchLimit - tasks.length;
+
+      if (remainingSlots > 0) {
+        tasks.push(...pageTasks.slice(0, remainingSlots));
+      }
+
+      if (tasks.length >= clickUpTaskFetchLimit) {
+        this.#logger.warn(
+          {
+            event: "request:task-limit-reached",
+            fetched_tasks: tasks.length,
+            limit: clickUpTaskFetchLimit,
+            view_id: viewId
+          },
+          "ClickUp view task fetch reached the safety limit."
+        );
+        return tasks;
+      }
+
+      if (parseLastPage(payload) ?? pageTasks.length === 0) {
+        return tasks;
+      }
+    }
+
+    throw new ClickUpServiceError("ClickUp view task pagination exceeded the safety limit.", 502);
+  }
+
+  async getTask(
+    taskId: string,
+    options: { subtasks?: boolean } = {}
+  ): Promise<ClickUpTaskPayload> {
+    const payload = await this.#getJson(`/task/${taskId}`, {
+      query: [
+        ["include_subtasks", String(options.subtasks ?? false)]
+      ]
+    });
+
+    return parseTaskPayload(payload);
+  }
+
+  async getListCustomFields(listId: string): Promise<ClickUpCustomFieldPayload[]> {
+    const payload = await this.#getJson(`/list/${listId}/field`);
+    return parseCustomFields(payload);
+  }
+
   async getCustomTaskTypes(): Promise<ClickUpCustomTaskTypePayload[]> {
     const payload = await this.#getJson(`/team/${this.#teamId}/custom_item`);
     return parseCustomTaskTypes(payload);
@@ -471,7 +556,8 @@ export class ClickUpClient {
         throw new ClickUpServiceError(
           "ClickUp API rate limit reached.",
           429,
-          boundedRetryAfterMs
+          boundedRetryAfterMs,
+          this.#createRateLimitStateSnapshot(Date.now())
         );
       }
 
@@ -495,7 +581,9 @@ export class ClickUpClient {
 
         throw new ClickUpServiceError(
           `ClickUp API request failed with status ${response.status}.`,
-          statusCode
+          statusCode,
+          undefined,
+          this.#createRateLimitStateSnapshot(Date.now())
         );
       }
 
@@ -503,7 +591,12 @@ export class ClickUpClient {
       try {
         payload = await response.json();
       } catch {
-        throw new ClickUpServiceError("ClickUp API returned invalid JSON.", 502);
+        throw new ClickUpServiceError(
+          "ClickUp API returned invalid JSON.",
+          502,
+          undefined,
+          this.#createRateLimitStateSnapshot(Date.now())
+        );
       }
 
       this.#logger.info(
@@ -543,7 +636,12 @@ export class ClickUpClient {
           "ClickUp API request timed out."
         );
 
-        throw new ClickUpServiceError("ClickUp API request timed out.", 504);
+        throw new ClickUpServiceError(
+          "ClickUp API request timed out.",
+          504,
+          undefined,
+          this.#createRateLimitStateSnapshot(Date.now())
+        );
       }
 
       this.#logger.error(
@@ -560,7 +658,12 @@ export class ClickUpClient {
         "Failed to reach the ClickUp API."
       );
 
-      throw new ClickUpServiceError("Failed to reach the ClickUp API.", 502);
+      throw new ClickUpServiceError(
+        "Failed to reach the ClickUp API.",
+        502,
+        undefined,
+        this.#createRateLimitStateSnapshot(Date.now())
+      );
     } finally {
       clearTimeout(timeout);
     }
@@ -580,7 +683,8 @@ export class ClickUpClient {
       throw new ClickUpServiceError(
         "ClickUp API is temporarily rate-limited.",
         429,
-        this.#rateLimitedUntil - now
+        this.#rateLimitedUntil - now,
+        this.#createRateLimitStateSnapshot(now)
       );
     }
 
@@ -611,7 +715,8 @@ export class ClickUpClient {
     throw new ClickUpServiceError(
       "ClickUp API request budget is temporarily exhausted.",
       429,
-      retryAfterMs
+      retryAfterMs,
+      this.#createRateLimitStateSnapshot(now)
     );
   }
 

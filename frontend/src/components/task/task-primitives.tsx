@@ -135,6 +135,22 @@ export function TaskPriorityLabel({ prioScore, className }: TaskPriorityLabelPro
   );
 }
 
+interface TaskStatusPillProps {
+  status: string;
+  className?: string;
+}
+
+export function TaskStatusPill({ status, className }: TaskStatusPillProps) {
+  return (
+    <span
+      className={joinClassNames("daily-column-header__label", "task-status-pill", className)}
+      data-status={status}
+    >
+      {status}
+    </span>
+  );
+}
+
 interface TaskAssigneeInlineProps {
   assignee: string | undefined;
   avatarUrl: string | undefined;

@@ -1,6 +1,7 @@
 export type ClickUpTokenSource = "session" | "none";
 
 export interface ClickUpStatusPayload {
+  color?: string | null;
   status?: string | null;
 }
 
@@ -15,7 +16,9 @@ export interface ClickUpTagPayload {
 }
 
 export interface ClickUpCustomFieldOptionPayload {
+  color?: string | null;
   id?: string | number | null;
+  label?: string | null;
   name?: string | null;
   orderindex?: string | number | null;
 }
@@ -42,7 +45,10 @@ export interface ClickUpTaskPayload {
   assignees?: ClickUpUserPayload[];
   tags?: ClickUpTagPayload[];
   custom_fields?: ClickUpCustomFieldPayload[];
+  time_estimate?: number | string | null;
+  time_spent?: number | string | null;
   subtasks?: ClickUpTaskPayload[];
+  url?: string | null;
 }
 
 export interface ClickUpCustomTaskTypePayload {
@@ -50,8 +56,15 @@ export interface ClickUpCustomTaskTypePayload {
   name?: string | null;
 }
 
+export interface ClickUpCustomFieldFilter {
+  fieldId: string;
+  operator: string;
+  value: unknown;
+}
+
 export interface ClickUpTaskQueryOptions {
   archived?: boolean;
+  customFields?: ClickUpCustomFieldFilter[];
   includeClosed?: boolean;
   includeTiml?: boolean;
   pageLimit?: number;

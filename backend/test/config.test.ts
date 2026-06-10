@@ -20,4 +20,12 @@ describe("config", () => {
     ]);
     expect(config.DAILY_MEETING_FINAL_SPEAKER).toBe("Tail Speaker");
   });
+
+  it("parses the planning view id from env", async () => {
+    process.env.CLICKUP_PLANNING_VIEW_ID = " custom-planning-view ";
+
+    const { config } = await import("../src/config.js");
+
+    expect(config.CLICKUP_PLANNING_VIEW_ID).toBe("custom-planning-view");
+  });
 });

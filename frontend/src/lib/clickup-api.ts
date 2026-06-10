@@ -1,6 +1,7 @@
 import type {
   DailyMeetingConfig,
   DailyRow,
+  SprintPlanningReport,
   StoryStatusDiscrepancyReport,
   VerificationSummary
 } from "@custom-clickup/shared";
@@ -14,24 +15,50 @@ export interface VerificationPageData {
   summary: VerificationSummary;
 }
 
+export interface PlanningPageData {
+  report: SprintPlanningReport;
+}
+
 export interface StoryStatusDiscrepancyReportData {
   report: StoryStatusDiscrepancyReport;
 }
 
 interface ApiErrorPayload {
   message?: string;
+  rateLimit?: ClickUpApiRateLimit;
+}
+
+export interface ClickUpApiRateLimit {
+  remaining: number;
+  total: number;
+  used: number;
 }
 
 export class ClickUpApiError extends Error {
+  readonly rateLimit: ClickUpApiRateLimit | undefined;
   readonly status: number;
   readonly retryAfterSeconds: number | undefined;
 
-  constructor(message: string, status: number, retryAfterSeconds?: number) {
+  constructor(
+    message: string,
+    status: number,
+    retryAfterSeconds?: number,
+    rateLimit?: ClickUpApiRateLimit
+  ) {
     super(message);
     this.name = "ClickUpApiError";
+    this.rateLimit = rateLimit;
     this.status = status;
     this.retryAfterSeconds = retryAfterSeconds;
   }
+}
+
+export function formatClickUpRateLimitUsage(error: Error): string | undefined {
+  if (!(error instanceof ClickUpApiError) || !error.rateLimit) {
+    return undefined;
+  }
+
+  return ` Request budget: ${error.rateLimit.used} / ${error.rateLimit.total} used.`;
 }
 
 function parseRetryAfterSeconds(headerValue: string | null): number | undefined {
@@ -63,7 +90,8 @@ async function fetchClickUpResource<T>(path: string): Promise<T> {
     throw new ClickUpApiError(
       errorPayload.message ?? "Failed to load data from the backend.",
       response.status,
-      parseRetryAfterSeconds(response.headers.get("retry-after"))
+      parseRetryAfterSeconds(response.headers.get("retry-after")),
+      errorPayload.rateLimit
     );
   }
 
@@ -72,6 +100,10 @@ async function fetchClickUpResource<T>(path: string): Promise<T> {
 
 export function fetchDailyPageData(): Promise<DailyPageData> {
   return fetchClickUpResource<DailyPageData>("/api/clickup/daily");
+}
+
+export function fetchPlanningPageData(): Promise<PlanningPageData> {
+  return fetchClickUpResource<PlanningPageData>("/api/clickup/planning");
 }
 
 export function fetchVerificationPageData(): Promise<VerificationPageData> {

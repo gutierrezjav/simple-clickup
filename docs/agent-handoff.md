@@ -1,18 +1,18 @@
 # Agent Handoff
 
-Last updated: 2026-04-02
+Last updated: 2026-06-08
 
 ## Project Summary
 
-This repo is a read-only ClickUp client for the `Wingtra Cloud Dev` list. It ships a daily board, a hidden verification route, and a backend-owned ClickUp integration. The app is now intentionally narrow: no planning surface, no Storybook, no runtime mode split, and no env-token fallback.
+This repo is a read-only ClickUp client for the `Wingtra Cloud Dev` list. It ships a daily board, a sprint planning report, a hidden verification route, and a backend-owned ClickUp integration. The app is intentionally narrow: no Storybook, no runtime mode split, no write flows, and no env-token fallback.
 
 ## Current State
 
-The application implementation is complete. The read-only roadmap is closed, the Lightsail deployment plan is complete, and the project is now in maintenance mode. The current runtime shape is one server-backed path:
+The application implementation is complete. The read-only roadmap is closed, the Lightsail deployment plan is complete, and the project is now in maintenance mode. The current runtime shape is server-backed:
 
 - `/daily` is the primary route
+- `/planning` is a visible sprint planning report using ClickUp view `234bx-100375`
 - `/verify` is available for targeted session-backed verification only
-- `/planning` has been removed from the app
 - ClickUp data is read only from the backend
 - the backend requires an OAuth-backed session token to read ClickUp data
 - there is no Storybook, mock mode, live mode toggle, or `CLICKUP_ACCESS_TOKEN` environment path
@@ -39,7 +39,7 @@ Recent maintenance work tightened the daily board behavior and layout:
 - truncated daily card title, custom ID, and assignee text now expose the full value in a native tooltip
 - daily swimlanes now use a slightly smaller shared minimum row height to keep sparse boards denser
 - daily board design guardrails now live in [docs/clickup-reference.md](/data/simple-clickup/docs/clickup-reference.md) and [docs/clickup-v1-plan.md](/data/simple-clickup/docs/clickup-v1-plan.md)
-- the old planning view and planning loader have been discontinued and removed from the active app
+- the planning page mirrors ClickUp view membership, groups by Sprint label, sorts by sprint week then `Prio score`, and calculates parent plus subtask estimate/tracked/remaining time
 - the old Storybook-only fixtures, stories, and mode badges were removed as part of the simplification pass
 
 Recent deployment-related commits:
@@ -54,7 +54,7 @@ Recent deployment-related commits:
 
 - [backend/src/app.ts](/data/simple-clickup/backend/src/app.ts): Express now serves the built frontend bundle in addition to `/api`, `/auth`, and `/health`.
 - [backend/test/app.test.ts](/data/simple-clickup/backend/test/app.test.ts): backend coverage for SPA route serving, static asset serving, and API route preservation.
-- [frontend/src/app.tsx](/data/simple-clickup/frontend/src/app.tsx): route shell for `/daily`, `/verify`, root redirect, and generic not-found handling.
+- [frontend/src/app.tsx](/data/simple-clickup/frontend/src/app.tsx): route shell for `/daily`, `/planning`, `/verify`, root redirect, and generic not-found handling.
 
 ### Containerization
 
@@ -119,20 +119,21 @@ Optional or deferred items only:
 
 - [frontend/src/app.tsx](/data/simple-clickup/frontend/src/app.tsx): route shell
 - [frontend/src/routes/daily-page.tsx](/data/simple-clickup/frontend/src/routes/daily-page.tsx): daily board screen
-- [frontend/src/lib/clickup-api.ts](/data/simple-clickup/frontend/src/lib/clickup-api.ts): frontend fetch layer, including the lazy story-status discrepancy read
+- [frontend/src/routes/planning-page.tsx](/data/simple-clickup/frontend/src/routes/planning-page.tsx): sprint planning screen
+- [frontend/src/lib/clickup-api.ts](/data/simple-clickup/frontend/src/lib/clickup-api.ts): frontend fetch layer, including planning and the lazy story-status discrepancy read
 - [frontend/src/lib/daily-board.ts](/data/simple-clickup/frontend/src/lib/daily-board.ts): daily filter logic and visible-status derivation
 - [frontend/src/lib/daily-meeting.ts](/data/simple-clickup/frontend/src/lib/daily-meeting.ts): frontend-only standup rotation logic for the `Next` helper
 - [frontend/src/components/task/task-primitives.tsx](/data/simple-clickup/frontend/src/components/task/task-primitives.tsx): shared task text rendering and overflow-aware native tooltip behavior
-- [frontend/src/styles.css](/data/simple-clickup/frontend/src/styles.css): daily board layout, row sizing, collapsed-column styling, sticky swimlane treatment, and discrepancy warning styling
+- [frontend/src/styles.css](/data/simple-clickup/frontend/src/styles.css): daily board layout, planning table layout, row sizing, collapsed-column styling, sticky swimlane treatment, and discrepancy warning styling
 - [frontend/src/routes/verification-page.tsx](/data/simple-clickup/frontend/src/routes/verification-page.tsx): verification screen
 
 ### Backend
 
 - [backend/src/app.ts](/data/simple-clickup/backend/src/app.ts): Express app wiring and frontend static serving
-- [backend/src/routes/clickup.ts](/data/simple-clickup/backend/src/routes/clickup.ts): read endpoints, including `/api/clickup/story-status-discrepancies`
+- [backend/src/routes/clickup.ts](/data/simple-clickup/backend/src/routes/clickup.ts): read endpoints, including `/api/clickup/planning` and `/api/clickup/story-status-discrepancies`
 - [backend/src/routes/auth.ts](/data/simple-clickup/backend/src/routes/auth.ts): OAuth routes
 - [backend/src/config.ts](/data/simple-clickup/backend/src/config.ts): env parsing
-- [backend/src/clickup/service.ts](/data/simple-clickup/backend/src/clickup/service.ts): session-backed read service plus story-status discrepancy logic
+- [backend/src/clickup/service.ts](/data/simple-clickup/backend/src/clickup/service.ts): session-backed read service plus sprint planning and story-status discrepancy logic
 - [backend/test/app.test.ts](/data/simple-clickup/backend/test/app.test.ts): SPA serving and route safety coverage
 
 ## Working Commands

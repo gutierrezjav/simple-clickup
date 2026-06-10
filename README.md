@@ -5,6 +5,7 @@ Read-only ClickUp client for the `Wingtra Cloud Dev` list.
 The active app surface is small and deliberate:
 
 - `/daily`: primary board view
+- `/planning`: sprint planning report from the configured ClickUp view
 - `/verify`: hidden verification route for live spot-checks
 - backend-owned ClickUp reads through an OAuth-backed session
 - single-container deployment path for Amazon Lightsail Container Service
@@ -54,7 +55,7 @@ The project is read-only by design.
 - the backend reads ClickUp only with a session access token obtained through OAuth
 - when no valid session exists, the backend returns `401` and the UI offers the Connect ClickUp flow
 - there is no Storybook, no mock/live mode switch, and no `CLICKUP_ACCESS_TOKEN` env fallback
-- `/planning` is no longer part of the app
+- `/planning` is read-only and calculates rolled estimate/tracked/remaining time from the ClickUp planning view
 
 The backend loads `.env` and `.env.local` values from the repo tree when present. See [.env.example](./.env.example) for the supported variables.
 
@@ -89,6 +90,7 @@ The deployed flow is:
 ## Notes
 
 - `/verify` is intentionally kept out of the main navigation
+- `/planning` mirrors ClickUp view membership and groups visible rows by Sprint label
 - write behavior is intentionally out of scope in the active project
 - the repo is optimized for maintenance and targeted fixes, not feature expansion
 

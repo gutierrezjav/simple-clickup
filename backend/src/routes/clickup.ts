@@ -22,6 +22,15 @@ type ReadServiceResponseFactory = (
   readService: ClickUpReadService
 ) => Promise<Record<string, unknown>>;
 
+export interface ClickUpServiceErrorPayload {
+  message: string;
+  rateLimit?: {
+    remaining: number;
+    total: number;
+    used: number;
+  };
+}
+
 function getDailyMeetingConfig(): DailyMeetingConfig {
   return {
     excludedAssignees: config.DAILY_MEETING_EXCLUDED_ASSIGNEES,
@@ -66,6 +75,7 @@ function getReadService(accessToken: string | undefined): ClickUpReadService {
     baseUrl: config.CLICKUP_API_BASE_URL,
     cacheTtlMs: config.CLICKUP_READ_CACHE_TTL_MS,
     listId: config.CLICKUP_TARGET_LIST_ID,
+    planningViewId: config.CLICKUP_PLANNING_VIEW_ID,
     teamId: config.CLICKUP_TARGET_TEAM_ID,
     timeoutMs: config.CLICKUP_HTTP_TIMEOUT_MS,
     tokenSource
@@ -73,6 +83,37 @@ function getReadService(accessToken: string | undefined): ClickUpReadService {
 
   readServiceByToken.set(cacheKey, nextService);
   return nextService;
+}
+
+function clampRateLimitUsed(value: number, total: number): number {
+  return Math.min(total, Math.max(0, value));
+}
+
+export function createClickUpServiceErrorPayload(
+  error: ClickUpServiceError
+): ClickUpServiceErrorPayload {
+  const total =
+    error.rateLimitState?.softLimitPerMinute ??
+    error.rateLimitState?.upstreamLimit ??
+    error.rateLimitState?.limitPerMinute;
+  const remaining =
+    error.rateLimitState?.remainingInWindow ??
+    error.rateLimitState?.upstreamRemaining;
+
+  if (typeof total !== "number" || typeof remaining !== "number") {
+    return {
+      message: error.message
+    };
+  }
+
+  return {
+    message: error.message,
+    rateLimit: {
+      remaining,
+      total,
+      used: clampRateLimitUsed(total - remaining, total)
+    }
+  };
 }
 
 function handleRouteError(
@@ -83,9 +124,16 @@ function handleRouteError(
   if (error instanceof ClickUpServiceError) {
     if (tokenSource === "session" && error.statusCode === 401) {
       clearSession(res, config.SESSION_COOKIE_SECURE);
-      res.status(401).json({
-        message: "ClickUp session expired or was revoked. Reconnect ClickUp and try again."
-      });
+      res.status(401).json(
+        createClickUpServiceErrorPayload(
+          new ClickUpServiceError(
+            "ClickUp session expired or was revoked. Reconnect ClickUp and try again.",
+            401,
+            undefined,
+            error.rateLimitState
+          )
+        )
+      );
       return;
     }
 
@@ -93,9 +141,7 @@ function handleRouteError(
       res.set("retry-after", String(Math.ceil(error.retryAfterMs / 1000)));
     }
 
-    res.status(error.statusCode).json({
-      message: error.message
-    });
+    res.status(error.statusCode).json(createClickUpServiceErrorPayload(error));
     return;
   }
 
@@ -131,6 +177,12 @@ clickupRouter.get("/daily", async (req, res) => {
   await sendReadServiceResponse(req, res, async (readService) => ({
     dailyMeeting: getDailyMeetingConfig(),
     rows: await readService.getDailyRows()
+  }));
+});
+
+clickupRouter.get("/planning", async (req, res) => {
+  await sendReadServiceResponse(req, res, async (readService) => ({
+    report: await readService.getSprintPlanningReport()
   }));
 });
 
