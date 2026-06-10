@@ -337,7 +337,7 @@ input {
 
 .planning-table {
   width: 100%;
-  min-width: clamp(980px, 86vw, 1180px);
+  min-width: clamp(940px, 82vw, 1120px);
   border-collapse: separate;
   border-spacing: 0;
   overflow: hidden;
@@ -348,7 +348,7 @@ input {
 
 .planning-table th,
 .planning-table td {
-  padding: 7px clamp(6px, 0.6vw, 12px);
+  padding: 6px clamp(5px, 0.48vw, 10px);
   border-bottom: 1px solid rgba(217, 227, 239, 0.85);
   font-size: 12px;
   line-height: 1.2;
@@ -357,6 +357,8 @@ input {
 
 .planning-table th {
   background: #f7fafc;
+  padding-top: 9px;
+  padding-bottom: 9px;
   white-space: nowrap;
   vertical-align: top;
 }
@@ -374,6 +376,8 @@ input {
   border-top: 1px solid rgba(195, 209, 228, 0.95);
   border-bottom: 0;
   background: #f7fafc;
+  padding-top: 9px;
+  padding-bottom: 9px;
 }
 
 .planning-table__totals-label {
@@ -388,13 +392,27 @@ input {
 }
 
 .planning-table__task-cell {
-  width: clamp(300px, 34vw, 560px);
-  min-width: clamp(260px, 26vw, 340px);
+  width: clamp(280px, 31vw, 520px);
+  min-width: clamp(240px, 24vw, 320px);
+}
+
+.planning-table td.planning-table__task-type-cell {
+  text-align: center;
+}
+
+.planning-table .pill {
+  justify-content: center;
+  min-width: 64px;
+  min-height: 20px;
+  padding: 0 7px;
+  font-size: 10px;
+  line-height: 1;
+  text-align: center;
 }
 
 .planning-table__task-id {
-  width: clamp(72px, 6vw, 96px);
-  max-width: clamp(72px, 6vw, 110px);
+  width: clamp(68px, 5.5vw, 90px);
+  max-width: clamp(68px, 5.5vw, 100px);
   color: var(--accent);
   white-space: nowrap;
 }
@@ -416,7 +434,7 @@ input {
 }
 
 .planning-table__title {
-  max-width: clamp(300px, 34vw, 560px);
+  max-width: clamp(280px, 31vw, 520px);
 }
 
 .planning-table__title .task-link {

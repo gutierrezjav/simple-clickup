@@ -208,7 +208,7 @@ function PlanningRow({ row }: { row: SprintPlanningRow }) {
 
   return (
     <tr className="planning-table__row" data-missing-estimate={row.missingEstimate ? "true" : "false"}>
-      <td>
+      <td className="planning-table__task-type-cell">
         <span className={getTaskTypePillClassName(row.taskType)}>{row.taskType}</span>
       </td>
       <td className="planning-table__task-id">
@@ -286,9 +286,9 @@ function PlanningSprintSection({
               <th>Assignee</th>
               <th>Status</th>
               <th>Budget</th>
-              <th>Time estimate</th>
-              <th>Time tracked</th>
-              <th>Time (remaining)</th>
+              <th>Estimate</th>
+              <th>Tracked</th>
+              <th>Remaining</th>
             </tr>
           </thead>
           <tbody>
