@@ -239,6 +239,12 @@ clickupRouter.get("/planning", async (req, res) => {
   }));
 });
 
+clickupRouter.get("/planning/tasks/:taskId", async (req, res) => {
+  await sendReadServiceResponse(req, res, async (readService) => ({
+    row: await readService.getSprintPlanningTask(getRequiredTaskId(req))
+  }));
+});
+
 clickupRouter.patch("/planning/tasks/:taskId/sprint", async (req, res) => {
   await sendWriteServiceResponse(req, res, async (readService) => {
     await readService.updateSprintPlanningTaskSprint(

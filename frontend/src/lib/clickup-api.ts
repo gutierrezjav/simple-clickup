@@ -2,6 +2,7 @@ import type {
   DailyMeetingConfig,
   DailyRow,
   SprintPlanningReport,
+  SprintPlanningRow,
   StoryStatusDiscrepancyReport,
   VerificationSummary
 } from "@custom-clickup/shared";
@@ -17,6 +18,10 @@ export interface VerificationPageData {
 
 export interface PlanningPageData {
   report: SprintPlanningReport;
+}
+
+export interface PlanningTaskData {
+  row: SprintPlanningRow;
 }
 
 export interface StoryStatusDiscrepancyReportData {
@@ -114,6 +119,12 @@ export function fetchDailyPageData(): Promise<DailyPageData> {
 
 export function fetchPlanningPageData(): Promise<PlanningPageData> {
   return fetchClickUpResource<PlanningPageData>("/api/clickup/planning");
+}
+
+export function fetchPlanningTask(taskId: string): Promise<PlanningTaskData> {
+  return fetchClickUpResource<PlanningTaskData>(
+    `/api/clickup/planning/tasks/${encodeURIComponent(taskId)}`
+  );
 }
 
 export function updatePlanningTaskSprint(

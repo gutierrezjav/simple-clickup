@@ -18,6 +18,7 @@ import {
 import {
   ClickUpApiError,
   fetchPlanningPageData,
+  fetchPlanningTask,
   formatClickUpRateLimitUsage,
   startClickUpOAuth,
   updatePlanningTaskSprint,
@@ -144,6 +145,23 @@ function updatePlanningReportRow(
     report,
     report.rows.map((row) => (row.taskId === taskId ? updateRow(row) : row))
   );
+}
+
+function replacePlanningReportRow(
+  report: SprintPlanningReport,
+  nextRow: SprintPlanningRow
+): SprintPlanningReport {
+  let replacedRow = false;
+  const rows = report.rows.map((row) => {
+    if (row.taskId !== nextRow.taskId) {
+      return row;
+    }
+
+    replacedRow = true;
+    return nextRow;
+  });
+
+  return rebuildPlanningReport(report, replacedRow ? rows : [...rows, nextRow]);
 }
 
 function parseEditableHours(value: string): number | undefined {
@@ -764,12 +782,19 @@ export function PlanningPage({
   };
 
   const handleRowRefresh = async (row: SprintPlanningRow) => {
+    const previousReport = editableReport;
+    if (!previousReport) {
+      return;
+    }
+
     setSaveError(null);
     setTaskSaving(row.taskId, true);
 
     try {
-      const nextData = await loader();
-      setEditableReport(nextData.report);
+      const nextData = await fetchPlanningTask(row.taskId);
+      setEditableReport((currentReport) =>
+        replacePlanningReportRow(currentReport ?? previousReport, nextData.row)
+      );
     } catch (nextError) {
       setSaveError(
         nextError instanceof Error ? nextError : new Error("Task refresh failed.")
@@ -832,7 +857,7 @@ export function PlanningPage({
         />
       ) : null}
       <PlanningReportView
-        isSavingTask={(taskId) => savingTaskIds.has(taskId)}
+        isSavingTask={(taskId) => isRefreshing || savingTaskIds.has(taskId)}
         onRefreshRow={handleRowRefresh}
         onSprintChange={handleSprintChange}
         onTimeChange={handleTimeChange}

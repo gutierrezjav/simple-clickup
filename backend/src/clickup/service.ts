@@ -63,7 +63,7 @@ export interface SprintPlanningTimeUpdate {
 }
 
 type TaskKind = "story" | "standalone-task" | "standalone-bug" | "subtask";
-type ReadTarget = "daily" | "story-status-discrepancies" | "planning";
+type ReadTarget = "daily" | "story-status-discrepancies" | "planning" | "planning-task";
 const defaultSprintPlanningDayHours = 8;
 const hourMs = 60 * 60 * 1000;
 const unassignedSprintLabel = "Unassigned Sprint";
@@ -1255,6 +1255,7 @@ function createCachedLoader<T>(
 export interface ClickUpReadService {
   getDailyRows(): Promise<DailyRow[]>;
   getSprintPlanningReport(): Promise<SprintPlanningReport>;
+  getSprintPlanningTask(taskId: string): Promise<SprintPlanningRow>;
   getStoryStatusDiscrepancyReport(): Promise<StoryStatusDiscrepancyReport>;
   updateSprintPlanningTaskSprint(taskId: string, sprintLabel: string | null): Promise<void>;
   updateSprintPlanningTaskTime(taskId: string, update: SprintPlanningTimeUpdate): Promise<void>;
@@ -1383,6 +1384,39 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
     }
   };
 
+  const getSprintPlanningTask = async (taskId: string): Promise<SprintPlanningRow> => {
+    return runLogicalRead(
+      "planning-task",
+      async () => {
+        const [metadata, listCustomFields, task] = await Promise.all([
+          loadTaskMetadata(),
+          loadListCustomFields(),
+          client.getTask(taskId)
+        ]);
+        const report = buildSprintPlanningReport(
+          [task],
+          metadata.value.taskTypeMap,
+          {
+            dayHours: defaultSprintPlanningDayHours,
+            listCustomFields: listCustomFields.value,
+            viewId: config.planningViewId
+          }
+        );
+        const row = report.rows[0];
+
+        if (!row) {
+          throw new ClickUpServiceError("Planning task could not be converted to a row.", 502);
+        }
+
+        return {
+          cacheHit: false,
+          value: row
+        };
+      },
+      () => 1
+    );
+  };
+
   const updateSprintPlanningTaskTime = async (
     taskId: string,
     update: SprintPlanningTimeUpdate
@@ -1472,6 +1506,7 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
         (report) => report.rows.length
       );
     },
+    getSprintPlanningTask,
     async getStoryStatusDiscrepancyReport() {
       return runLogicalRead(
         "story-status-discrepancies",

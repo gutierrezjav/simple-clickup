@@ -1086,6 +1086,70 @@ describe("createClickUpReadService", () => {
     expect(getTask).not.toHaveBeenCalled();
   });
 
+  it("loads one sprint planning task without fetching the planning view or subtasks", async () => {
+    vi.spyOn(ClickUpClient.prototype, "getCustomTaskTypes").mockResolvedValue([
+      {
+        id: storyTaskTypeId,
+        name: "User Story"
+      }
+    ]);
+    vi.spyOn(
+      ClickUpClient.prototype as unknown as {
+        getListCustomFields: (listId: string) => Promise<unknown>;
+      },
+      "getListCustomFields"
+    ).mockResolvedValue(createPlanningMetadata().listCustomFields);
+    const getViewTasks = vi.spyOn(
+      ClickUpClient.prototype as unknown as {
+        getViewTasks: (viewId: string) => Promise<ClickUpTaskPayload[]>;
+      },
+      "getViewTasks"
+    ).mockResolvedValue([]);
+    const getTask = vi.spyOn(
+      ClickUpClient.prototype as unknown as {
+        getTask: (taskId: string, options?: { subtasks?: boolean }) => Promise<ClickUpTaskPayload>;
+      },
+      "getTask"
+    ).mockResolvedValue(
+      createTask({
+        id: "story-w24",
+        name: "Story W24",
+        status: "SPRINT BACKLOG",
+        customItemId: storyTaskTypeId,
+        sprintValue: 23,
+        timeEstimate: 3 * hourMs,
+        timeSpent: hourMs
+      })
+    );
+
+    const service = createClickUpReadService({
+      accessToken: "test-token",
+      baseUrl: "https://example.invalid/api/v2",
+      cacheTtlMs: 1_000,
+      listId: "list-1",
+      planningViewId: "planning-view-override",
+      teamId: "team-1",
+      timeoutMs: 1_000,
+      tokenSource: "session"
+    });
+
+    await expect(
+      (
+        service as unknown as {
+          getSprintPlanningTask: (taskId: string) => Promise<{ estimateHours: number }>;
+        }
+      ).getSprintPlanningTask("story-w24")
+    ).resolves.toMatchObject({
+      taskId: "story-w24",
+      estimateHours: 3,
+      trackedHours: 1,
+      remainingHours: 2,
+      sprintLabel: "W24 - CURRENT"
+    });
+    expect(getTask).toHaveBeenCalledWith("story-w24");
+    expect(getViewTasks).not.toHaveBeenCalled();
+  });
+
   it("includes unassigned sprint planning tasks with and without prio scores", async () => {
     vi.spyOn(ClickUpClient.prototype, "getCustomTaskTypes").mockResolvedValue([
       {
