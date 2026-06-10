@@ -6,6 +6,7 @@ import type {
 } from "@custom-clickup/shared";
 import {
   useEffect,
+  useRef,
   useState,
   type CSSProperties
 } from "react";
@@ -37,15 +38,43 @@ export interface PlanningPageProps {
 
 const unassignedSprintLabel = "Unassigned Sprint";
 
+function parseSprintWeekNumber(label: string): number | undefined {
+  const match = /\bW(?:eek\s*)?(\d{1,2})\b/i.exec(label);
+  if (!match?.[1]) {
+    return undefined;
+  }
+
+  const weekNumber = Number(match[1]);
+  return Number.isInteger(weekNumber) && weekNumber >= 1 && weekNumber <= 53
+    ? weekNumber
+    : undefined;
+}
+
+function compareSprintLabels(
+  left: { label: string; weekNumber?: number },
+  right: { label: string; weekNumber?: number }
+): number {
+  const leftWeekNumber = left.weekNumber ?? Number.POSITIVE_INFINITY;
+  const rightWeekNumber = right.weekNumber ?? Number.POSITIVE_INFINITY;
+  const weekDelta = leftWeekNumber - rightWeekNumber;
+  if (weekDelta !== 0) {
+    return weekDelta;
+  }
+
+  return left.label.localeCompare(right.label);
+}
+
 function createEmptySprintSummary(
   label: string,
   sprintOptions: SprintPlanningSprintOption[]
 ): SprintPlanningSprintSummary {
   const option = sprintOptions.find((sprintOption) => sprintOption.label === label);
+  const weekNumber = parseSprintWeekNumber(label);
 
   return {
     label,
     ...(option?.color ? { sprintColor: option.color } : {}),
+    ...(weekNumber !== undefined ? { weekNumber } : {}),
     estimateHours: 0,
     trackedHours: 0,
     remainingDays: 0,
@@ -96,16 +125,7 @@ function rebuildPlanningReport(
     summariesByLabel.set(row.sprintLabel, summary);
   }
 
-  const existingOrder = new Map(report.sprints.map((sprint, index) => [sprint.label, index]));
-  const sprints = [...summariesByLabel.values()].sort((left, right) => {
-    const leftOrder = existingOrder.get(left.label) ?? Number.MAX_SAFE_INTEGER;
-    const rightOrder = existingOrder.get(right.label) ?? Number.MAX_SAFE_INTEGER;
-    if (leftOrder !== rightOrder) {
-      return leftOrder - rightOrder;
-    }
-
-    return left.label.localeCompare(right.label);
-  });
+  const sprints = [...summariesByLabel.values()].sort(compareSprintLabels);
 
   return {
     ...report,
@@ -129,7 +149,7 @@ function updatePlanningReportRow(
 function parseEditableHours(value: string): number | undefined {
   const trimmedValue = value.trim();
   if (!trimmedValue) {
-    return undefined;
+    return 0;
   }
 
   const parsedValue = Number(trimmedValue);
@@ -321,12 +341,19 @@ function PlanningTimeInput({
   value: number;
 }) {
   const [draftValue, setDraftValue] = useState(String(value));
+  const skipNextBlurSaveRef = useRef(false);
 
   useEffect(() => {
     setDraftValue(String(value));
   }, [value]);
 
   const saveDraftValue = async () => {
+    if (skipNextBlurSaveRef.current) {
+      skipNextBlurSaveRef.current = false;
+      setDraftValue(String(value));
+      return;
+    }
+
     const nextValue = parseEditableHours(draftValue);
     if (nextValue === undefined || nextValue === value) {
       setDraftValue(String(value));
@@ -352,6 +379,7 @@ function PlanningTimeInput({
         }
 
         if (event.key === "Escape") {
+          skipNextBlurSaveRef.current = true;
           setDraftValue(String(value));
           event.currentTarget.blur();
         }
