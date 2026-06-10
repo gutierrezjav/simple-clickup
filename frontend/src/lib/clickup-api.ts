@@ -78,10 +78,16 @@ async function parseErrorPayload(response: Response): Promise<ApiErrorPayload> {
   }
 }
 
-async function fetchClickUpResource<T>(path: string): Promise<T> {
+async function requestClickUpResource<T>(
+  path: string,
+  options: RequestInit = {}
+): Promise<T> {
   const response = await fetch(path, {
+    ...options,
     headers: {
-      Accept: "application/json"
+      Accept: "application/json",
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...options.headers
     }
   });
 
@@ -98,12 +104,46 @@ async function fetchClickUpResource<T>(path: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+async function fetchClickUpResource<T>(path: string): Promise<T> {
+  return requestClickUpResource<T>(path);
+}
+
 export function fetchDailyPageData(): Promise<DailyPageData> {
   return fetchClickUpResource<DailyPageData>("/api/clickup/daily");
 }
 
 export function fetchPlanningPageData(): Promise<PlanningPageData> {
   return fetchClickUpResource<PlanningPageData>("/api/clickup/planning");
+}
+
+export function updatePlanningTaskSprint(
+  taskId: string,
+  sprintLabel: string | null
+): Promise<{ ok: true }> {
+  return requestClickUpResource<{ ok: true }>(
+    `/api/clickup/planning/tasks/${encodeURIComponent(taskId)}/sprint`,
+    {
+      body: JSON.stringify({ sprintLabel }),
+      method: "PATCH"
+    }
+  );
+}
+
+export function updatePlanningTaskTime(
+  taskId: string,
+  body: {
+    currentTrackedHours?: number;
+    estimateHours?: number;
+    trackedHours?: number;
+  }
+): Promise<{ ok: true }> {
+  return requestClickUpResource<{ ok: true }>(
+    `/api/clickup/planning/tasks/${encodeURIComponent(taskId)}/time`,
+    {
+      body: JSON.stringify(body),
+      method: "PATCH"
+    }
+  );
 }
 
 export function fetchVerificationPageData(): Promise<VerificationPageData> {

@@ -1,9 +1,14 @@
 import type {
   SprintPlanningReport,
   SprintPlanningRow,
+  SprintPlanningSprintOption,
   SprintPlanningSprintSummary
 } from "@custom-clickup/shared";
-import type { CSSProperties } from "react";
+import {
+  useEffect,
+  useState,
+  type CSSProperties
+} from "react";
 import { ResourceState } from "../components/resource-state";
 import {
   TaskAssigneeInline,
@@ -14,6 +19,8 @@ import {
   fetchPlanningPageData,
   formatClickUpRateLimitUsage,
   startClickUpOAuth,
+  updatePlanningTaskSprint,
+  updatePlanningTaskTime,
   type PlanningPageData
 } from "../lib/clickup-api";
 import {
@@ -26,6 +33,107 @@ import { useResourceLoader } from "../lib/use-resource-loader";
 
 export interface PlanningPageProps {
   loader?: () => Promise<PlanningPageData>;
+}
+
+const unassignedSprintLabel = "Unassigned Sprint";
+
+function createEmptySprintSummary(
+  label: string,
+  sprintOptions: SprintPlanningSprintOption[]
+): SprintPlanningSprintSummary {
+  const option = sprintOptions.find((sprintOption) => sprintOption.label === label);
+
+  return {
+    label,
+    ...(option?.color ? { sprintColor: option.color } : {}),
+    estimateHours: 0,
+    trackedHours: 0,
+    remainingDays: 0,
+    remainingHours: 0,
+    missingEstimateCount: 0,
+    rowCount: 0
+  };
+}
+
+function addRowToSprintSummary(
+  summary: SprintPlanningSprintSummary,
+  row: SprintPlanningRow
+): void {
+  summary.estimateHours += row.estimateHours;
+  summary.trackedHours += row.trackedHours;
+  summary.remainingHours += row.remainingHours;
+  summary.remainingDays += row.remainingDays;
+  summary.missingEstimateCount += row.missingEstimate ? 1 : 0;
+  summary.rowCount += 1;
+}
+
+function rebuildPlanningReport(
+  report: SprintPlanningReport,
+  rows: SprintPlanningRow[]
+): SprintPlanningReport {
+  const totals = {
+    estimateHours: 0,
+    trackedHours: 0,
+    remainingHours: 0,
+    remainingDays: 0,
+    missingEstimateCount: 0,
+    rowCount: 0
+  };
+  const summariesByLabel = new Map<string, SprintPlanningSprintSummary>();
+
+  for (const row of rows) {
+    totals.estimateHours += row.estimateHours;
+    totals.trackedHours += row.trackedHours;
+    totals.remainingHours += row.remainingHours;
+    totals.remainingDays += row.remainingDays;
+    totals.missingEstimateCount += row.missingEstimate ? 1 : 0;
+    totals.rowCount += 1;
+
+    const summary =
+      summariesByLabel.get(row.sprintLabel) ??
+      createEmptySprintSummary(row.sprintLabel, report.sprintOptions);
+    addRowToSprintSummary(summary, row);
+    summariesByLabel.set(row.sprintLabel, summary);
+  }
+
+  const existingOrder = new Map(report.sprints.map((sprint, index) => [sprint.label, index]));
+  const sprints = [...summariesByLabel.values()].sort((left, right) => {
+    const leftOrder = existingOrder.get(left.label) ?? Number.MAX_SAFE_INTEGER;
+    const rightOrder = existingOrder.get(right.label) ?? Number.MAX_SAFE_INTEGER;
+    if (leftOrder !== rightOrder) {
+      return leftOrder - rightOrder;
+    }
+
+    return left.label.localeCompare(right.label);
+  });
+
+  return {
+    ...report,
+    totals,
+    sprints,
+    rows
+  };
+}
+
+function updatePlanningReportRow(
+  report: SprintPlanningReport,
+  taskId: string,
+  updateRow: (row: SprintPlanningRow) => SprintPlanningRow
+): SprintPlanningReport {
+  return rebuildPlanningReport(
+    report,
+    report.rows.map((row) => (row.taskId === taskId ? updateRow(row) : row))
+  );
+}
+
+function parseEditableHours(value: string): number | undefined {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return undefined;
+  }
+
+  const parsedValue = Number(trimmedValue);
+  return Number.isFinite(parsedValue) && parsedValue >= 0 ? parsedValue : undefined;
 }
 
 function getPlanningErrorMessage(error: Error): string {
@@ -203,7 +311,109 @@ function PlanningColoredPill({
   );
 }
 
-function PlanningRow({ row }: { row: SprintPlanningRow }) {
+function PlanningTimeInput({
+  disabled,
+  onSave,
+  value
+}: {
+  disabled: boolean;
+  onSave: (nextValue: number) => Promise<void>;
+  value: number;
+}) {
+  const [draftValue, setDraftValue] = useState(String(value));
+
+  useEffect(() => {
+    setDraftValue(String(value));
+  }, [value]);
+
+  const saveDraftValue = async () => {
+    const nextValue = parseEditableHours(draftValue);
+    if (nextValue === undefined || nextValue === value) {
+      setDraftValue(String(value));
+      return;
+    }
+
+    await onSave(nextValue);
+  };
+
+  return (
+    <input
+      className="planning-table__time-input"
+      disabled={disabled}
+      inputMode="decimal"
+      min="0"
+      onBlur={() => {
+        void saveDraftValue();
+      }}
+      onChange={(event) => setDraftValue(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.currentTarget.blur();
+        }
+
+        if (event.key === "Escape") {
+          setDraftValue(String(value));
+          event.currentTarget.blur();
+        }
+      }}
+      step="0.25"
+      type="number"
+      value={draftValue}
+    />
+  );
+}
+
+function PlanningSprintSelect({
+  disabled,
+  onSave,
+  options,
+  value
+}: {
+  disabled: boolean;
+  onSave: (nextValue: string) => Promise<void>;
+  options: SprintPlanningSprintOption[];
+  value: string;
+}) {
+  const hasCurrentValue =
+    value === unassignedSprintLabel ||
+    options.some((option) => option.label === value);
+
+  return (
+    <select
+      className="planning-table__sprint-select"
+      disabled={disabled}
+      onChange={(event) => {
+        void onSave(event.target.value);
+      }}
+      value={value}
+    >
+      <option value={unassignedSprintLabel}>{unassignedSprintLabel}</option>
+      {hasCurrentValue ? null : <option value={value}>{value}</option>}
+      {options.map((option) => (
+        <option key={option.label} value={option.label}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function PlanningRow({
+  isSaving,
+  onSprintChange,
+  onTimeChange,
+  row,
+  sprintOptions
+}: {
+  isSaving: boolean;
+  onSprintChange: (row: SprintPlanningRow, sprintLabel: string) => Promise<void>;
+  onTimeChange: (
+    row: SprintPlanningRow,
+    update: { estimateHours?: number; trackedHours?: number }
+  ) => Promise<void>;
+  row: SprintPlanningRow;
+  sprintOptions: SprintPlanningSprintOption[];
+}) {
   const remainingTone = getRemainingTimeTone(row.remainingHours);
 
   return (
@@ -232,8 +442,28 @@ function PlanningRow({ row }: { row: SprintPlanningRow }) {
         <PlanningColoredPill color={row.statusColor} value={row.status} />
       </td>
       <td><PlanningColoredPill color={row.budgetColor} value={row.budget} /></td>
-      <td className="planning-table__number">{formatPlanningTime(row.estimateHours)}</td>
-      <td className="planning-table__number">{formatPlanningTime(row.trackedHours)}</td>
+      <td>
+        <PlanningSprintSelect
+          disabled={isSaving}
+          onSave={(sprintLabel) => onSprintChange(row, sprintLabel)}
+          options={sprintOptions}
+          value={row.sprintLabel}
+        />
+      </td>
+      <td className="planning-table__number">
+        <PlanningTimeInput
+          disabled={isSaving}
+          onSave={(estimateHours) => onTimeChange(row, { estimateHours })}
+          value={row.estimateHours}
+        />
+      </td>
+      <td className="planning-table__number">
+        <PlanningTimeInput
+          disabled={isSaving}
+          onSave={(trackedHours) => onTimeChange(row, { trackedHours })}
+          value={row.trackedHours}
+        />
+      </td>
       <td className="planning-table__number" data-tone={remainingTone}>
         {formatPlanningRemainingTime(row.remainingHours)}
       </td>
@@ -247,7 +477,7 @@ function PlanningSprintTotalsRow({ sprint }: { sprint: SprintPlanningSprintSumma
   return (
     <tfoot>
       <tr className="planning-table__totals-row">
-        <th className="planning-table__totals-label" colSpan={8} scope="row">
+        <th className="planning-table__totals-label" colSpan={9} scope="row">
           Total
         </th>
         <td className="planning-table__number">{totals.estimate}</td>
@@ -261,9 +491,18 @@ function PlanningSprintTotalsRow({ sprint }: { sprint: SprintPlanningSprintSumma
 }
 
 function PlanningSprintSection({
+  isSavingTask,
+  onSprintChange,
+  onTimeChange,
   report,
   sprint
 }: {
+  isSavingTask: (taskId: string) => boolean;
+  onSprintChange: (row: SprintPlanningRow, sprintLabel: string) => Promise<void>;
+  onTimeChange: (
+    row: SprintPlanningRow,
+    update: { estimateHours?: number; trackedHours?: number }
+  ) => Promise<void>;
   report: SprintPlanningReport;
   sprint: SprintPlanningSprintSummary;
 }) {
@@ -286,6 +525,7 @@ function PlanningSprintSection({
               <th>Assignee</th>
               <th>Status</th>
               <th>Budget</th>
+              <th>Sprint</th>
               <th>Estimate</th>
               <th>Tracked</th>
               <th>Remaining</th>
@@ -293,7 +533,14 @@ function PlanningSprintSection({
           </thead>
           <tbody>
             {rows.map((row) => (
-              <PlanningRow key={row.taskId} row={row} />
+              <PlanningRow
+                isSaving={isSavingTask(row.taskId)}
+                key={row.taskId}
+                onSprintChange={onSprintChange}
+                onTimeChange={onTimeChange}
+                row={row}
+                sprintOptions={report.sprintOptions}
+              />
             ))}
           </tbody>
           <PlanningSprintTotalsRow sprint={sprint} />
@@ -303,7 +550,20 @@ function PlanningSprintSection({
   );
 }
 
-function PlanningReportView({ report }: { report: SprintPlanningReport }) {
+function PlanningReportView({
+  isSavingTask,
+  onSprintChange,
+  onTimeChange,
+  report
+}: {
+  isSavingTask: (taskId: string) => boolean;
+  onSprintChange: (row: SprintPlanningRow, sprintLabel: string) => Promise<void>;
+  onTimeChange: (
+    row: SprintPlanningRow,
+    update: { estimateHours?: number; trackedHours?: number }
+  ) => Promise<void>;
+  report: SprintPlanningReport;
+}) {
   if (report.rows.length === 0) {
     return (
       <ResourceState
@@ -317,7 +577,14 @@ function PlanningReportView({ report }: { report: SprintPlanningReport }) {
     <div className="planning-layout">
       <div className="planning-sprint-list">
         {report.sprints.map((sprint) => (
-          <PlanningSprintSection key={sprint.label} report={report} sprint={sprint} />
+          <PlanningSprintSection
+            isSavingTask={isSavingTask}
+            key={sprint.label}
+            onSprintChange={onSprintChange}
+            onTimeChange={onTimeChange}
+            report={report}
+            sprint={sprint}
+          />
         ))}
       </div>
     </div>
@@ -328,7 +595,111 @@ export function PlanningPage({
   loader = fetchPlanningPageData
 }: PlanningPageProps) {
   const { data, error, isLoading, isRefreshing, refresh } = useResourceLoader(loader);
+  const [editableReport, setEditableReport] = useState<SprintPlanningReport | null>(null);
+  const [saveError, setSaveError] = useState<Error | null>(null);
+  const [savingTaskIds, setSavingTaskIds] = useState<Set<string>>(() => new Set());
   const handleConnect = () => startClickUpOAuth("/planning");
+
+  useEffect(() => {
+    if (data?.report) {
+      setEditableReport(data.report);
+    }
+  }, [data]);
+
+  const setTaskSaving = (taskId: string, isSaving: boolean) => {
+    setSavingTaskIds((currentTaskIds) => {
+      const nextTaskIds = new Set(currentTaskIds);
+      if (isSaving) {
+        nextTaskIds.add(taskId);
+      } else {
+        nextTaskIds.delete(taskId);
+      }
+
+      return nextTaskIds;
+    });
+  };
+
+  const handleTimeChange = async (
+    row: SprintPlanningRow,
+    update: { estimateHours?: number; trackedHours?: number }
+  ) => {
+    const previousReport = editableReport;
+    if (!previousReport) {
+      return;
+    }
+
+    const nextEstimateHours = update.estimateHours ?? row.estimateHours;
+    const nextTrackedHours = update.trackedHours ?? row.trackedHours;
+    const nextRemainingHours = Math.max(0, nextEstimateHours - nextTrackedHours);
+
+    setSaveError(null);
+    setTaskSaving(row.taskId, true);
+    setEditableReport(
+      updatePlanningReportRow(previousReport, row.taskId, (currentRow) => ({
+        ...currentRow,
+        estimateHours: nextEstimateHours,
+        trackedHours: nextTrackedHours,
+        remainingHours: nextRemainingHours,
+        remainingDays: nextRemainingHours / previousReport.dayHours,
+        missingEstimate: nextEstimateHours === 0
+      }))
+    );
+
+    try {
+      await updatePlanningTaskTime(row.taskId, {
+        currentTrackedHours: row.trackedHours,
+        ...update
+      });
+    } catch (nextError) {
+      setEditableReport(previousReport);
+      setSaveError(
+        nextError instanceof Error ? nextError : new Error("Planning time update failed.")
+      );
+    } finally {
+      setTaskSaving(row.taskId, false);
+    }
+  };
+
+  const handleSprintChange = async (row: SprintPlanningRow, sprintLabel: string) => {
+    const previousReport = editableReport;
+    if (!previousReport || sprintLabel === row.sprintLabel) {
+      return;
+    }
+
+    const sprintOption = previousReport.sprintOptions.find((option) => option.label === sprintLabel);
+    setSaveError(null);
+    setTaskSaving(row.taskId, true);
+    setEditableReport(
+      updatePlanningReportRow(previousReport, row.taskId, (currentRow) => {
+        const nextRow: SprintPlanningRow = {
+          ...currentRow,
+          sprintLabel
+        };
+
+        if (sprintOption?.color) {
+          nextRow.sprintColor = sprintOption.color;
+        } else {
+          delete nextRow.sprintColor;
+        }
+
+        return nextRow;
+      })
+    );
+
+    try {
+      await updatePlanningTaskSprint(
+        row.taskId,
+        sprintLabel === unassignedSprintLabel ? null : sprintLabel
+      );
+    } catch (nextError) {
+      setEditableReport(previousReport);
+      setSaveError(
+        nextError instanceof Error ? nextError : new Error("Sprint update failed.")
+      );
+    } finally {
+      setTaskSaving(row.taskId, false);
+    }
+  };
 
   if (isLoading && !data) {
     return (
@@ -373,7 +744,21 @@ export function PlanningPage({
           tone={error instanceof ClickUpApiError && error.status === 429 ? "warning" : "error"}
         />
       ) : null}
-      <PlanningReportView report={data.report} />
+      {saveError ? (
+        <ResourceState
+          actionLabel="Dismiss"
+          message={getPlanningErrorMessage(saveError)}
+          onAction={() => setSaveError(null)}
+          title="Planning Update Failed"
+          tone="error"
+        />
+      ) : null}
+      <PlanningReportView
+        isSavingTask={(taskId) => savingTaskIds.has(taskId)}
+        onSprintChange={handleSprintChange}
+        onTimeChange={handleTimeChange}
+        report={editableReport ?? data.report}
+      />
     </div>
   );
 }

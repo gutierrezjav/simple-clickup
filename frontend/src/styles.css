@@ -475,6 +475,41 @@ input {
   white-space: nowrap;
 }
 
+.planning-table__sprint-select,
+.planning-table__time-input {
+  min-height: 24px;
+  border: 1px solid rgba(195, 209, 228, 0.9);
+  border-radius: 5px;
+  background: #ffffff;
+  color: var(--text-strong);
+  font: inherit;
+}
+
+.planning-table__sprint-select {
+  max-width: 140px;
+  padding: 2px 22px 2px 7px;
+}
+
+.planning-table__time-input {
+  width: 58px;
+  padding: 2px 5px;
+  text-align: right;
+}
+
+.planning-table__sprint-select:disabled,
+.planning-table__time-input:disabled {
+  color: var(--text-soft);
+  cursor: progress;
+  opacity: 0.72;
+}
+
+.planning-table__sprint-select:focus,
+.planning-table__time-input:focus {
+  border-color: var(--accent);
+  outline: 2px solid rgba(59, 130, 246, 0.18);
+  outline-offset: 1px;
+}
+
 .planning-table__number {
   color: var(--text-strong);
   font-variant-numeric: tabular-nums;

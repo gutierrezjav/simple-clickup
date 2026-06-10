@@ -11,7 +11,11 @@ import {
   readSession,
   type SessionCookieOptions
 } from "../clickup/session.js";
-import { createClickUpReadService, type ClickUpReadService } from "../clickup/service.js";
+import {
+  createClickUpReadService,
+  type ClickUpReadService,
+  type SprintPlanningTimeUpdate
+} from "../clickup/service.js";
 import { logger } from "../logging.js";
 
 export const clickupRouter = Router();
@@ -59,6 +63,38 @@ function getRequestToken(req: Request): string | undefined {
   }
 
   return undefined;
+}
+
+function getRequiredTaskId(req: Request): string {
+  const rawTaskId = req.params.taskId;
+  const taskId = typeof rawTaskId === "string" ? rawTaskId.trim() : "";
+  if (!taskId) {
+    throw new ClickUpServiceError("Task id is required.", 400);
+  }
+
+  return taskId;
+}
+
+function getOptionalNumber(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function getSprintLabel(value: unknown): string | null {
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value !== "string") {
+    throw new ClickUpServiceError("Sprint label must be a string or null.", 400);
+  }
+
+  const trimmedValue = value.trim();
+  return trimmedValue.length > 0 ? trimmedValue : null;
 }
 
 function getReadService(accessToken: string | undefined): ClickUpReadService {
@@ -173,6 +209,23 @@ async function sendReadServiceResponse(
   }
 }
 
+async function sendWriteServiceResponse(
+  req: Request,
+  res: Response,
+  write: (readService: ClickUpReadService) => Promise<void>
+) {
+  const accessToken = getRequestToken(req);
+  const tokenSource = accessToken ? "session" : undefined;
+
+  try {
+    const readService = getReadService(accessToken);
+    await write(readService);
+    res.json({ ok: true });
+  } catch (error) {
+    handleRouteError(error, res, tokenSource);
+  }
+}
+
 clickupRouter.get("/daily", async (req, res) => {
   await sendReadServiceResponse(req, res, async (readService) => ({
     dailyMeeting: getDailyMeetingConfig(),
@@ -184,6 +237,38 @@ clickupRouter.get("/planning", async (req, res) => {
   await sendReadServiceResponse(req, res, async (readService) => ({
     report: await readService.getSprintPlanningReport()
   }));
+});
+
+clickupRouter.patch("/planning/tasks/:taskId/sprint", async (req, res) => {
+  await sendWriteServiceResponse(req, res, async (readService) => {
+    await readService.updateSprintPlanningTaskSprint(
+      getRequiredTaskId(req),
+      getSprintLabel(req.body?.sprintLabel)
+    );
+  });
+});
+
+clickupRouter.patch("/planning/tasks/:taskId/time", async (req, res) => {
+  await sendWriteServiceResponse(req, res, async (readService) => {
+    const currentTrackedHours = getOptionalNumber(req.body?.currentTrackedHours);
+    const estimateHours = getOptionalNumber(req.body?.estimateHours);
+    const trackedHours = getOptionalNumber(req.body?.trackedHours);
+    const update: SprintPlanningTimeUpdate = {};
+
+    if (currentTrackedHours !== undefined) {
+      update.currentTrackedHours = currentTrackedHours;
+    }
+
+    if (estimateHours !== undefined) {
+      update.estimateHours = estimateHours;
+    }
+
+    if (trackedHours !== undefined) {
+      update.trackedHours = trackedHours;
+    }
+
+    await readService.updateSprintPlanningTaskTime(getRequiredTaskId(req), update);
+  });
 });
 
 clickupRouter.get("/story-status-discrepancies", async (req, res) => {

@@ -779,6 +779,11 @@ describe("buildSprintPlanningReport", () => {
       budget: "New Features",
       budgetColor: "#0091ff"
     });
+    expect(report.sprintOptions).toEqual([
+      { color: "#87909f", label: "W22" },
+      { color: "#a98476", label: "W24 - CURRENT" },
+      { color: "#5aa469", label: "W25" }
+    ]);
   });
 
   it("does not report visible subtasks as separate top-level planning rows", () => {
@@ -1212,5 +1217,102 @@ describe("createClickUpReadService", () => {
 
     expect(getViewTasks).toHaveBeenCalledTimes(2);
     expect(getListCustomFields).toHaveBeenCalledTimes(1);
+  });
+
+  it("updates sprint planning task estimate and tracked-time deltas", async () => {
+    const updateTask = vi.spyOn(
+      ClickUpClient.prototype as unknown as {
+        updateTask: (taskId: string, fields: { time_estimate?: number }) => Promise<ClickUpTaskPayload>;
+      },
+      "updateTask"
+    ).mockResolvedValue(createTask({
+      id: "task-1",
+      name: "Task 1",
+      status: "IN PROGRESS"
+    }));
+    const createTimeEntry = vi.spyOn(
+      ClickUpClient.prototype as unknown as {
+        createTimeEntry: (taskId: string, durationMs: number) => Promise<void>;
+      },
+      "createTimeEntry"
+    ).mockResolvedValue(undefined);
+
+    const service = createClickUpReadService({
+      accessToken: "test-token",
+      baseUrl: "https://example.invalid/api/v2",
+      cacheTtlMs: 1_000,
+      listId: "list-1",
+      planningViewId: "planning-view-override",
+      teamId: "team-1",
+      timeoutMs: 1_000,
+      tokenSource: "session"
+    });
+
+    await service.updateSprintPlanningTaskTime("task-1", {
+      currentTrackedHours: 1,
+      estimateHours: 4,
+      trackedHours: 2.5
+    });
+
+    expect(updateTask).toHaveBeenCalledWith("task-1", { time_estimate: 4 * hourMs });
+    expect(createTimeEntry).toHaveBeenCalledWith("task-1", 1.5 * hourMs);
+  });
+
+  it("rejects tracked-time decreases from sprint planning", async () => {
+    const createTimeEntry = vi.spyOn(
+      ClickUpClient.prototype as unknown as {
+        createTimeEntry: (taskId: string, durationMs: number) => Promise<void>;
+      },
+      "createTimeEntry"
+    ).mockResolvedValue(undefined);
+
+    const service = createClickUpReadService({
+      accessToken: "test-token",
+      baseUrl: "https://example.invalid/api/v2",
+      cacheTtlMs: 1_000,
+      listId: "list-1",
+      planningViewId: "planning-view-override",
+      teamId: "team-1",
+      timeoutMs: 1_000,
+      tokenSource: "session"
+    });
+
+    await expect(
+      service.updateSprintPlanningTaskTime("task-1", {
+        currentTrackedHours: 3,
+        trackedHours: 2
+      })
+    ).rejects.toThrow("Tracked time can only be increased");
+    expect(createTimeEntry).not.toHaveBeenCalled();
+  });
+
+  it("updates sprint planning task sprint through the Sprint custom field", async () => {
+    vi.spyOn(
+      ClickUpClient.prototype as unknown as {
+        getListCustomFields: (listId: string) => Promise<unknown>;
+      },
+      "getListCustomFields"
+    ).mockResolvedValue(createPlanningMetadata().listCustomFields);
+    const setCustomFieldValue = vi.spyOn(
+      ClickUpClient.prototype as unknown as {
+        setCustomFieldValue: (taskId: string, fieldId: string, value: unknown) => Promise<void>;
+      },
+      "setCustomFieldValue"
+    ).mockResolvedValue(undefined);
+
+    const service = createClickUpReadService({
+      accessToken: "test-token",
+      baseUrl: "https://example.invalid/api/v2",
+      cacheTtlMs: 1_000,
+      listId: "list-1",
+      planningViewId: "planning-view-override",
+      teamId: "team-1",
+      timeoutMs: 1_000,
+      tokenSource: "session"
+    });
+
+    await service.updateSprintPlanningTaskSprint("task-1", "W24 - CURRENT");
+
+    expect(setCustomFieldValue).toHaveBeenCalledWith("task-1", sprintFieldId, "w24-option");
   });
 });
