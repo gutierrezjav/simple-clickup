@@ -431,12 +431,14 @@ function PlanningSprintSelect({
 
 function PlanningRow({
   isSaving,
+  onRefreshRow,
   onSprintChange,
   onTimeChange,
   row,
   sprintOptions
 }: {
   isSaving: boolean;
+  onRefreshRow: (row: SprintPlanningRow) => Promise<void>;
   onSprintChange: (row: SprintPlanningRow, sprintLabel: string) => Promise<void>;
   onTimeChange: (
     row: SprintPlanningRow,
@@ -499,6 +501,25 @@ function PlanningRow({
           value={row.sprintLabel}
         />
       </td>
+      <td className="planning-table__refresh-cell">
+        <button
+          aria-label={`Refresh ${row.taskCustomId}`}
+          className="planning-table__refresh-button"
+          disabled={isSaving}
+          onClick={() => {
+            void onRefreshRow(row);
+          }}
+          title="Refresh task"
+          type="button"
+        >
+          <svg aria-hidden="true" viewBox="0 0 20 20">
+            <path d="M16.2 7.3a6.3 6.3 0 0 0-10.7-2.1L3.6 7" />
+            <path d="M3.6 3.2V7h3.8" />
+            <path d="M3.8 12.7a6.3 6.3 0 0 0 10.7 2.1l1.9-1.8" />
+            <path d="M16.4 16.8V13h-3.8" />
+          </svg>
+        </button>
+      </td>
     </tr>
   );
 }
@@ -518,6 +539,7 @@ function PlanningSprintTotalsRow({ sprint }: { sprint: SprintPlanningSprintSumma
           {totals.remaining.value}
         </td>
         <td />
+        <td />
       </tr>
     </tfoot>
   );
@@ -525,12 +547,14 @@ function PlanningSprintTotalsRow({ sprint }: { sprint: SprintPlanningSprintSumma
 
 function PlanningSprintSection({
   isSavingTask,
+  onRefreshRow,
   onSprintChange,
   onTimeChange,
   report,
   sprint
 }: {
   isSavingTask: (taskId: string) => boolean;
+  onRefreshRow: (row: SprintPlanningRow) => Promise<void>;
   onSprintChange: (row: SprintPlanningRow, sprintLabel: string) => Promise<void>;
   onTimeChange: (
     row: SprintPlanningRow,
@@ -562,6 +586,7 @@ function PlanningSprintSection({
               <th>Tracked</th>
               <th>Remaining</th>
               <th>Sprint</th>
+              <th aria-label="Refresh task" />
             </tr>
           </thead>
           <tbody>
@@ -569,6 +594,7 @@ function PlanningSprintSection({
               <PlanningRow
                 isSaving={isSavingTask(row.taskId)}
                 key={row.taskId}
+                onRefreshRow={onRefreshRow}
                 onSprintChange={onSprintChange}
                 onTimeChange={onTimeChange}
                 row={row}
@@ -585,11 +611,13 @@ function PlanningSprintSection({
 
 function PlanningReportView({
   isSavingTask,
+  onRefreshRow,
   onSprintChange,
   onTimeChange,
   report
 }: {
   isSavingTask: (taskId: string) => boolean;
+  onRefreshRow: (row: SprintPlanningRow) => Promise<void>;
   onSprintChange: (row: SprintPlanningRow, sprintLabel: string) => Promise<void>;
   onTimeChange: (
     row: SprintPlanningRow,
@@ -613,6 +641,7 @@ function PlanningReportView({
           <PlanningSprintSection
             isSavingTask={isSavingTask}
             key={sprint.label}
+            onRefreshRow={onRefreshRow}
             onSprintChange={onSprintChange}
             onTimeChange={onTimeChange}
             report={report}
@@ -734,6 +763,22 @@ export function PlanningPage({
     }
   };
 
+  const handleRowRefresh = async (row: SprintPlanningRow) => {
+    setSaveError(null);
+    setTaskSaving(row.taskId, true);
+
+    try {
+      const nextData = await loader();
+      setEditableReport(nextData.report);
+    } catch (nextError) {
+      setSaveError(
+        nextError instanceof Error ? nextError : new Error("Task refresh failed.")
+      );
+    } finally {
+      setTaskSaving(row.taskId, false);
+    }
+  };
+
   if (isLoading && !data) {
     return (
       <div className="panel panel--route">
@@ -788,6 +833,7 @@ export function PlanningPage({
       ) : null}
       <PlanningReportView
         isSavingTask={(taskId) => savingTaskIds.has(taskId)}
+        onRefreshRow={handleRowRefresh}
         onSprintChange={handleSprintChange}
         onTimeChange={handleTimeChange}
         report={editableReport ?? data.report}

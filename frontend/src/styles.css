@@ -486,8 +486,8 @@ input {
 }
 
 .planning-table__sprint-select {
-  width: 88px;
-  padding: 2px 18px 2px 9px;
+  width: 82px;
+  padding: 2px 18px 2px 2px;
   background-color: var(--panel-muted);
   font-weight: 800;
   line-height: 1.1;
@@ -506,6 +506,51 @@ input {
   width: 58px;
   padding: 2px 5px;
   text-align: right;
+}
+
+.planning-table__refresh-cell {
+  width: 32px;
+  text-align: center;
+}
+
+.planning-table__refresh-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  opacity: 0.55;
+}
+
+.planning-table__refresh-button:hover,
+.planning-table__refresh-button:focus-visible {
+  color: var(--text-strong);
+  opacity: 1;
+}
+
+.planning-table__refresh-button:focus-visible {
+  outline: 2px solid rgba(27, 111, 134, 0.22);
+  outline-offset: 2px;
+}
+
+.planning-table__refresh-button:disabled {
+  cursor: progress;
+  opacity: 0.28;
+}
+
+.planning-table__refresh-button svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
 }
 
 .planning-table__sprint-select:disabled,
