@@ -9,6 +9,7 @@ import {
 import { useEffect, useState, type CSSProperties } from "react";
 import { DailyCard } from "../components/daily/daily-card";
 import { ResourceState } from "../components/resource-state";
+import { RouteLoadingIndicator } from "../components/route-loading-indicator";
 import {
   TaskAssigneeInline,
   TaskStatusPill,
@@ -621,6 +622,7 @@ export function DailyPage({
   if (isLoading && !data) {
     return (
       <div className="panel panel--route">
+        <RouteLoadingIndicator isVisible />
         <ResourceState
           isLoading
           message="Loading daily board data from the backend."
@@ -646,6 +648,7 @@ export function DailyPage({
 
   return (
     <div className="panel panel--route">
+      <RouteLoadingIndicator isVisible={isLoading || isRefreshing} />
       {storyStatusReport && !isStoryStatusWarningDismissed
         ? renderStoryStatusWarning(storyStatusReport, () => setIsStoryStatusWarningDismissed(true))
         : null}

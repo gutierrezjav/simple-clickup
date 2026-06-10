@@ -11,10 +11,12 @@ import {
   type CSSProperties
 } from "react";
 import { ResourceState } from "../components/resource-state";
+import { AssigneeAvatar } from "../components/assignee-avatar";
 import {
   TaskAssigneeInline,
   TaskTitleLink
 } from "../components/task/task-primitives";
+import { RouteLoadingIndicator } from "../components/route-loading-indicator";
 import {
   ClickUpApiError,
   fetchPlanningPageData,
@@ -260,16 +262,29 @@ function PlanningAssignees({ assignees }: { assignees: SprintPlanningRow["assign
 
   return (
     <div className="planning-table__assignees">
-      {visibleAssignees.map((assignee, index) => (
-        <TaskAssigneeInline
-          assignee={assignee?.name}
-          avatarUrl={assignee?.avatarUrl}
-          className="planning-table__assignee"
-          compact
-          key={assignee?.name ?? `unassigned-${index}`}
-          nameClassName="planning-table__assignee-name"
-        />
-      ))}
+      {visibleAssignees.map((assignee, index) => {
+        const firstName = assignee?.name.trim().split(/\s+/)[0];
+
+        if (!firstName) {
+          return (
+            <span className="task-assignee task-assignee--compact planning-table__assignee" key={`unassigned-${index}`}>
+              <AssigneeAvatar assignee={undefined} avatarUrl={undefined} />
+              <span className="task-assignee__name planning-table__assignee-name">-</span>
+            </span>
+          );
+        }
+
+        return (
+          <TaskAssigneeInline
+            assignee={firstName}
+            avatarUrl={assignee?.avatarUrl}
+            className="planning-table__assignee"
+            compact
+            key={assignee?.name ?? `unassigned-${index}`}
+            nameClassName="planning-table__assignee-name"
+          />
+        );
+      })}
     </div>
   );
 }
@@ -485,14 +500,18 @@ function PlanningRow({
         </div>
       </td>
       <td className="planning-table__number">{row.prioScore ?? "-"}</td>
-      <td><PlanningColoredPill color={row.epicColor} value={row.epic} /></td>
+      <td className="planning-table__field-cell">
+        <PlanningColoredPill color={row.epicColor} value={row.epic} />
+      </td>
       <td>
         <PlanningAssignees assignees={row.assignees} />
       </td>
-      <td>
+      <td className="planning-table__field-cell">
         <PlanningColoredPill color={row.statusColor} value={row.status} />
       </td>
-      <td><PlanningColoredPill color={row.budgetColor} value={row.budget} /></td>
+      <td className="planning-table__field-cell">
+        <PlanningColoredPill color={row.budgetColor} value={row.budget} />
+      </td>
       <td>
         <PlanningTimeInput
           disabled={isSaving}
@@ -588,41 +607,39 @@ function PlanningSprintSection({
       <div className="planning-sprint__header">
         <PlanningSprintSummary sprint={sprint} />
       </div>
-      <div className="table-scroll">
-        <table className="planning-table">
-          <thead>
-            <tr>
-              <th>Task Type</th>
-              <th>Task ID</th>
-              <th>Name</th>
-              <th>Prio score</th>
-              <th>Epic</th>
-              <th>Assignee</th>
-              <th>Status</th>
-              <th>Budget</th>
-              <th>Estimate</th>
-              <th>Tracked</th>
-              <th>Remaining</th>
-              <th>Sprint</th>
-              <th aria-label="Refresh task" />
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <PlanningRow
-                isSaving={isSavingTask(row.taskId)}
-                key={row.taskId}
-                onRefreshRow={onRefreshRow}
-                onSprintChange={onSprintChange}
-                onTimeChange={onTimeChange}
-                row={row}
-                sprintOptions={report.sprintOptions}
-              />
-            ))}
-          </tbody>
-          <PlanningSprintTotalsRow sprint={sprint} />
-        </table>
-      </div>
+      <table className="planning-table">
+        <thead>
+          <tr>
+            <th>Task Type</th>
+            <th>Task ID</th>
+            <th>Name</th>
+            <th>Prio score</th>
+            <th className="planning-table__field-cell">Epic</th>
+            <th>Assignee</th>
+            <th className="planning-table__field-cell">Status</th>
+            <th className="planning-table__field-cell">Budget</th>
+            <th>Estimate</th>
+            <th>Tracked</th>
+            <th>Remaining</th>
+            <th>Sprint</th>
+            <th aria-label="Refresh task" />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <PlanningRow
+              isSaving={isSavingTask(row.taskId)}
+              key={row.taskId}
+              onRefreshRow={onRefreshRow}
+              onSprintChange={onSprintChange}
+              onTimeChange={onTimeChange}
+              row={row}
+              sprintOptions={report.sprintOptions}
+            />
+          ))}
+        </tbody>
+        <PlanningSprintTotalsRow sprint={sprint} />
+      </table>
     </section>
   );
 }
@@ -807,6 +824,7 @@ export function PlanningPage({
   if (isLoading && !data) {
     return (
       <div className="panel panel--route">
+        <RouteLoadingIndicator isVisible />
         <PlanningHeader isRefreshing={false} onRefresh={refresh} />
         <ResourceState
           isLoading
@@ -836,6 +854,7 @@ export function PlanningPage({
 
   return (
     <div className="panel panel--route">
+      <RouteLoadingIndicator isVisible={isLoading || isRefreshing} />
       <PlanningHeader isRefreshing={isRefreshing} onRefresh={refresh} />
       {error ? (
         <ResourceState
@@ -857,7 +876,7 @@ export function PlanningPage({
         />
       ) : null}
       <PlanningReportView
-        isSavingTask={(taskId) => isRefreshing || savingTaskIds.has(taskId)}
+        isSavingTask={(taskId) => savingTaskIds.has(taskId)}
         onRefreshRow={handleRowRefresh}
         onSprintChange={handleSprintChange}
         onTimeChange={handleTimeChange}
