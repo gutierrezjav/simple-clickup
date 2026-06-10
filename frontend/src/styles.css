@@ -554,9 +554,33 @@ input {
 }
 
 .planning-table__time-input {
-  width: 58px;
+  width: 100%;
   padding: 2px 5px;
   text-align: right;
+}
+
+.planning-table__time-display {
+  width: 100%;
+  min-height: 24px;
+  padding: 2px 5px;
+  border: 0;
+  background: transparent;
+  color: var(--text-strong);
+  cursor: text;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.planning-table__time-cell {
+  width: 88px;
+  min-width: 88px;
+  max-width: 88px;
+}
+
+.planning-table__time-display:hover,
+.planning-table__time-display:focus-visible {
+  color: var(--accent);
 }
 
 .planning-table__refresh-cell {
@@ -611,9 +635,20 @@ input {
   opacity: 0.72;
 }
 
+.planning-table__time-display:disabled {
+  color: var(--text-soft);
+  cursor: progress;
+  opacity: 0.72;
+}
+
 .planning-table__sprint-select:focus,
 .planning-table__time-input:focus {
   border-color: var(--accent);
+  outline: 2px solid rgba(59, 130, 246, 0.18);
+  outline-offset: 1px;
+}
+
+.planning-table__time-display:focus-visible {
   outline: 2px solid rgba(59, 130, 246, 0.18);
   outline-offset: 1px;
 }
@@ -629,6 +664,11 @@ input {
 .planning-table td.planning-table__number,
 .planning-table tfoot td.planning-table__number {
   font-weight: 400;
+  text-align: right;
+}
+
+.planning-table tfoot td.planning-table__number {
+  font-weight: 700;
 }
 
 .planning-table__number[data-tone="negative"] {

@@ -374,27 +374,54 @@ function PlanningTimeInput({
   value: number;
 }) {
   const [draftValue, setDraftValue] = useState(String(value));
+  const [isEditing, setIsEditing] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const skipNextBlurSaveRef = useRef(false);
 
   useEffect(() => {
     setDraftValue(String(value));
   }, [value]);
 
+  useEffect(() => {
+    if (isEditing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [isEditing]);
+
   const saveDraftValue = async () => {
     if (skipNextBlurSaveRef.current) {
       skipNextBlurSaveRef.current = false;
       setDraftValue(String(value));
+      setIsEditing(false);
       return;
     }
 
     const nextValue = parseEditableHours(draftValue);
     if (nextValue === undefined || nextValue === value) {
       setDraftValue(String(value));
+      setIsEditing(false);
       return;
     }
 
     await onSave(nextValue);
+    setIsEditing(false);
   };
+
+  if (!isEditing) {
+    return (
+      <button
+        className="planning-table__time-display"
+        disabled={disabled}
+        onClick={() => {
+          setIsEditing(true);
+        }}
+        type="button"
+      >
+        {formatPlanningTime(value)}
+      </button>
+    );
+  }
 
   return (
     <input
@@ -417,6 +444,7 @@ function PlanningTimeInput({
           event.currentTarget.blur();
         }
       }}
+      ref={inputRef}
       step="0.25"
       type="number"
       value={draftValue}
@@ -512,21 +540,21 @@ function PlanningRow({
       <td className="planning-table__field-cell">
         <PlanningColoredPill color={row.budgetColor} value={row.budget} />
       </td>
-      <td>
+      <td className="planning-table__number planning-table__time-cell">
         <PlanningTimeInput
           disabled={isSaving}
           onSave={(estimateHours) => onTimeChange(row, { estimateHours })}
           value={row.estimateHours}
         />
       </td>
-      <td className="planning-table__number">
+      <td className="planning-table__number planning-table__time-cell">
         <PlanningTimeInput
           disabled={isSaving}
           onSave={(trackedHours) => onTimeChange(row, { trackedHours })}
           value={row.trackedHours}
         />
       </td>
-      <td className="planning-table__number" data-tone={remainingTone}>
+      <td className="planning-table__number planning-table__time-cell" data-tone={remainingTone}>
         {formatPlanningRemainingTime(row.remainingHours)}
       </td>
       <td>
@@ -570,9 +598,9 @@ function PlanningSprintTotalsRow({ sprint }: { sprint: SprintPlanningSprintSumma
         <th className="planning-table__totals-label" colSpan={8} scope="row">
           Total
         </th>
-        <td className="planning-table__number">{totals.estimate}</td>
-        <td className="planning-table__number">{totals.tracked}</td>
-        <td className="planning-table__number" data-tone={totals.remaining.tone}>
+        <td className="planning-table__number planning-table__time-cell">{totals.estimate}</td>
+        <td className="planning-table__number planning-table__time-cell">{totals.tracked}</td>
+        <td className="planning-table__number planning-table__time-cell" data-tone={totals.remaining.tone}>
           {totals.remaining.value}
         </td>
         <td />
@@ -618,9 +646,9 @@ function PlanningSprintSection({
             <th>Assignee</th>
             <th className="planning-table__field-cell">Status</th>
             <th className="planning-table__field-cell">Budget</th>
-            <th>Estimate</th>
-            <th>Tracked</th>
-            <th>Remaining</th>
+            <th className="planning-table__number planning-table__time-cell">Estimate</th>
+            <th className="planning-table__number planning-table__time-cell">Tracked</th>
+            <th className="planning-table__number planning-table__time-cell">Remaining</th>
             <th>Sprint</th>
             <th aria-label="Refresh task" />
           </tr>
