@@ -486,15 +486,20 @@ input {
 }
 
 .planning-table__sprint-select {
-  max-width: 150px;
-  min-width: 76px;
-  padding: 2px 22px 2px 8px;
+  width: 88px;
+  padding: 2px 18px 2px 9px;
   background-color: var(--panel-muted);
   font-weight: 800;
   line-height: 1.1;
-  text-align: center;
+  text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.planning-table__sprint-select option {
+  background: #ffffff;
+  color: var(--text-strong);
+  font-weight: 400;
 }
 
 .planning-table__time-input {
