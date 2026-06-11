@@ -1391,7 +1391,7 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
         const [metadata, listCustomFields, task] = await Promise.all([
           loadTaskMetadata(),
           loadListCustomFields(),
-          client.getTask(taskId)
+          client.getTask(taskId, { subtasks: true })
         ]);
         const report = buildSprintPlanningReport(
           [task],
@@ -1434,8 +1434,39 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
         throw new ClickUpServiceError("Estimate must be a positive number of hours.", 400);
       }
 
+      const [metadata, listCustomFields, task] = await Promise.all([
+        loadTaskMetadata(),
+        loadListCustomFields(),
+        client.getTask(taskId, { subtasks: true })
+      ]);
+      const report = buildSprintPlanningReport(
+        [task],
+        metadata.value.taskTypeMap,
+        {
+          dayHours: defaultSprintPlanningDayHours,
+          listCustomFields: listCustomFields.value,
+          viewId: config.planningViewId
+        }
+      );
+      const row = report.rows[0];
+
+      if (!row) {
+        throw new ClickUpServiceError("Planning task could not be converted to a row.", 502);
+      }
+
+      const parentEstimateHours = toHours(parseMilliseconds(task.time_estimate));
+      const rolledChildEstimateHours = Math.max(0, row.estimateHours - parentEstimateHours);
+      const nextParentEstimateHours = estimateHours - rolledChildEstimateHours;
+
+      if (nextParentEstimateHours < 0) {
+        throw new ClickUpServiceError(
+          "Estimate cannot be lower than rolled subtask estimates.",
+          400
+        );
+      }
+
       await client.updateTask(taskId, {
-        time_estimate: Math.round(estimateHours * hourMs)
+        time_estimate: Math.round(nextParentEstimateHours * hourMs)
       });
     }
 

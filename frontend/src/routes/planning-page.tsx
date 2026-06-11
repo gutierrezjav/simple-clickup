@@ -791,7 +791,9 @@ export function PlanningPage({
         ...update
       });
     } catch (nextError) {
-      setEditableReport(previousReport);
+      setEditableReport((currentReport) =>
+        updatePlanningReportRow(currentReport ?? previousReport, row.taskId, () => row)
+      );
       setSaveError(
         nextError instanceof Error ? nextError : new Error("Planning time update failed.")
       );
@@ -832,7 +834,9 @@ export function PlanningPage({
         sprintLabel === unassignedSprintLabel ? null : sprintLabel
       );
     } catch (nextError) {
-      setEditableReport(previousReport);
+      setEditableReport((currentReport) =>
+        updatePlanningReportRow(currentReport ?? previousReport, row.taskId, () => row)
+      );
       setSaveError(
         nextError instanceof Error ? nextError : new Error("Sprint update failed.")
       );
