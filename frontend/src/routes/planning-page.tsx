@@ -149,6 +149,25 @@ function updatePlanningReportRow(
   );
 }
 
+export function createOptimisticPlanningTimeRow(
+  row: SprintPlanningRow,
+  dayHours: number,
+  update: { estimateHours?: number; trackedHours?: number }
+): SprintPlanningRow {
+  const estimateHours = update.estimateHours ?? row.estimateHours;
+  const trackedHours = update.trackedHours ?? row.trackedHours;
+  const remainingHours = estimateHours - trackedHours;
+
+  return {
+    ...row,
+    estimateHours,
+    trackedHours,
+    remainingHours,
+    remainingDays: remainingHours / dayHours,
+    missingEstimate: estimateHours === 0
+  };
+}
+
 function replacePlanningReportRow(
   report: SprintPlanningReport,
   nextRow: SprintPlanningRow
@@ -768,21 +787,12 @@ export function PlanningPage({
       return;
     }
 
-    const nextEstimateHours = update.estimateHours ?? row.estimateHours;
-    const nextTrackedHours = update.trackedHours ?? row.trackedHours;
-    const nextRemainingHours = Math.max(0, nextEstimateHours - nextTrackedHours);
-
     setSaveError(null);
     setTaskSaving(row.taskId, true);
     setEditableReport(
-      updatePlanningReportRow(previousReport, row.taskId, (currentRow) => ({
-        ...currentRow,
-        estimateHours: nextEstimateHours,
-        trackedHours: nextTrackedHours,
-        remainingHours: nextRemainingHours,
-        remainingDays: nextRemainingHours / previousReport.dayHours,
-        missingEstimate: nextEstimateHours === 0
-      }))
+      updatePlanningReportRow(previousReport, row.taskId, (currentRow) =>
+        createOptimisticPlanningTimeRow(currentRow, previousReport.dayHours, update)
+      )
     );
 
     try {

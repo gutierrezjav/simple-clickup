@@ -1428,10 +1428,10 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
       throw new ClickUpServiceError("No planning time changes were provided.", 400);
     }
 
-    if (hasEstimateUpdate) {
-      const estimateHours = update.estimateHours;
-      if (estimateHours === undefined || !Number.isFinite(estimateHours) || estimateHours < 0) {
-        throw new ClickUpServiceError("Estimate must be a positive number of hours.", 400);
+    let currentPlanningTask: { row: SprintPlanningRow; task: ClickUpTaskPayload } | undefined;
+    const loadCurrentPlanningTask = async (): Promise<{ row: SprintPlanningRow; task: ClickUpTaskPayload }> => {
+      if (currentPlanningTask) {
+        return currentPlanningTask;
       }
 
       const [metadata, listCustomFields, task] = await Promise.all([
@@ -1453,6 +1453,18 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
       if (!row) {
         throw new ClickUpServiceError("Planning task could not be converted to a row.", 502);
       }
+
+      currentPlanningTask = { row, task };
+      return currentPlanningTask;
+    };
+
+    if (hasEstimateUpdate) {
+      const estimateHours = update.estimateHours;
+      if (estimateHours === undefined || !Number.isFinite(estimateHours) || estimateHours < 0) {
+        throw new ClickUpServiceError("Estimate must be a positive number of hours.", 400);
+      }
+
+      const { row, task } = await loadCurrentPlanningTask();
 
       const parentEstimateHours = toHours(parseMilliseconds(task.time_estimate));
       const rolledChildEstimateHours = Math.max(0, row.estimateHours - parentEstimateHours);
@@ -1476,12 +1488,8 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
         throw new ClickUpServiceError("Tracked time must be a positive number of hours.", 400);
       }
 
-      const currentTrackedHours = update.currentTrackedHours ?? 0;
-      if (!Number.isFinite(currentTrackedHours) || currentTrackedHours < 0) {
-        throw new ClickUpServiceError("Current tracked time must be a positive number of hours.", 400);
-      }
-
-      const trackedDeltaHours = trackedHours - currentTrackedHours;
+      const { row } = await loadCurrentPlanningTask();
+      const trackedDeltaHours = trackedHours - row.trackedHours;
       if (trackedDeltaHours < 0) {
         throw new ClickUpServiceError(
           "Tracked time can only be increased from the planning view.",
