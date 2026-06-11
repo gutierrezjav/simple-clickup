@@ -267,10 +267,14 @@ input {
 }
 
 .planning-layout {
+  --planning-table-min-width: 1320px;
   display: grid;
   gap: 18px;
-  overflow-x: auto;
   padding-bottom: 6px;
+}
+
+.panel--planning {
+  min-width: calc(var(--planning-table-min-width, 1320px) + 44px);
 }
 
 .route-loading-indicator {
@@ -321,7 +325,8 @@ input {
 .planning-sprint-list {
   display: grid;
   gap: 22px;
-  min-width: max-content;
+  width: 100%;
+  min-width: 0;
 }
 
 .planning-sprint {
@@ -378,7 +383,8 @@ input {
 
 .planning-table {
   width: 100%;
-  min-width: clamp(940px, 82vw, 1120px);
+  min-width: var(--planning-table-min-width);
+  table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
   overflow: hidden;
@@ -412,6 +418,110 @@ input {
   border-bottom: 0;
 }
 
+.planning-table__task-type-column {
+  width: clamp(76px, 5.6vw, 104px);
+}
+
+.planning-table__task-id-column {
+  width: 74px;
+}
+
+.planning-table__prio-column {
+  width: 46px;
+}
+
+.planning-table__field-column {
+  width: 126px;
+}
+
+.planning-table__assignee-column {
+  width: 110px;
+}
+
+.planning-table__time-column {
+  width: 78px;
+}
+
+.planning-table__sprint-column {
+  width: 90px;
+}
+
+.planning-table__refresh-column {
+  width: 44px;
+}
+
+@media (min-width: 1700px) {
+  .planning-table__task-id-column {
+    width: 86px;
+  }
+
+  .planning-table__prio-column {
+    width: 58px;
+  }
+
+  .planning-table__field-column {
+    width: 142px;
+  }
+
+  .planning-table__assignee-column {
+    width: 128px;
+  }
+
+  .planning-table__time-column {
+    width: 88px;
+  }
+
+  .planning-table__refresh-column {
+    width: 56px;
+  }
+
+  .planning-table th.planning-table__prio-cell,
+  .planning-table td.planning-table__prio-cell,
+  .planning-table th.planning-table__remaining-cell,
+  .planning-table td.planning-table__remaining-cell {
+    padding-right: 18px;
+  }
+}
+
+@media (min-width: 2200px) {
+  .planning-table__task-id-column {
+    width: 96px;
+  }
+
+  .planning-table__prio-column {
+    width: 66px;
+  }
+
+  .planning-table__field-column {
+    width: 158px;
+  }
+
+  .planning-table__assignee-column {
+    width: 146px;
+  }
+
+  .planning-table__time-column {
+    width: 98px;
+  }
+
+  .planning-table__refresh-column {
+    width: 64px;
+  }
+
+  .planning-table th.planning-table__prio-cell,
+  .planning-table td.planning-table__prio-cell,
+  .planning-table th.planning-table__remaining-cell,
+  .planning-table td.planning-table__remaining-cell {
+    padding-right: 24px;
+  }
+}
+
+@media (min-width: 1500px) {
+  .planning-table__sprint-column {
+    width: clamp(90px, calc(42vw - 540px), 174px);
+  }
+}
+
 .planning-table tfoot th,
 .planning-table tfoot td {
   border-top: 1px solid rgba(195, 209, 228, 0.95);
@@ -433,8 +543,7 @@ input {
 }
 
 .planning-table__task-cell {
-  width: clamp(280px, 31vw, 520px);
-  min-width: clamp(240px, 24vw, 320px);
+  min-width: 0;
 }
 
 .planning-table td.planning-table__task-type-cell {
@@ -452,8 +561,6 @@ input {
 }
 
 .planning-table__task-id {
-  width: clamp(68px, 5.5vw, 90px);
-  max-width: clamp(68px, 5.5vw, 100px);
   color: var(--accent);
   white-space: nowrap;
 }
@@ -475,7 +582,7 @@ input {
 }
 
 .planning-table__title {
-  max-width: clamp(280px, 31vw, 520px);
+  min-width: 0;
 }
 
 .planning-table__title .task-link {
@@ -502,8 +609,6 @@ input {
 
 .planning-table__field-cell {
   width: 126px;
-  min-width: 126px;
-  max-width: 126px;
 }
 
 .planning-table__field-pill {
@@ -537,7 +642,7 @@ input {
 }
 
 .planning-table__sprint-select {
-  width: 82px;
+  width: 100%;
   padding: 2px 18px 2px 2px;
   background-color: var(--panel-muted);
   font-weight: 800;
@@ -574,8 +679,6 @@ input {
 
 .planning-table__time-cell {
   width: 88px;
-  min-width: 88px;
-  max-width: 88px;
 }
 
 .planning-table__time-display:hover,
@@ -583,9 +686,17 @@ input {
   color: var(--accent);
 }
 
-.planning-table__refresh-cell {
-  width: 32px;
-  text-align: center;
+.planning-table td.planning-table__refresh-cell {
+  width: 44px;
+  padding-right: 12px;
+  text-align: right;
+}
+
+@media (min-width: 1700px) {
+  .planning-table td.planning-table__refresh-cell {
+    width: 56px;
+    padding-right: 18px;
+  }
 }
 
 .planning-table__refresh-button {
@@ -661,6 +772,7 @@ input {
   white-space: nowrap;
 }
 
+.planning-table th.planning-table__number,
 .planning-table td.planning-table__number,
 .planning-table tfoot td.planning-table__number {
   font-weight: 400;

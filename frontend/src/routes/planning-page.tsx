@@ -527,7 +527,7 @@ function PlanningRow({
           <TaskTitleLink taskId={row.taskId} title={row.title} />
         </div>
       </td>
-      <td className="planning-table__number">{row.prioScore ?? "-"}</td>
+      <td className="planning-table__number planning-table__prio-cell">{row.prioScore ?? "-"}</td>
       <td className="planning-table__field-cell">
         <PlanningColoredPill color={row.epicColor} value={row.epic} />
       </td>
@@ -554,7 +554,7 @@ function PlanningRow({
           value={row.trackedHours}
         />
       </td>
-      <td className="planning-table__number planning-table__time-cell" data-tone={remainingTone}>
+      <td className="planning-table__number planning-table__time-cell planning-table__remaining-cell" data-tone={remainingTone}>
         {formatPlanningRemainingTime(row.remainingHours)}
       </td>
       <td>
@@ -600,7 +600,7 @@ function PlanningSprintTotalsRow({ sprint }: { sprint: SprintPlanningSprintSumma
         </th>
         <td className="planning-table__number planning-table__time-cell">{totals.estimate}</td>
         <td className="planning-table__number planning-table__time-cell">{totals.tracked}</td>
-        <td className="planning-table__number planning-table__time-cell" data-tone={totals.remaining.tone}>
+        <td className="planning-table__number planning-table__time-cell planning-table__remaining-cell" data-tone={totals.remaining.tone}>
           {totals.remaining.value}
         </td>
         <td />
@@ -636,19 +636,34 @@ function PlanningSprintSection({
         <PlanningSprintSummary sprint={sprint} />
       </div>
       <table className="planning-table">
+        <colgroup>
+          <col className="planning-table__task-type-column" />
+          <col className="planning-table__task-id-column" />
+          <col className="planning-table__title-column" />
+          <col className="planning-table__prio-column" />
+          <col className="planning-table__field-column" />
+          <col className="planning-table__assignee-column" />
+          <col className="planning-table__field-column" />
+          <col className="planning-table__field-column" />
+          <col className="planning-table__time-column" />
+          <col className="planning-table__time-column" />
+          <col className="planning-table__time-column" />
+          <col className="planning-table__sprint-column" />
+          <col className="planning-table__refresh-column" />
+        </colgroup>
         <thead>
           <tr>
             <th>Task Type</th>
             <th>Task ID</th>
             <th>Name</th>
-            <th>Prio score</th>
+            <th className="planning-table__number planning-table__prio-cell">Prio</th>
             <th className="planning-table__field-cell">Epic</th>
             <th>Assignee</th>
             <th className="planning-table__field-cell">Status</th>
             <th className="planning-table__field-cell">Budget</th>
             <th className="planning-table__number planning-table__time-cell">Estimate</th>
             <th className="planning-table__number planning-table__time-cell">Tracked</th>
-            <th className="planning-table__number planning-table__time-cell">Remaining</th>
+            <th className="planning-table__number planning-table__time-cell planning-table__remaining-cell">Remaining</th>
             <th>Sprint</th>
             <th aria-label="Refresh task" />
           </tr>
@@ -881,7 +896,7 @@ export function PlanningPage({
   }
 
   return (
-    <div className="panel panel--route">
+    <div className="panel panel--route panel--planning">
       <RouteLoadingIndicator isVisible={isLoading || isRefreshing} />
       <PlanningHeader isRefreshing={isRefreshing} onRefresh={refresh} />
       {error ? (
