@@ -86,6 +86,11 @@ export interface SprintPlanningSprintSummary extends SprintPlanningTotals {
   weekNumber?: number;
 }
 
+export interface SprintPlanningSprintOption {
+  color?: string;
+  label: string;
+}
+
 export interface SprintPlanningAssignee {
   name: string;
   avatarUrl?: string;
@@ -121,6 +126,7 @@ export interface SprintPlanningReport {
   dayHours: number;
   totals: SprintPlanningTotals;
   sprints: SprintPlanningSprintSummary[];
+  sprintOptions: SprintPlanningSprintOption[];
   rows: SprintPlanningRow[];
 }
 

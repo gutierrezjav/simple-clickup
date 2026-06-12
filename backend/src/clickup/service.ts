@@ -5,6 +5,7 @@ import {
   type DailyRow,
   type SprintPlanningReport,
   type SprintPlanningRow,
+  type SprintPlanningSprintOption,
   type SprintPlanningSprintSummary,
   type SprintPlanningTotals,
   type StoryProgressStatus,
@@ -55,9 +56,16 @@ export interface SprintPlanningReportMetadata {
   viewId: string;
 }
 
+export interface SprintPlanningTimeUpdate {
+  currentTrackedHours?: number;
+  estimateHours?: number;
+  trackedHours?: number;
+}
+
 type TaskKind = "story" | "standalone-task" | "standalone-bug" | "subtask";
-type ReadTarget = "daily" | "story-status-discrepancies" | "planning";
+type ReadTarget = "daily" | "story-status-discrepancies" | "planning" | "planning-task";
 const defaultSprintPlanningDayHours = 8;
+const hourMs = 60 * 60 * 1000;
 const unassignedSprintLabel = "Unassigned Sprint";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -786,6 +794,42 @@ function resolveSprintDisplayValue(
   return getPlanningDropdownFieldDisplayValue(task, listCustomFields, "Sprint");
 }
 
+function getSprintCustomField(
+  listCustomFields: ClickUpCustomFieldPayload[]
+): ClickUpCustomFieldPayload | undefined {
+  return listCustomFields.find((field) => field.name === "Sprint");
+}
+
+function getSprintPlanningOptions(
+  listCustomFields: ClickUpCustomFieldPayload[]
+): SprintPlanningSprintOption[] {
+  return (getSprintCustomField(listCustomFields)?.type_config?.options ?? [])
+    .map((option) => {
+      const label = getDropdownOptionLabel(option);
+      const color = getDropdownOptionColor(option);
+
+      return label
+        ? {
+            label,
+            ...(color ? { color } : {})
+          }
+        : undefined;
+    })
+    .filter((option): option is SprintPlanningSprintOption => Boolean(option));
+}
+
+function resolveSprintOptionId(
+  listCustomFields: ClickUpCustomFieldPayload[],
+  sprintLabel: string
+): string | undefined {
+  const sprintField = getSprintCustomField(listCustomFields);
+  const option = sprintField?.type_config?.options?.find(
+    (candidate) => getDropdownOptionLabel(candidate) === sprintLabel
+  );
+
+  return option?.id === undefined || option.id === null ? undefined : String(option.id);
+}
+
 function resolveSprintLabel(
   task: ClickUpTaskPayload,
   listCustomFields: ClickUpCustomFieldPayload[]
@@ -1158,6 +1202,7 @@ export function buildSprintPlanningReport(
     dayHours: resolvedMetadata.dayHours,
     totals,
     sprints: buildSprintPlanningSprintSummaries(rows),
+    sprintOptions: getSprintPlanningOptions(resolvedMetadata.listCustomFields),
     rows
   };
 }
@@ -1165,11 +1210,11 @@ export function buildSprintPlanningReport(
 function createCachedLoader<T>(
   cacheTtlMs: number,
   load: () => Promise<T>
-): () => Promise<CachedLoadResult<T>> {
+): (() => Promise<CachedLoadResult<T>>) & { clear: () => void } {
   let cachedEntry: AsyncCacheEntry<T> | undefined;
   let inflight: Promise<T> | undefined;
 
-  return async (): Promise<CachedLoadResult<T>> => {
+  const loadCached = async (): Promise<CachedLoadResult<T>> => {
     const now = Date.now();
     if (cachedEntry && cachedEntry.expiresAt > now) {
       return {
@@ -1198,12 +1243,22 @@ function createCachedLoader<T>(
       inflight = undefined;
     }
   };
+
+  loadCached.clear = () => {
+    cachedEntry = undefined;
+    inflight = undefined;
+  };
+
+  return loadCached;
 }
 
 export interface ClickUpReadService {
   getDailyRows(): Promise<DailyRow[]>;
   getSprintPlanningReport(): Promise<SprintPlanningReport>;
+  getSprintPlanningTask(taskId: string): Promise<SprintPlanningRow>;
   getStoryStatusDiscrepancyReport(): Promise<StoryStatusDiscrepancyReport>;
+  updateSprintPlanningTaskSprint(taskId: string, sprintLabel: string | null): Promise<void>;
+  updateSprintPlanningTaskTime(taskId: string, update: SprintPlanningTimeUpdate): Promise<void>;
 }
 
 export function createClickUpReadService(config: ClickUpReadServiceConfig): ClickUpReadService {
@@ -1329,6 +1384,156 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
     }
   };
 
+  const getSprintPlanningTask = async (taskId: string): Promise<SprintPlanningRow> => {
+    return runLogicalRead(
+      "planning-task",
+      async () => {
+        const [metadata, listCustomFields, task] = await Promise.all([
+          loadTaskMetadata(),
+          loadListCustomFields(),
+          client.getTask(taskId, { subtasks: true })
+        ]);
+        const report = buildSprintPlanningReport(
+          [task],
+          metadata.value.taskTypeMap,
+          {
+            dayHours: defaultSprintPlanningDayHours,
+            listCustomFields: listCustomFields.value,
+            viewId: config.planningViewId
+          }
+        );
+        const row = report.rows[0];
+
+        if (!row) {
+          throw new ClickUpServiceError("Planning task could not be converted to a row.", 502);
+        }
+
+        return {
+          cacheHit: false,
+          value: row
+        };
+      },
+      () => 1
+    );
+  };
+
+  const updateSprintPlanningTaskTime = async (
+    taskId: string,
+    update: SprintPlanningTimeUpdate
+  ): Promise<void> => {
+    const hasEstimateUpdate = typeof update.estimateHours === "number";
+    const hasTrackedUpdate = typeof update.trackedHours === "number";
+
+    if (!hasEstimateUpdate && !hasTrackedUpdate) {
+      throw new ClickUpServiceError("No planning time changes were provided.", 400);
+    }
+
+    let currentPlanningTask: { row: SprintPlanningRow; task: ClickUpTaskPayload } | undefined;
+    const loadCurrentPlanningTask = async (): Promise<{ row: SprintPlanningRow; task: ClickUpTaskPayload }> => {
+      if (currentPlanningTask) {
+        return currentPlanningTask;
+      }
+
+      const [metadata, listCustomFields, task] = await Promise.all([
+        loadTaskMetadata(),
+        loadListCustomFields(),
+        client.getTask(taskId, { subtasks: true })
+      ]);
+      const report = buildSprintPlanningReport(
+        [task],
+        metadata.value.taskTypeMap,
+        {
+          dayHours: defaultSprintPlanningDayHours,
+          listCustomFields: listCustomFields.value,
+          viewId: config.planningViewId
+        }
+      );
+      const row = report.rows[0];
+
+      if (!row) {
+        throw new ClickUpServiceError("Planning task could not be converted to a row.", 502);
+      }
+
+      currentPlanningTask = { row, task };
+      return currentPlanningTask;
+    };
+
+    if (hasEstimateUpdate) {
+      const estimateHours = update.estimateHours;
+      if (estimateHours === undefined || !Number.isFinite(estimateHours) || estimateHours < 0) {
+        throw new ClickUpServiceError("Estimate must be a positive number of hours.", 400);
+      }
+
+      const { row, task } = await loadCurrentPlanningTask();
+
+      const parentEstimateHours = toHours(parseMilliseconds(task.time_estimate));
+      const rolledChildEstimateHours = Math.max(0, row.estimateHours - parentEstimateHours);
+      const nextParentEstimateHours = estimateHours - rolledChildEstimateHours;
+
+      if (nextParentEstimateHours < 0) {
+        throw new ClickUpServiceError(
+          "Estimate cannot be lower than rolled subtask estimates.",
+          400
+        );
+      }
+
+      await client.updateTask(taskId, {
+        time_estimate: Math.round(nextParentEstimateHours * hourMs)
+      });
+    }
+
+    if (hasTrackedUpdate) {
+      const trackedHours = update.trackedHours;
+      if (trackedHours === undefined || !Number.isFinite(trackedHours) || trackedHours < 0) {
+        throw new ClickUpServiceError("Tracked time must be a positive number of hours.", 400);
+      }
+
+      const { row } = await loadCurrentPlanningTask();
+      const trackedDeltaHours = trackedHours - row.trackedHours;
+      if (trackedDeltaHours < 0) {
+        throw new ClickUpServiceError(
+          "Tracked time can only be increased from the planning view.",
+          400
+        );
+      }
+
+      if (trackedDeltaHours > 0) {
+        await client.createTimeEntry(taskId, Math.round(trackedDeltaHours * hourMs));
+      }
+    }
+
+    loadSprintPlanning.clear();
+  };
+
+  const updateSprintPlanningTaskSprint = async (
+    taskId: string,
+    sprintLabel: string | null
+  ): Promise<void> => {
+    const listCustomFields = await loadListCustomFields();
+    const sprintField = getSprintCustomField(listCustomFields.value);
+
+    if (!sprintField?.id) {
+      throw new ClickUpServiceError("Sprint custom field is not available for this list.", 400);
+    }
+
+    if (sprintLabel === null || sprintLabel === unassignedSprintLabel) {
+      await client.removeCustomFieldValue(taskId, sprintField.id);
+      loadSprintPlanning.clear();
+      return;
+    }
+
+    const sprintOptionId = resolveSprintOptionId(listCustomFields.value, sprintLabel);
+    if (!sprintOptionId) {
+      throw new ClickUpServiceError(`Unknown sprint option: ${sprintLabel}.`, 400);
+    }
+
+    const sprintValue =
+      sprintField.type === "labels" ? [sprintOptionId] : sprintOptionId;
+
+    await client.setCustomFieldValue(taskId, sprintField.id, sprintValue);
+    loadSprintPlanning.clear();
+  };
+
   return {
     async getDailyRows() {
       return runLogicalRead("daily", loadDaily, (rows) => rows.length);
@@ -1340,12 +1545,15 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
         (report) => report.rows.length
       );
     },
+    getSprintPlanningTask,
     async getStoryStatusDiscrepancyReport() {
       return runLogicalRead(
         "story-status-discrepancies",
         loadStoryStatusDiscrepancies,
         (report) => report.discrepancyCount
       );
-    }
+    },
+    updateSprintPlanningTaskSprint,
+    updateSprintPlanningTaskTime
   };
 }

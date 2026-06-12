@@ -1,19 +1,30 @@
 import type {
   SprintPlanningReport,
   SprintPlanningRow,
+  SprintPlanningSprintOption,
   SprintPlanningSprintSummary
 } from "@custom-clickup/shared";
-import type { CSSProperties } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties
+} from "react";
 import { ResourceState } from "../components/resource-state";
+import { AssigneeAvatar } from "../components/assignee-avatar";
 import {
   TaskAssigneeInline,
   TaskTitleLink
 } from "../components/task/task-primitives";
+import { RouteLoadingIndicator } from "../components/route-loading-indicator";
 import {
   ClickUpApiError,
   fetchPlanningPageData,
+  fetchPlanningTask,
   formatClickUpRateLimitUsage,
   startClickUpOAuth,
+  updatePlanningTaskSprint,
+  updatePlanningTaskTime,
   type PlanningPageData
 } from "../lib/clickup-api";
 import {
@@ -26,6 +37,162 @@ import { useResourceLoader } from "../lib/use-resource-loader";
 
 export interface PlanningPageProps {
   loader?: () => Promise<PlanningPageData>;
+}
+
+const unassignedSprintLabel = "Unassigned Sprint";
+
+function parseSprintWeekNumber(label: string): number | undefined {
+  const match = /\bW(?:eek\s*)?(\d{1,2})\b/i.exec(label);
+  if (!match?.[1]) {
+    return undefined;
+  }
+
+  const weekNumber = Number(match[1]);
+  return Number.isInteger(weekNumber) && weekNumber >= 1 && weekNumber <= 53
+    ? weekNumber
+    : undefined;
+}
+
+function compareSprintLabels(
+  left: { label: string; weekNumber?: number },
+  right: { label: string; weekNumber?: number }
+): number {
+  const leftWeekNumber = left.weekNumber ?? Number.POSITIVE_INFINITY;
+  const rightWeekNumber = right.weekNumber ?? Number.POSITIVE_INFINITY;
+  const weekDelta = leftWeekNumber - rightWeekNumber;
+  if (weekDelta !== 0) {
+    return weekDelta;
+  }
+
+  return left.label.localeCompare(right.label);
+}
+
+function createEmptySprintSummary(
+  label: string,
+  sprintOptions: SprintPlanningSprintOption[]
+): SprintPlanningSprintSummary {
+  const option = sprintOptions.find((sprintOption) => sprintOption.label === label);
+  const weekNumber = parseSprintWeekNumber(label);
+
+  return {
+    label,
+    ...(option?.color ? { sprintColor: option.color } : {}),
+    ...(weekNumber !== undefined ? { weekNumber } : {}),
+    estimateHours: 0,
+    trackedHours: 0,
+    remainingDays: 0,
+    remainingHours: 0,
+    missingEstimateCount: 0,
+    rowCount: 0
+  };
+}
+
+function addRowToSprintSummary(
+  summary: SprintPlanningSprintSummary,
+  row: SprintPlanningRow
+): void {
+  summary.estimateHours += row.estimateHours;
+  summary.trackedHours += row.trackedHours;
+  summary.remainingHours += row.remainingHours;
+  summary.remainingDays += row.remainingDays;
+  summary.missingEstimateCount += row.missingEstimate ? 1 : 0;
+  summary.rowCount += 1;
+}
+
+function rebuildPlanningReport(
+  report: SprintPlanningReport,
+  rows: SprintPlanningRow[]
+): SprintPlanningReport {
+  const totals = {
+    estimateHours: 0,
+    trackedHours: 0,
+    remainingHours: 0,
+    remainingDays: 0,
+    missingEstimateCount: 0,
+    rowCount: 0
+  };
+  const summariesByLabel = new Map<string, SprintPlanningSprintSummary>();
+
+  for (const row of rows) {
+    totals.estimateHours += row.estimateHours;
+    totals.trackedHours += row.trackedHours;
+    totals.remainingHours += row.remainingHours;
+    totals.remainingDays += row.remainingDays;
+    totals.missingEstimateCount += row.missingEstimate ? 1 : 0;
+    totals.rowCount += 1;
+
+    const summary =
+      summariesByLabel.get(row.sprintLabel) ??
+      createEmptySprintSummary(row.sprintLabel, report.sprintOptions);
+    addRowToSprintSummary(summary, row);
+    summariesByLabel.set(row.sprintLabel, summary);
+  }
+
+  const sprints = [...summariesByLabel.values()].sort(compareSprintLabels);
+
+  return {
+    ...report,
+    totals,
+    sprints,
+    rows
+  };
+}
+
+function updatePlanningReportRow(
+  report: SprintPlanningReport,
+  taskId: string,
+  updateRow: (row: SprintPlanningRow) => SprintPlanningRow
+): SprintPlanningReport {
+  return rebuildPlanningReport(
+    report,
+    report.rows.map((row) => (row.taskId === taskId ? updateRow(row) : row))
+  );
+}
+
+export function createOptimisticPlanningTimeRow(
+  row: SprintPlanningRow,
+  dayHours: number,
+  update: { estimateHours?: number; trackedHours?: number }
+): SprintPlanningRow {
+  const estimateHours = update.estimateHours ?? row.estimateHours;
+  const trackedHours = update.trackedHours ?? row.trackedHours;
+  const remainingHours = estimateHours - trackedHours;
+
+  return {
+    ...row,
+    estimateHours,
+    trackedHours,
+    remainingHours,
+    remainingDays: remainingHours / dayHours,
+    missingEstimate: estimateHours === 0
+  };
+}
+
+function replacePlanningReportRow(
+  report: SprintPlanningReport,
+  nextRow: SprintPlanningRow
+): SprintPlanningReport {
+  let replacedRow = false;
+  const rows = report.rows.map((row) => {
+    if (row.taskId !== nextRow.taskId) {
+      return row;
+    }
+
+    replacedRow = true;
+    return nextRow;
+  });
+
+  return rebuildPlanningReport(report, replacedRow ? rows : [...rows, nextRow]);
+}
+
+function parseEditableHours(value: string): number | undefined {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return 0;
+  }
+
+  const parsedValue = Number(trimmedValue);
+  return Number.isFinite(parsedValue) && parsedValue >= 0 ? parsedValue : undefined;
 }
 
 function getPlanningErrorMessage(error: Error): string {
@@ -114,16 +281,29 @@ function PlanningAssignees({ assignees }: { assignees: SprintPlanningRow["assign
 
   return (
     <div className="planning-table__assignees">
-      {visibleAssignees.map((assignee, index) => (
-        <TaskAssigneeInline
-          assignee={assignee?.name}
-          avatarUrl={assignee?.avatarUrl}
-          className="planning-table__assignee"
-          compact
-          key={assignee?.name ?? `unassigned-${index}`}
-          nameClassName="planning-table__assignee-name"
-        />
-      ))}
+      {visibleAssignees.map((assignee, index) => {
+        const firstName = assignee?.name.trim().split(/\s+/)[0];
+
+        if (!firstName) {
+          return (
+            <span className="task-assignee task-assignee--compact planning-table__assignee" key={`unassigned-${index}`}>
+              <AssigneeAvatar assignee={undefined} avatarUrl={undefined} />
+              <span className="task-assignee__name planning-table__assignee-name">-</span>
+            </span>
+          );
+        }
+
+        return (
+          <TaskAssigneeInline
+            assignee={firstName}
+            avatarUrl={assignee?.avatarUrl}
+            className="planning-table__assignee"
+            compact
+            key={assignee?.name ?? `unassigned-${index}`}
+            nameClassName="planning-table__assignee-name"
+          />
+        );
+      })}
     </div>
   );
 }
@@ -203,7 +383,150 @@ function PlanningColoredPill({
   );
 }
 
-function PlanningRow({ row }: { row: SprintPlanningRow }) {
+function PlanningTimeInput({
+  disabled,
+  onSave,
+  value
+}: {
+  disabled: boolean;
+  onSave: (nextValue: number) => Promise<void>;
+  value: number;
+}) {
+  const [draftValue, setDraftValue] = useState(String(value));
+  const [isEditing, setIsEditing] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const skipNextBlurSaveRef = useRef(false);
+
+  useEffect(() => {
+    setDraftValue(String(value));
+  }, [value]);
+
+  useEffect(() => {
+    if (isEditing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [isEditing]);
+
+  const saveDraftValue = async () => {
+    if (skipNextBlurSaveRef.current) {
+      skipNextBlurSaveRef.current = false;
+      setDraftValue(String(value));
+      setIsEditing(false);
+      return;
+    }
+
+    const nextValue = parseEditableHours(draftValue);
+    if (nextValue === undefined || nextValue === value) {
+      setDraftValue(String(value));
+      setIsEditing(false);
+      return;
+    }
+
+    await onSave(nextValue);
+    setIsEditing(false);
+  };
+
+  if (!isEditing) {
+    return (
+      <button
+        className="planning-table__time-display"
+        disabled={disabled}
+        onClick={() => {
+          setIsEditing(true);
+        }}
+        type="button"
+      >
+        {formatPlanningTime(value)}
+      </button>
+    );
+  }
+
+  return (
+    <input
+      className="planning-table__time-input"
+      disabled={disabled}
+      inputMode="decimal"
+      min="0"
+      onBlur={() => {
+        void saveDraftValue();
+      }}
+      onChange={(event) => setDraftValue(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.currentTarget.blur();
+        }
+
+        if (event.key === "Escape") {
+          skipNextBlurSaveRef.current = true;
+          setDraftValue(String(value));
+          event.currentTarget.blur();
+        }
+      }}
+      ref={inputRef}
+      step="0.25"
+      type="number"
+      value={draftValue}
+    />
+  );
+}
+
+function PlanningSprintSelect({
+  color,
+  disabled,
+  onSave,
+  options,
+  value
+}: {
+  color: string | undefined;
+  disabled: boolean;
+  onSave: (nextValue: string) => Promise<void>;
+  options: SprintPlanningSprintOption[];
+  value: string;
+}) {
+  const hasCurrentValue =
+    value === unassignedSprintLabel ||
+    options.some((option) => option.label === value);
+
+  return (
+    <select
+      className="planning-table__sprint-select"
+      disabled={disabled}
+      onChange={(event) => {
+        void onSave(event.target.value);
+      }}
+      style={getClickUpOptionPillStyle(color)}
+      value={value}
+    >
+      <option value={unassignedSprintLabel}>-</option>
+      {hasCurrentValue ? null : <option value={value}>{value}</option>}
+      {options.map((option) => (
+        <option key={option.label} value={option.label}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function PlanningRow({
+  isSaving,
+  onRefreshRow,
+  onSprintChange,
+  onTimeChange,
+  row,
+  sprintOptions
+}: {
+  isSaving: boolean;
+  onRefreshRow: (row: SprintPlanningRow) => Promise<void>;
+  onSprintChange: (row: SprintPlanningRow, sprintLabel: string) => Promise<void>;
+  onTimeChange: (
+    row: SprintPlanningRow,
+    update: { estimateHours?: number; trackedHours?: number }
+  ) => Promise<void>;
+  row: SprintPlanningRow;
+  sprintOptions: SprintPlanningSprintOption[];
+}) {
   const remainingTone = getRemainingTimeTone(row.remainingHours);
 
   return (
@@ -223,19 +546,63 @@ function PlanningRow({ row }: { row: SprintPlanningRow }) {
           <TaskTitleLink taskId={row.taskId} title={row.title} />
         </div>
       </td>
-      <td className="planning-table__number">{row.prioScore ?? "-"}</td>
-      <td><PlanningColoredPill color={row.epicColor} value={row.epic} /></td>
+      <td className="planning-table__number planning-table__prio-cell">{row.prioScore ?? "-"}</td>
+      <td className="planning-table__field-cell">
+        <PlanningColoredPill color={row.epicColor} value={row.epic} />
+      </td>
       <td>
         <PlanningAssignees assignees={row.assignees} />
       </td>
-      <td>
+      <td className="planning-table__field-cell">
         <PlanningColoredPill color={row.statusColor} value={row.status} />
       </td>
-      <td><PlanningColoredPill color={row.budgetColor} value={row.budget} /></td>
-      <td className="planning-table__number">{formatPlanningTime(row.estimateHours)}</td>
-      <td className="planning-table__number">{formatPlanningTime(row.trackedHours)}</td>
-      <td className="planning-table__number" data-tone={remainingTone}>
+      <td className="planning-table__field-cell">
+        <PlanningColoredPill color={row.budgetColor} value={row.budget} />
+      </td>
+      <td className="planning-table__number planning-table__time-cell">
+        <PlanningTimeInput
+          disabled={isSaving}
+          onSave={(estimateHours) => onTimeChange(row, { estimateHours })}
+          value={row.estimateHours}
+        />
+      </td>
+      <td className="planning-table__number planning-table__time-cell">
+        <PlanningTimeInput
+          disabled={isSaving}
+          onSave={(trackedHours) => onTimeChange(row, { trackedHours })}
+          value={row.trackedHours}
+        />
+      </td>
+      <td className="planning-table__number planning-table__time-cell planning-table__remaining-cell" data-tone={remainingTone}>
         {formatPlanningRemainingTime(row.remainingHours)}
+      </td>
+      <td>
+        <PlanningSprintSelect
+          color={row.sprintColor}
+          disabled={isSaving}
+          onSave={(sprintLabel) => onSprintChange(row, sprintLabel)}
+          options={sprintOptions}
+          value={row.sprintLabel}
+        />
+      </td>
+      <td className="planning-table__refresh-cell">
+        <button
+          aria-label={`Refresh ${row.taskCustomId}`}
+          className="planning-table__refresh-button"
+          disabled={isSaving}
+          onClick={() => {
+            void onRefreshRow(row);
+          }}
+          title="Refresh task"
+          type="button"
+        >
+          <svg aria-hidden="true" viewBox="0 0 20 20">
+            <path d="M16.2 7.3a6.3 6.3 0 0 0-10.7-2.1L3.6 7" />
+            <path d="M3.6 3.2V7h3.8" />
+            <path d="M3.8 12.7a6.3 6.3 0 0 0 10.7 2.1l1.9-1.8" />
+            <path d="M16.4 16.8V13h-3.8" />
+          </svg>
+        </button>
       </td>
     </tr>
   );
@@ -250,20 +617,33 @@ function PlanningSprintTotalsRow({ sprint }: { sprint: SprintPlanningSprintSumma
         <th className="planning-table__totals-label" colSpan={8} scope="row">
           Total
         </th>
-        <td className="planning-table__number">{totals.estimate}</td>
-        <td className="planning-table__number">{totals.tracked}</td>
-        <td className="planning-table__number" data-tone={totals.remaining.tone}>
+        <td className="planning-table__number planning-table__time-cell">{totals.estimate}</td>
+        <td className="planning-table__number planning-table__time-cell">{totals.tracked}</td>
+        <td className="planning-table__number planning-table__time-cell planning-table__remaining-cell" data-tone={totals.remaining.tone}>
           {totals.remaining.value}
         </td>
+        <td />
+        <td />
       </tr>
     </tfoot>
   );
 }
 
 function PlanningSprintSection({
+  isSavingTask,
+  onRefreshRow,
+  onSprintChange,
+  onTimeChange,
   report,
   sprint
 }: {
+  isSavingTask: (taskId: string) => boolean;
+  onRefreshRow: (row: SprintPlanningRow) => Promise<void>;
+  onSprintChange: (row: SprintPlanningRow, sprintLabel: string) => Promise<void>;
+  onTimeChange: (
+    row: SprintPlanningRow,
+    update: { estimateHours?: number; trackedHours?: number }
+  ) => Promise<void>;
   report: SprintPlanningReport;
   sprint: SprintPlanningSprintSummary;
 }) {
@@ -274,36 +654,74 @@ function PlanningSprintSection({
       <div className="planning-sprint__header">
         <PlanningSprintSummary sprint={sprint} />
       </div>
-      <div className="table-scroll">
-        <table className="planning-table">
-          <thead>
-            <tr>
-              <th>Task Type</th>
-              <th>Task ID</th>
-              <th>Name</th>
-              <th>Prio score</th>
-              <th>Epic</th>
-              <th>Assignee</th>
-              <th>Status</th>
-              <th>Budget</th>
-              <th>Estimate</th>
-              <th>Tracked</th>
-              <th>Remaining</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <PlanningRow key={row.taskId} row={row} />
-            ))}
-          </tbody>
-          <PlanningSprintTotalsRow sprint={sprint} />
-        </table>
-      </div>
+      <table className="planning-table">
+        <colgroup>
+          <col className="planning-table__task-type-column" />
+          <col className="planning-table__task-id-column" />
+          <col className="planning-table__title-column" />
+          <col className="planning-table__prio-column" />
+          <col className="planning-table__field-column" />
+          <col className="planning-table__assignee-column" />
+          <col className="planning-table__field-column" />
+          <col className="planning-table__field-column" />
+          <col className="planning-table__time-column" />
+          <col className="planning-table__time-column" />
+          <col className="planning-table__time-column" />
+          <col className="planning-table__sprint-column" />
+          <col className="planning-table__refresh-column" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Task Type</th>
+            <th>Task ID</th>
+            <th>Name</th>
+            <th className="planning-table__number planning-table__prio-cell">Prio</th>
+            <th className="planning-table__field-cell">Epic</th>
+            <th>Assignee</th>
+            <th className="planning-table__field-cell">Status</th>
+            <th className="planning-table__field-cell">Budget</th>
+            <th className="planning-table__number planning-table__time-cell">Estimate</th>
+            <th className="planning-table__number planning-table__time-cell">Tracked</th>
+            <th className="planning-table__number planning-table__time-cell planning-table__remaining-cell">Remaining</th>
+            <th>Sprint</th>
+            <th aria-label="Refresh task" />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <PlanningRow
+              isSaving={isSavingTask(row.taskId)}
+              key={row.taskId}
+              onRefreshRow={onRefreshRow}
+              onSprintChange={onSprintChange}
+              onTimeChange={onTimeChange}
+              row={row}
+              sprintOptions={report.sprintOptions}
+            />
+          ))}
+        </tbody>
+        <PlanningSprintTotalsRow sprint={sprint} />
+      </table>
     </section>
   );
 }
 
-function PlanningReportView({ report }: { report: SprintPlanningReport }) {
+function PlanningReportView({
+  isSavingTask,
+  onRefreshRow,
+  onSprintChange,
+  onTimeChange,
+  report
+}: {
+  isSavingTask: (taskId: string) => boolean;
+  onRefreshRow: (row: SprintPlanningRow) => Promise<void>;
+  onSprintChange: (row: SprintPlanningRow, sprintLabel: string) => Promise<void>;
+  onTimeChange: (
+    row: SprintPlanningRow,
+    update: { estimateHours?: number; trackedHours?: number }
+  ) => Promise<void>;
+  report: SprintPlanningReport;
+}) {
   if (report.rows.length === 0) {
     return (
       <ResourceState
@@ -317,7 +735,15 @@ function PlanningReportView({ report }: { report: SprintPlanningReport }) {
     <div className="planning-layout">
       <div className="planning-sprint-list">
         {report.sprints.map((sprint) => (
-          <PlanningSprintSection key={sprint.label} report={report} sprint={sprint} />
+          <PlanningSprintSection
+            isSavingTask={isSavingTask}
+            key={sprint.label}
+            onRefreshRow={onRefreshRow}
+            onSprintChange={onSprintChange}
+            onTimeChange={onTimeChange}
+            report={report}
+            sprint={sprint}
+          />
         ))}
       </div>
     </div>
@@ -328,11 +754,134 @@ export function PlanningPage({
   loader = fetchPlanningPageData
 }: PlanningPageProps) {
   const { data, error, isLoading, isRefreshing, refresh } = useResourceLoader(loader);
+  const [editableReport, setEditableReport] = useState<SprintPlanningReport | null>(null);
+  const [saveError, setSaveError] = useState<Error | null>(null);
+  const [savingTaskIds, setSavingTaskIds] = useState<Set<string>>(() => new Set());
   const handleConnect = () => startClickUpOAuth("/planning");
+
+  useEffect(() => {
+    if (data?.report) {
+      setEditableReport(data.report);
+    }
+  }, [data]);
+
+  const setTaskSaving = (taskId: string, isSaving: boolean) => {
+    setSavingTaskIds((currentTaskIds) => {
+      const nextTaskIds = new Set(currentTaskIds);
+      if (isSaving) {
+        nextTaskIds.add(taskId);
+      } else {
+        nextTaskIds.delete(taskId);
+      }
+
+      return nextTaskIds;
+    });
+  };
+
+  const handleTimeChange = async (
+    row: SprintPlanningRow,
+    update: { estimateHours?: number; trackedHours?: number }
+  ) => {
+    const previousReport = editableReport;
+    if (!previousReport) {
+      return;
+    }
+
+    setSaveError(null);
+    setTaskSaving(row.taskId, true);
+    setEditableReport(
+      updatePlanningReportRow(previousReport, row.taskId, (currentRow) =>
+        createOptimisticPlanningTimeRow(currentRow, previousReport.dayHours, update)
+      )
+    );
+
+    try {
+      await updatePlanningTaskTime(row.taskId, {
+        currentTrackedHours: row.trackedHours,
+        ...update
+      });
+    } catch (nextError) {
+      setEditableReport((currentReport) =>
+        updatePlanningReportRow(currentReport ?? previousReport, row.taskId, () => row)
+      );
+      setSaveError(
+        nextError instanceof Error ? nextError : new Error("Planning time update failed.")
+      );
+    } finally {
+      setTaskSaving(row.taskId, false);
+    }
+  };
+
+  const handleSprintChange = async (row: SprintPlanningRow, sprintLabel: string) => {
+    const previousReport = editableReport;
+    if (!previousReport || sprintLabel === row.sprintLabel) {
+      return;
+    }
+
+    const sprintOption = previousReport.sprintOptions.find((option) => option.label === sprintLabel);
+    setSaveError(null);
+    setTaskSaving(row.taskId, true);
+    setEditableReport(
+      updatePlanningReportRow(previousReport, row.taskId, (currentRow) => {
+        const nextRow: SprintPlanningRow = {
+          ...currentRow,
+          sprintLabel
+        };
+
+        if (sprintOption?.color) {
+          nextRow.sprintColor = sprintOption.color;
+        } else {
+          delete nextRow.sprintColor;
+        }
+
+        return nextRow;
+      })
+    );
+
+    try {
+      await updatePlanningTaskSprint(
+        row.taskId,
+        sprintLabel === unassignedSprintLabel ? null : sprintLabel
+      );
+    } catch (nextError) {
+      setEditableReport((currentReport) =>
+        updatePlanningReportRow(currentReport ?? previousReport, row.taskId, () => row)
+      );
+      setSaveError(
+        nextError instanceof Error ? nextError : new Error("Sprint update failed.")
+      );
+    } finally {
+      setTaskSaving(row.taskId, false);
+    }
+  };
+
+  const handleRowRefresh = async (row: SprintPlanningRow) => {
+    const previousReport = editableReport;
+    if (!previousReport) {
+      return;
+    }
+
+    setSaveError(null);
+    setTaskSaving(row.taskId, true);
+
+    try {
+      const nextData = await fetchPlanningTask(row.taskId);
+      setEditableReport((currentReport) =>
+        replacePlanningReportRow(currentReport ?? previousReport, nextData.row)
+      );
+    } catch (nextError) {
+      setSaveError(
+        nextError instanceof Error ? nextError : new Error("Task refresh failed.")
+      );
+    } finally {
+      setTaskSaving(row.taskId, false);
+    }
+  };
 
   if (isLoading && !data) {
     return (
       <div className="panel panel--route">
+        <RouteLoadingIndicator isVisible />
         <PlanningHeader isRefreshing={false} onRefresh={refresh} />
         <ResourceState
           isLoading
@@ -361,7 +910,8 @@ export function PlanningPage({
   }
 
   return (
-    <div className="panel panel--route">
+    <div className="panel panel--route panel--planning">
+      <RouteLoadingIndicator isVisible={isLoading || isRefreshing} />
       <PlanningHeader isRefreshing={isRefreshing} onRefresh={refresh} />
       {error ? (
         <ResourceState
@@ -373,7 +923,22 @@ export function PlanningPage({
           tone={error instanceof ClickUpApiError && error.status === 429 ? "warning" : "error"}
         />
       ) : null}
-      <PlanningReportView report={data.report} />
+      {saveError ? (
+        <ResourceState
+          actionLabel="Dismiss"
+          message={getPlanningErrorMessage(saveError)}
+          onAction={() => setSaveError(null)}
+          title="Planning Update Failed"
+          tone="error"
+        />
+      ) : null}
+      <PlanningReportView
+        isSavingTask={(taskId) => savingTaskIds.has(taskId)}
+        onRefreshRow={handleRowRefresh}
+        onSprintChange={handleSprintChange}
+        onTimeChange={handleTimeChange}
+        report={editableReport ?? data.report}
+      />
     </div>
   );
 }

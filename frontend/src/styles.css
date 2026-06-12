@@ -267,8 +267,52 @@ input {
 }
 
 .planning-layout {
+  --planning-table-min-width: 1320px;
   display: grid;
   gap: 18px;
+  padding-bottom: 6px;
+}
+
+.panel--planning {
+  min-width: calc(var(--planning-table-min-width, 1320px) + 44px);
+}
+
+.route-loading-indicator {
+  position: fixed;
+  z-index: 20;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  overflow: hidden;
+  background: #ffffff;
+  pointer-events: none;
+}
+
+.route-loading-indicator::before {
+  display: block;
+  width: 52%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    rgba(0, 132, 158, 0),
+    rgba(0, 132, 158, 1) 22%,
+    rgba(0, 170, 204, 1) 50%,
+    rgba(0, 132, 158, 1) 78%,
+    rgba(0, 132, 158, 0)
+  );
+  animation: route-loading-indicator 1.2s ease-in-out infinite;
+  content: "";
+}
+
+@keyframes route-loading-indicator {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(240%);
+  }
 }
 
 .planning-table th {
@@ -281,6 +325,8 @@ input {
 .planning-sprint-list {
   display: grid;
   gap: 22px;
+  width: 100%;
+  min-width: 0;
 }
 
 .planning-sprint {
@@ -337,7 +383,8 @@ input {
 
 .planning-table {
   width: 100%;
-  min-width: clamp(940px, 82vw, 1120px);
+  min-width: var(--planning-table-min-width);
+  table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
   overflow: hidden;
@@ -371,6 +418,110 @@ input {
   border-bottom: 0;
 }
 
+.planning-table__task-type-column {
+  width: clamp(76px, 5.6vw, 104px);
+}
+
+.planning-table__task-id-column {
+  width: 74px;
+}
+
+.planning-table__prio-column {
+  width: 46px;
+}
+
+.planning-table__field-column {
+  width: 126px;
+}
+
+.planning-table__assignee-column {
+  width: 110px;
+}
+
+.planning-table__time-column {
+  width: 78px;
+}
+
+.planning-table__sprint-column {
+  width: 90px;
+}
+
+.planning-table__refresh-column {
+  width: 44px;
+}
+
+@media (min-width: 1700px) {
+  .planning-table__task-id-column {
+    width: 86px;
+  }
+
+  .planning-table__prio-column {
+    width: 58px;
+  }
+
+  .planning-table__field-column {
+    width: 142px;
+  }
+
+  .planning-table__assignee-column {
+    width: 128px;
+  }
+
+  .planning-table__time-column {
+    width: 88px;
+  }
+
+  .planning-table__refresh-column {
+    width: 56px;
+  }
+
+  .planning-table th.planning-table__prio-cell,
+  .planning-table td.planning-table__prio-cell,
+  .planning-table th.planning-table__remaining-cell,
+  .planning-table td.planning-table__remaining-cell {
+    padding-right: 18px;
+  }
+}
+
+@media (min-width: 2200px) {
+  .planning-table__task-id-column {
+    width: 96px;
+  }
+
+  .planning-table__prio-column {
+    width: 66px;
+  }
+
+  .planning-table__field-column {
+    width: 158px;
+  }
+
+  .planning-table__assignee-column {
+    width: 146px;
+  }
+
+  .planning-table__time-column {
+    width: 98px;
+  }
+
+  .planning-table__refresh-column {
+    width: 64px;
+  }
+
+  .planning-table th.planning-table__prio-cell,
+  .planning-table td.planning-table__prio-cell,
+  .planning-table th.planning-table__remaining-cell,
+  .planning-table td.planning-table__remaining-cell {
+    padding-right: 24px;
+  }
+}
+
+@media (min-width: 1500px) {
+  .planning-table__sprint-column {
+    width: clamp(90px, calc(42vw - 540px), 174px);
+  }
+}
+
 .planning-table tfoot th,
 .planning-table tfoot td {
   border-top: 1px solid rgba(195, 209, 228, 0.95);
@@ -392,8 +543,7 @@ input {
 }
 
 .planning-table__task-cell {
-  width: clamp(280px, 31vw, 520px);
-  min-width: clamp(240px, 24vw, 320px);
+  min-width: 0;
 }
 
 .planning-table td.planning-table__task-type-cell {
@@ -411,8 +561,6 @@ input {
 }
 
 .planning-table__task-id {
-  width: clamp(68px, 5.5vw, 90px);
-  max-width: clamp(68px, 5.5vw, 100px);
   color: var(--accent);
   white-space: nowrap;
 }
@@ -434,7 +582,7 @@ input {
 }
 
 .planning-table__title {
-  max-width: clamp(280px, 31vw, 520px);
+  min-width: 0;
 }
 
 .planning-table__title .task-link {
@@ -459,20 +607,161 @@ input {
   color: var(--text-body);
 }
 
+.planning-table__field-cell {
+  width: 126px;
+}
+
 .planning-table__field-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: fit-content;
+  display: block;
+  box-sizing: border-box;
+  width: min(100%, max-content);
+  min-width: 112px;
+  max-width: 112px;
   min-height: 20px;
+  overflow: hidden;
   padding: 2px 7px;
   border-radius: 5px;
   background: var(--panel-muted);
   color: var(--text-strong);
   font-size: inherit;
   font-weight: 400;
-  line-height: 1;
+  line-height: 16px;
+  text-align: left;
+  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.planning-table__sprint-select,
+.planning-table__time-input {
+  min-height: 24px;
+  border: 1px solid rgba(195, 209, 228, 0.9);
+  border-radius: 5px;
+  background: #ffffff;
+  color: var(--text-strong);
+  font: inherit;
+}
+
+.planning-table__sprint-select {
+  width: 100%;
+  padding: 2px 18px 2px 2px;
+  background-color: var(--panel-muted);
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.planning-table__sprint-select option {
+  background: #ffffff;
+  color: var(--text-strong);
+  font-weight: 400;
+}
+
+.planning-table__time-input {
+  width: 100%;
+  padding: 2px 5px;
+  text-align: right;
+}
+
+.planning-table__time-display {
+  width: 100%;
+  min-height: 24px;
+  padding: 2px 5px;
+  border: 0;
+  background: transparent;
+  color: var(--text-strong);
+  cursor: text;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.planning-table__time-cell {
+  width: 88px;
+}
+
+.planning-table__time-display:hover,
+.planning-table__time-display:focus-visible {
+  color: var(--accent);
+}
+
+.planning-table td.planning-table__refresh-cell {
+  width: 44px;
+  padding-right: 12px;
+  text-align: right;
+}
+
+@media (min-width: 1700px) {
+  .planning-table td.planning-table__refresh-cell {
+    width: 56px;
+    padding-right: 18px;
+  }
+}
+
+.planning-table__refresh-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  opacity: 0.55;
+}
+
+.planning-table__refresh-button:hover,
+.planning-table__refresh-button:focus-visible {
+  color: var(--text-strong);
+  opacity: 1;
+}
+
+.planning-table__refresh-button:focus-visible {
+  outline: 2px solid rgba(27, 111, 134, 0.22);
+  outline-offset: 2px;
+}
+
+.planning-table__refresh-button:disabled {
+  cursor: progress;
+  opacity: 0.28;
+}
+
+.planning-table__refresh-button svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.planning-table__sprint-select:disabled,
+.planning-table__time-input:disabled {
+  color: var(--text-soft);
+  cursor: progress;
+  opacity: 0.72;
+}
+
+.planning-table__time-display:disabled {
+  color: var(--text-soft);
+  cursor: progress;
+  opacity: 0.72;
+}
+
+.planning-table__sprint-select:focus,
+.planning-table__time-input:focus {
+  border-color: var(--accent);
+  outline: 2px solid rgba(59, 130, 246, 0.18);
+  outline-offset: 1px;
+}
+
+.planning-table__time-display:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.18);
+  outline-offset: 1px;
 }
 
 .planning-table__number {
@@ -483,9 +772,15 @@ input {
   white-space: nowrap;
 }
 
+.planning-table th.planning-table__number,
 .planning-table td.planning-table__number,
 .planning-table tfoot td.planning-table__number {
   font-weight: 400;
+  text-align: right;
+}
+
+.planning-table tfoot td.planning-table__number {
+  font-weight: 700;
 }
 
 .planning-table__number[data-tone="negative"] {

@@ -21,6 +21,7 @@ interface ClickUpClientOptions {
 }
 
 interface RequestOptions {
+  body?: unknown;
   page?: number;
   query?: Array<readonly [string, string]>;
   skipPlanLookup?: boolean;
@@ -413,6 +414,48 @@ export class ClickUpClient {
     return parseTaskPayload(payload);
   }
 
+  async updateTask(
+    taskId: string,
+    fields: { time_estimate?: number }
+  ): Promise<ClickUpTaskPayload> {
+    const payload = await this.#sendJson("PUT", `/task/${taskId}`, {
+      body: fields
+    });
+
+    return parseTaskPayload(payload);
+  }
+
+  async setCustomFieldValue(
+    taskId: string,
+    fieldId: string,
+    value: unknown
+  ): Promise<void> {
+    await this.#sendJson("POST", `/task/${taskId}/field/${fieldId}`, {
+      body: { value }
+    });
+  }
+
+  async removeCustomFieldValue(
+    taskId: string,
+    fieldId: string
+  ): Promise<void> {
+    await this.#sendJson("DELETE", `/task/${taskId}/field/${fieldId}`);
+  }
+
+  async createTimeEntry(
+    taskId: string,
+    durationMs: number
+  ): Promise<void> {
+    await this.#sendJson("POST", `/team/${this.#teamId}/time_entries`, {
+      body: {
+        description: "Adjusted from Simple ClickUp sprint planning",
+        duration: durationMs,
+        start: Date.now() - durationMs,
+        tid: taskId
+      }
+    });
+  }
+
   async getListCustomFields(listId: string): Promise<ClickUpCustomFieldPayload[]> {
     const payload = await this.#getJson(`/list/${listId}/field`);
     return parseCustomFields(payload);
@@ -500,6 +543,18 @@ export class ClickUpClient {
     return this.#dispatchJson("GET", pathname, options);
   }
 
+  async #sendJson(
+    method: "DELETE" | "POST" | "PUT",
+    pathname: string,
+    options: RequestOptions = {}
+  ): Promise<unknown> {
+    if (!options.skipPlanLookup) {
+      await this.getWorkspacePlan();
+    }
+
+    return this.#dispatchJson(method, pathname, options);
+  }
+
   async #dispatchJson(method: string, pathname: string, options: RequestOptions): Promise<unknown> {
     const now = Date.now();
     this.#assertCanDispatch(now);
@@ -517,14 +572,20 @@ export class ClickUpClient {
     this.#recordDispatch(startedAt);
 
     try {
-      const response = await fetch(url, {
+      const requestInit: RequestInit = {
         headers: {
           Authorization: resolveClickUpAuthorizationHeader(this.#accessToken),
           "Content-Type": "application/json"
         },
         method,
         signal: controller.signal
-      });
+      };
+
+      if (options.body !== undefined) {
+        requestInit.body = JSON.stringify(options.body);
+      }
+
+      const response = await fetch(url, requestInit);
 
       const retryAfterMs = parseRetryAfterMs(response.headers.get("retry-after"));
       this.#updateRateLimitStateFromHeaders(response);
@@ -591,12 +652,16 @@ export class ClickUpClient {
       try {
         payload = await response.json();
       } catch {
-        throw new ClickUpServiceError(
-          "ClickUp API returned invalid JSON.",
-          502,
-          undefined,
-          this.#createRateLimitStateSnapshot(Date.now())
-        );
+        if (method !== "GET") {
+          payload = {};
+        } else {
+          throw new ClickUpServiceError(
+            "ClickUp API returned invalid JSON.",
+            502,
+            undefined,
+            this.#createRateLimitStateSnapshot(Date.now())
+          );
+        }
       }
 
       this.#logger.info(
