@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { SprintPlanningReport, SprintPlanningRow } from "@custom-clickup/shared";
 import {
   createOptimisticPlanningTimeRow,
+  getChangedPlanningSprintLabels,
+  replacePlanningReportRow,
   getPlanningRollupTaskIds
 } from "./planning-page";
 
@@ -24,19 +26,22 @@ function createPlanningRow(overrides: Partial<SprintPlanningRow> = {}): SprintPl
   };
 }
 
-function createPlanningReport(rows: SprintPlanningRow[]): SprintPlanningReport {
+function createPlanningReport(
+  rows: SprintPlanningRow[],
+  sprints: SprintPlanningReport["sprints"] = []
+): SprintPlanningReport {
   return {
     dayHours: 8,
     rows,
     sprintOptions: [],
-    sprints: [],
+    sprints,
     totals: {
-      estimateHours: 0,
+      estimateHours: rows.reduce((total, row) => total + row.estimateHours, 0),
       missingEstimateCount: 0,
-      remainingDays: 0,
-      remainingHours: 0,
+      remainingDays: rows.reduce((total, row) => total + row.remainingDays, 0),
+      remainingHours: rows.reduce((total, row) => total + row.remainingHours, 0),
       rowCount: rows.length,
-      trackedHours: 0
+      trackedHours: rows.reduce((total, row) => total + row.trackedHours, 0)
     },
     viewId: "planning-view"
   };
@@ -107,5 +112,97 @@ describe("planning page helpers", () => {
     expect(taskIds).not.toContain("not-story");
     expect(taskIds).not.toContain("unassigned-16");
     expect(taskIds.filter((taskId) => taskId.startsWith("unassigned-"))).toHaveLength(15);
+  });
+
+  it("rebuilds sprint totals when replacing a refreshed or edited row", () => {
+    const report = createPlanningReport([
+      createPlanningRow({
+        estimateHours: 8,
+        remainingDays: 0.5,
+        remainingHours: 4,
+        sprintLabel: "W24 - CURRENT",
+        taskId: "task-1",
+        trackedHours: 4
+      }),
+      createPlanningRow({
+        estimateHours: 3,
+        remainingDays: 0.25,
+        remainingHours: 2,
+        sprintLabel: "W25",
+        taskId: "task-2",
+        trackedHours: 1
+      })
+    ]);
+
+    const nextReport = replacePlanningReportRow(
+      report,
+      createPlanningRow({
+        estimateHours: 10,
+        remainingDays: 1,
+        remainingHours: 8,
+        sprintLabel: "W25",
+        taskId: "task-1",
+        trackedHours: 2
+      })
+    );
+
+    expect(nextReport.totals).toMatchObject({
+      estimateHours: 13,
+      remainingDays: 1.25,
+      remainingHours: 10,
+      rowCount: 2,
+      trackedHours: 3
+    });
+    expect(nextReport.sprints).toEqual([
+      expect.objectContaining({
+        estimateHours: 13,
+        label: "W25",
+        remainingHours: 10,
+        rowCount: 2,
+        trackedHours: 3
+      })
+    ]);
+  });
+
+  it("reports sprint labels whose totals changed so the UI can animate them", () => {
+    const previousReport = createPlanningReport(
+      [
+        createPlanningRow({
+          estimateHours: 8,
+          remainingDays: 1,
+          remainingHours: 8,
+          sprintLabel: "W24 - CURRENT",
+          taskId: "task-1",
+          trackedHours: 0
+        })
+      ],
+      [
+        {
+          estimateHours: 8,
+          label: "W24 - CURRENT",
+          missingEstimateCount: 0,
+          remainingDays: 1,
+          remainingHours: 8,
+          rowCount: 1,
+          trackedHours: 0
+        }
+      ]
+    );
+    const nextReport = replacePlanningReportRow(
+      previousReport,
+      createPlanningRow({
+        estimateHours: 8,
+        remainingDays: 1,
+        remainingHours: 8,
+        sprintLabel: "W25",
+        taskId: "task-1",
+        trackedHours: 0
+      })
+    );
+
+    expect(getChangedPlanningSprintLabels(previousReport, nextReport)).toEqual([
+      "W24 - CURRENT",
+      "W25"
+    ]);
   });
 });
