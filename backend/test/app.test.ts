@@ -128,6 +128,43 @@ describe("createApp", () => {
     };
     expect("report" in payload || "message" in payload).toBe(true);
   });
+
+  it("serves the planning task rollups endpoint on the backend handler path", async () => {
+    const response = await fetch(`${baseUrl}/api/clickup/planning/task-rollups`, {
+      body: JSON.stringify({ taskIds: ["task-1"] }),
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json"
+      },
+      method: "POST"
+    });
+
+    expect(response.headers.get("content-type")).toContain("application/json");
+    expect(response.status).toBeGreaterThanOrEqual(200);
+    expect(response.status).toBeLessThan(500);
+
+    const payload = (await response.json()) as {
+      rows?: unknown[];
+      message?: string;
+    };
+    expect("rows" in payload || "message" in payload).toBe(true);
+  });
+
+  it("rejects planning task rollup requests with more than one task id", async () => {
+    const response = await fetch(`${baseUrl}/api/clickup/planning/task-rollups`, {
+      body: JSON.stringify({ taskIds: ["task-1", "task-2"] }),
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json"
+      },
+      method: "POST"
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      message: "Planning task rollups accept exactly one task id."
+    });
+  });
 });
 
 describe("createClickUpServiceErrorPayload", () => {

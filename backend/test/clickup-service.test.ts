@@ -1150,6 +1150,72 @@ describe("createClickUpReadService", () => {
     expect(getViewTasks).not.toHaveBeenCalled();
   });
 
+  it("loads sprint planning task rollups without fetching the planning view", async () => {
+    vi.spyOn(ClickUpClient.prototype, "getCustomTaskTypes").mockResolvedValue([
+      {
+        id: storyTaskTypeId,
+        name: "User Story"
+      }
+    ]);
+    vi.spyOn(
+      ClickUpClient.prototype as unknown as {
+        getListCustomFields: (listId: string) => Promise<unknown>;
+      },
+      "getListCustomFields"
+    ).mockResolvedValue(createPlanningMetadata().listCustomFields);
+    const getViewTasks = vi.spyOn(
+      ClickUpClient.prototype as unknown as {
+        getViewTasks: (viewId: string) => Promise<ClickUpTaskPayload[]>;
+      },
+      "getViewTasks"
+    ).mockResolvedValue([]);
+    const getTask = vi.spyOn(
+      ClickUpClient.prototype as unknown as {
+        getTask: (taskId: string, options?: { subtasks?: boolean }) => Promise<ClickUpTaskPayload>;
+      },
+      "getTask"
+    ).mockResolvedValue(
+      createTask({
+        id: "cl-7540",
+        name: "CL-7540 story",
+        status: "SPRINT BACKLOG",
+        customItemId: storyTaskTypeId,
+        sprintValue: 23,
+        timeEstimate: 80 * hourMs,
+        subtasks: [
+          createTask({
+            id: "cl-7540-subtask",
+            name: "CL-7540 subtask",
+            parent: "cl-7540",
+            status: "IN PROGRESS",
+            timeEstimate: 24 * hourMs
+          })
+        ]
+      })
+    );
+
+    const service = createClickUpReadService({
+      accessToken: "test-token",
+      baseUrl: "https://example.invalid/api/v2",
+      cacheTtlMs: 1_000,
+      listId: "list-1",
+      planningViewId: "planning-view-override",
+      teamId: "team-1",
+      timeoutMs: 1_000,
+      tokenSource: "session"
+    });
+
+    await expect(service.getSprintPlanningTasks(["cl-7540"])).resolves.toMatchObject([
+      {
+        taskId: "cl-7540",
+        estimateHours: 104,
+        rolledSubtaskCount: 1
+      }
+    ]);
+    expect(getTask).toHaveBeenCalledWith("cl-7540", { subtasks: true });
+    expect(getViewTasks).not.toHaveBeenCalled();
+  });
+
   it("includes unassigned sprint planning tasks with and without prio scores", async () => {
     vi.spyOn(ClickUpClient.prototype, "getCustomTaskTypes").mockResolvedValue([
       {

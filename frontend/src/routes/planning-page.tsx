@@ -21,6 +21,7 @@ import {
   ClickUpApiError,
   fetchPlanningPageData,
   fetchPlanningTask,
+  fetchPlanningTaskRollups,
   formatClickUpRateLimitUsage,
   startClickUpOAuth,
   updatePlanningTaskSprint,
@@ -40,6 +41,7 @@ export interface PlanningPageProps {
 }
 
 const unassignedSprintLabel = "Unassigned Sprint";
+const unassignedRollupLimit = 15;
 
 function parseSprintWeekNumber(label: string): number | undefined {
   const match = /\bW(?:eek\s*)?(\d{1,2})\b/i.exec(label);
@@ -147,6 +149,44 @@ function updatePlanningReportRow(
     report,
     report.rows.map((row) => (row.taskId === taskId ? updateRow(row) : row))
   );
+}
+
+function isPlanningUserStory(row: SprintPlanningRow): boolean {
+  return row.taskType.trim().toLowerCase().includes("story");
+}
+
+function compareRollupCandidateRows(
+  left: { index: number; row: SprintPlanningRow },
+  right: { index: number; row: SprintPlanningRow }
+): number {
+  const leftPrio = left.row.prioScore ?? Number.POSITIVE_INFINITY;
+  const rightPrio = right.row.prioScore ?? Number.POSITIVE_INFINITY;
+  const prioDelta = leftPrio - rightPrio;
+
+  return prioDelta === 0 ? left.index - right.index : prioDelta;
+}
+
+export function getPlanningRollupTaskIds(report: SprintPlanningReport): string[] {
+  const candidates = report.rows
+    .map((row, index) => ({ index, row }))
+    .filter((entry) => isPlanningUserStory(entry.row))
+    .sort(compareRollupCandidateRows);
+  const taskIds: string[] = [];
+  let unassignedCount = 0;
+
+  for (const { row } of candidates) {
+    if (row.sprintLabel !== unassignedSprintLabel) {
+      taskIds.push(row.taskId);
+      continue;
+    }
+
+    if (unassignedCount < unassignedRollupLimit) {
+      taskIds.push(row.taskId);
+      unassignedCount += 1;
+    }
+  }
+
+  return taskIds;
 }
 
 export function createOptimisticPlanningTimeRow(
@@ -757,12 +797,60 @@ export function PlanningPage({
   const [editableReport, setEditableReport] = useState<SprintPlanningReport | null>(null);
   const [saveError, setSaveError] = useState<Error | null>(null);
   const [savingTaskIds, setSavingTaskIds] = useState<Set<string>>(() => new Set());
+  const rollupRequestSequenceRef = useRef(0);
   const handleConnect = () => startClickUpOAuth("/planning");
 
   useEffect(() => {
     if (data?.report) {
       setEditableReport(data.report);
     }
+  }, [data]);
+
+  useEffect(() => {
+    if (!data?.report) {
+      return;
+    }
+
+    const requestSequence = rollupRequestSequenceRef.current + 1;
+    rollupRequestSequenceRef.current = requestSequence;
+    let isCancelled = false;
+
+    const runRollupPass = async () => {
+      for (const taskId of getPlanningRollupTaskIds(data.report)) {
+        if (isCancelled || rollupRequestSequenceRef.current !== requestSequence) {
+          return;
+        }
+
+        setTaskSaving(taskId, true);
+
+        try {
+          const nextData = await fetchPlanningTaskRollups([taskId]);
+          if (isCancelled || rollupRequestSequenceRef.current !== requestSequence) {
+            return;
+          }
+
+          for (const nextRow of nextData.rows) {
+            setEditableReport((currentReport) =>
+              currentReport ? replacePlanningReportRow(currentReport, nextRow) : currentReport
+            );
+          }
+        } catch (nextError) {
+          if (!isCancelled && rollupRequestSequenceRef.current === requestSequence) {
+            setSaveError(
+              nextError instanceof Error ? nextError : new Error("Task rollup refresh failed.")
+            );
+          }
+        } finally {
+          setTaskSaving(taskId, false);
+        }
+      }
+    };
+
+    void runRollupPass();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [data]);
 
   const setTaskSaving = (taskId: string, isSaving: boolean) => {

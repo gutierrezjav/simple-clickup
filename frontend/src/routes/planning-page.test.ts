@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { SprintPlanningRow } from "@custom-clickup/shared";
-import { createOptimisticPlanningTimeRow } from "./planning-page";
+import type { SprintPlanningReport, SprintPlanningRow } from "@custom-clickup/shared";
+import {
+  createOptimisticPlanningTimeRow,
+  getPlanningRollupTaskIds
+} from "./planning-page";
 
 function createPlanningRow(overrides: Partial<SprintPlanningRow> = {}): SprintPlanningRow {
   return {
@@ -21,6 +24,24 @@ function createPlanningRow(overrides: Partial<SprintPlanningRow> = {}): SprintPl
   };
 }
 
+function createPlanningReport(rows: SprintPlanningRow[]): SprintPlanningReport {
+  return {
+    dayHours: 8,
+    rows,
+    sprintOptions: [],
+    sprints: [],
+    totals: {
+      estimateHours: 0,
+      missingEstimateCount: 0,
+      remainingDays: 0,
+      remainingHours: 0,
+      rowCount: rows.length,
+      trackedHours: 0
+    },
+    viewId: "planning-view"
+  };
+}
+
 describe("planning page helpers", () => {
   it("preserves negative remaining time in optimistic edits", () => {
     const row = createOptimisticPlanningTimeRow(
@@ -37,5 +58,54 @@ describe("planning page helpers", () => {
       remainingHours: -2,
       remainingDays: -0.25
     });
+  });
+
+  it("selects user story rollup ids by priority and caps unassigned stories", () => {
+    const unassignedStories = Array.from({ length: 16 }, (_, index) =>
+      createPlanningRow({
+        prioScore: index + 100,
+        sprintLabel: "Unassigned Sprint",
+        taskId: `unassigned-${index + 1}`,
+        taskType: "User Story"
+      })
+    );
+    const report = createPlanningReport([
+      createPlanningRow({
+        prioScore: 10,
+        sprintLabel: "W24 - CURRENT",
+        taskId: "assigned-prio-10",
+        taskType: "User Story"
+      }),
+      createPlanningRow({
+        prioScore: 1,
+        sprintLabel: "W25",
+        taskId: "assigned-prio-1",
+        taskType: "User Story"
+      }),
+      createPlanningRow({
+        prioScore: 0,
+        sprintLabel: "W25",
+        taskId: "not-story",
+        taskType: "Task"
+      }),
+      createPlanningRow({
+        sprintLabel: "W24 - CURRENT",
+        taskId: "assigned-no-prio",
+        taskType: "User Story"
+      }),
+      ...unassignedStories
+    ]);
+
+    const taskIds = getPlanningRollupTaskIds(report);
+
+    expect(taskIds.slice(0, 3)).toEqual([
+      "assigned-prio-1",
+      "assigned-prio-10",
+      "unassigned-1"
+    ]);
+    expect(taskIds).toContain("assigned-no-prio");
+    expect(taskIds).not.toContain("not-story");
+    expect(taskIds).not.toContain("unassigned-16");
+    expect(taskIds.filter((taskId) => taskId.startsWith("unassigned-"))).toHaveLength(15);
   });
 });

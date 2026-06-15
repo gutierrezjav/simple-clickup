@@ -130,6 +130,14 @@ export interface SprintPlanningReport {
   rows: SprintPlanningRow[];
 }
 
+export interface SprintPlanningTaskRollupsRequest {
+  taskIds: string[];
+}
+
+export interface SprintPlanningTaskRollupsResponse {
+  rows: SprintPlanningRow[];
+}
+
 export interface VerificationSummary {
   schema: {
     workspaceId: string;

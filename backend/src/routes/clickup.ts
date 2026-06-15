@@ -1,7 +1,8 @@
 import { Router, type Request, type Response } from "express";
 import {
   clickupTarget,
-  type DailyMeetingConfig
+  type DailyMeetingConfig,
+  type SprintPlanningTaskRollupsRequest
 } from "@custom-clickup/shared";
 import { config } from "../config.js";
 import { ClickUpServiceError } from "../clickup/errors.js";
@@ -73,6 +74,26 @@ function getRequiredTaskId(req: Request): string {
   }
 
   return taskId;
+}
+
+function getPlanningTaskRollupTaskIds(req: Request): string[] {
+  const body = req.body as Partial<SprintPlanningTaskRollupsRequest> | undefined;
+  const rawTaskIds = body?.taskIds;
+
+  if (!Array.isArray(rawTaskIds)) {
+    throw new ClickUpServiceError("Planning task rollups require a taskIds array.", 400);
+  }
+
+  const taskIds = rawTaskIds.map((taskId) =>
+    typeof taskId === "string" ? taskId.trim() : ""
+  );
+  const uniqueTaskIds = new Set(taskIds);
+
+  if (taskIds.length !== 1 || uniqueTaskIds.size !== 1 || !taskIds[0]) {
+    throw new ClickUpServiceError("Planning task rollups accept exactly one task id.", 400);
+  }
+
+  return taskIds;
 }
 
 function getOptionalNumber(value: unknown): number | undefined {
@@ -236,6 +257,21 @@ clickupRouter.get("/daily", async (req, res) => {
 clickupRouter.get("/planning", async (req, res) => {
   await sendReadServiceResponse(req, res, async (readService) => ({
     report: await readService.getSprintPlanningReport()
+  }));
+});
+
+clickupRouter.post("/planning/task-rollups", async (req, res) => {
+  let taskIds: string[];
+
+  try {
+    taskIds = getPlanningTaskRollupTaskIds(req);
+  } catch (error) {
+    handleRouteError(error, res, undefined);
+    return;
+  }
+
+  await sendReadServiceResponse(req, res, async (readService) => ({
+    rows: await readService.getSprintPlanningTasks(taskIds)
   }));
 });
 
