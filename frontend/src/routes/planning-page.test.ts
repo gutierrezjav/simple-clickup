@@ -65,7 +65,7 @@ describe("planning page helpers", () => {
     });
   });
 
-  it("keeps cached subtask estimate and tracked values in optimistic parent-only edits", () => {
+  it("edits rolled totals while deriving parent-only values from cached subtasks", () => {
     const row = createOptimisticPlanningTimeRow(
       createPlanningRow({
         estimateHours: 104,
@@ -77,17 +77,17 @@ describe("planning page helpers", () => {
       8,
       {
         estimateHours: 100,
-        trackedHours: 12
+        trackedHours: 20
       }
     );
 
     expect(row).toMatchObject({
-      estimateHours: 124,
-      parentEstimateHours: 100,
+      estimateHours: 100,
+      parentEstimateHours: 76,
       parentTrackedHours: 12,
       trackedHours: 20,
-      remainingHours: 104,
-      remainingDays: 13
+      remainingHours: 80,
+      remainingDays: 10
     });
   });
 

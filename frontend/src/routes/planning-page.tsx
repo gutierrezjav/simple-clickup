@@ -198,10 +198,10 @@ export function createOptimisticPlanningTimeRow(
   const currentParentTrackedHours = row.parentTrackedHours ?? row.trackedHours;
   const cachedSubtaskEstimateHours = Math.max(0, row.estimateHours - currentParentEstimateHours);
   const cachedSubtaskTrackedHours = Math.max(0, row.trackedHours - currentParentTrackedHours);
-  const parentEstimateHours = update.estimateHours ?? currentParentEstimateHours;
-  const parentTrackedHours = update.trackedHours ?? currentParentTrackedHours;
-  const estimateHours = parentEstimateHours + cachedSubtaskEstimateHours;
-  const trackedHours = parentTrackedHours + cachedSubtaskTrackedHours;
+  const estimateHours = update.estimateHours ?? row.estimateHours;
+  const trackedHours = update.trackedHours ?? row.trackedHours;
+  const parentEstimateHours = Math.max(0, estimateHours - cachedSubtaskEstimateHours);
+  const parentTrackedHours = Math.max(0, trackedHours - cachedSubtaskTrackedHours);
   const remainingHours = estimateHours - trackedHours;
 
   return {
@@ -652,7 +652,7 @@ function PlanningRow({
       <td className="planning-table__number planning-table__time-cell">
         <PlanningTimeInput
           disabled={isSaving}
-          editValue={row.parentEstimateHours ?? row.estimateHours}
+          editValue={row.estimateHours}
           onSave={(estimateHours) => onTimeChange(row, { estimateHours })}
           value={row.estimateHours}
         />
@@ -660,7 +660,7 @@ function PlanningRow({
       <td className="planning-table__number planning-table__time-cell">
         <PlanningTimeInput
           disabled={isSaving}
-          editValue={row.parentTrackedHours ?? row.trackedHours}
+          editValue={row.trackedHours}
           onSave={(trackedHours) => onTimeChange(row, { trackedHours })}
           value={row.trackedHours}
         />
@@ -988,7 +988,7 @@ export function PlanningPage({
 
     try {
       await updatePlanningTaskTime(row.taskId, {
-        currentTrackedHours: row.parentTrackedHours ?? row.trackedHours,
+        currentTrackedHours: row.trackedHours,
         ...update
       });
     } catch (nextError) {

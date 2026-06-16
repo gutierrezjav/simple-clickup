@@ -1453,7 +1453,7 @@ describe("createClickUpReadService", () => {
     expect(createTimeEntry).toHaveBeenCalledWith("task-1", hourMs);
   });
 
-  it("writes estimate edits directly to the parent task when a planning row includes rolled subtasks", async () => {
+  it("writes only the parent delta needed to reach a rolled estimate edit", async () => {
     vi.spyOn(ClickUpClient.prototype, "getCustomTaskTypes").mockResolvedValue([
       {
         id: storyTaskTypeId,
@@ -1514,11 +1514,11 @@ describe("createClickUpReadService", () => {
       estimateHours: 12
     });
 
-    expect(getTask).not.toHaveBeenCalled();
-    expect(updateTask).toHaveBeenCalledWith("story-w24", { time_estimate: 12 * hourMs });
+    expect(getTask).toHaveBeenCalledWith("story-w24", { subtasks: true });
+    expect(updateTask).toHaveBeenCalledWith("story-w24", { time_estimate: 4 * hourMs });
   });
 
-  it("writes tracked-time edits against only the parent task when a planning row includes rolled subtasks", async () => {
+  it("writes only the parent tracked-time delta needed to reach a rolled tracked edit", async () => {
     vi.spyOn(ClickUpClient.prototype, "getCustomTaskTypes").mockResolvedValue([
       {
         id: storyTaskTypeId,
@@ -1572,7 +1572,7 @@ describe("createClickUpReadService", () => {
     });
 
     await service.updateSprintPlanningTaskTime("story-w24", {
-      trackedHours: 12
+      trackedHours: 20
     });
 
     expect(getTask).toHaveBeenCalledWith("story-w24", { subtasks: true });

@@ -1489,8 +1489,20 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
         throw new ClickUpServiceError("Estimate must be a positive number of hours.", 400);
       }
 
+      const { row, task } = await loadCurrentPlanningTask();
+      const parentEstimateHours = toHours(parseMilliseconds(task.time_estimate));
+      const rolledChildEstimateHours = Math.max(0, row.estimateHours - parentEstimateHours);
+      const nextParentEstimateHours = estimateHours - rolledChildEstimateHours;
+
+      if (nextParentEstimateHours < 0) {
+        throw new ClickUpServiceError(
+          "Estimate cannot be lower than rolled subtask estimates.",
+          400
+        );
+      }
+
       await client.updateTask(taskId, {
-        time_estimate: Math.round(estimateHours * hourMs)
+        time_estimate: Math.round(nextParentEstimateHours * hourMs)
       });
     }
 
@@ -1500,9 +1512,8 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
         throw new ClickUpServiceError("Tracked time must be a positive number of hours.", 400);
       }
 
-      const { task } = await loadCurrentPlanningTask();
-      const parentTrackedHours = toHours(parseMilliseconds(task.time_spent));
-      const trackedDeltaHours = trackedHours - parentTrackedHours;
+      const { row } = await loadCurrentPlanningTask();
+      const trackedDeltaHours = trackedHours - row.trackedHours;
       if (trackedDeltaHours < 0) {
         throw new ClickUpServiceError(
           "Tracked time can only be increased from the planning view.",
