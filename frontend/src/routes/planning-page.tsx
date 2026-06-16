@@ -194,13 +194,21 @@ export function createOptimisticPlanningTimeRow(
   dayHours: number,
   update: { estimateHours?: number; trackedHours?: number }
 ): SprintPlanningRow {
-  const estimateHours = update.estimateHours ?? row.estimateHours;
-  const trackedHours = update.trackedHours ?? row.trackedHours;
+  const currentParentEstimateHours = row.parentEstimateHours ?? row.estimateHours;
+  const currentParentTrackedHours = row.parentTrackedHours ?? row.trackedHours;
+  const cachedSubtaskEstimateHours = Math.max(0, row.estimateHours - currentParentEstimateHours);
+  const cachedSubtaskTrackedHours = Math.max(0, row.trackedHours - currentParentTrackedHours);
+  const parentEstimateHours = update.estimateHours ?? currentParentEstimateHours;
+  const parentTrackedHours = update.trackedHours ?? currentParentTrackedHours;
+  const estimateHours = parentEstimateHours + cachedSubtaskEstimateHours;
+  const trackedHours = parentTrackedHours + cachedSubtaskTrackedHours;
   const remainingHours = estimateHours - trackedHours;
 
   return {
     ...row,
     estimateHours,
+    parentEstimateHours,
+    parentTrackedHours,
     trackedHours,
     remainingHours,
     remainingDays: remainingHours / dayHours,
@@ -465,21 +473,23 @@ function PlanningColoredPill({
 
 function PlanningTimeInput({
   disabled,
+  editValue,
   onSave,
   value
 }: {
   disabled: boolean;
+  editValue: number;
   onSave: (nextValue: number) => Promise<void>;
   value: number;
 }) {
-  const [draftValue, setDraftValue] = useState(String(value));
+  const [draftValue, setDraftValue] = useState(String(editValue));
   const [isEditing, setIsEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const skipNextBlurSaveRef = useRef(false);
 
   useEffect(() => {
-    setDraftValue(String(value));
-  }, [value]);
+    setDraftValue(String(editValue));
+  }, [editValue]);
 
   useEffect(() => {
     if (isEditing) {
@@ -491,14 +501,14 @@ function PlanningTimeInput({
   const saveDraftValue = async () => {
     if (skipNextBlurSaveRef.current) {
       skipNextBlurSaveRef.current = false;
-      setDraftValue(String(value));
+      setDraftValue(String(editValue));
       setIsEditing(false);
       return;
     }
 
     const nextValue = parseEditableHours(draftValue);
-    if (nextValue === undefined || nextValue === value) {
-      setDraftValue(String(value));
+    if (nextValue === undefined || nextValue === editValue) {
+      setDraftValue(String(editValue));
       setIsEditing(false);
       return;
     }
@@ -539,7 +549,7 @@ function PlanningTimeInput({
 
         if (event.key === "Escape") {
           skipNextBlurSaveRef.current = true;
-          setDraftValue(String(value));
+          setDraftValue(String(editValue));
           event.currentTarget.blur();
         }
       }}
@@ -642,6 +652,7 @@ function PlanningRow({
       <td className="planning-table__number planning-table__time-cell">
         <PlanningTimeInput
           disabled={isSaving}
+          editValue={row.parentEstimateHours ?? row.estimateHours}
           onSave={(estimateHours) => onTimeChange(row, { estimateHours })}
           value={row.estimateHours}
         />
@@ -649,6 +660,7 @@ function PlanningRow({
       <td className="planning-table__number planning-table__time-cell">
         <PlanningTimeInput
           disabled={isSaving}
+          editValue={row.parentTrackedHours ?? row.trackedHours}
           onSave={(trackedHours) => onTimeChange(row, { trackedHours })}
           value={row.trackedHours}
         />
@@ -976,7 +988,7 @@ export function PlanningPage({
 
     try {
       await updatePlanningTaskTime(row.taskId, {
-        currentTrackedHours: row.trackedHours,
+        currentTrackedHours: row.parentTrackedHours ?? row.trackedHours,
         ...update
       });
     } catch (nextError) {

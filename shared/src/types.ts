@@ -114,6 +114,8 @@ export interface SprintPlanningRow {
   prioScore?: number;
   url?: string;
   estimateHours: number;
+  parentEstimateHours?: number;
+  parentTrackedHours?: number;
   trackedHours: number;
   remainingHours: number;
   remainingDays: number;

@@ -65,6 +65,32 @@ describe("planning page helpers", () => {
     });
   });
 
+  it("keeps cached subtask estimate and tracked values in optimistic parent-only edits", () => {
+    const row = createOptimisticPlanningTimeRow(
+      createPlanningRow({
+        estimateHours: 104,
+        parentEstimateHours: 80,
+        parentTrackedHours: 10,
+        remainingHours: 86,
+        trackedHours: 18
+      }),
+      8,
+      {
+        estimateHours: 100,
+        trackedHours: 12
+      }
+    );
+
+    expect(row).toMatchObject({
+      estimateHours: 124,
+      parentEstimateHours: 100,
+      parentTrackedHours: 12,
+      trackedHours: 20,
+      remainingHours: 104,
+      remainingDays: 13
+    });
+  });
+
   it("selects user story rollup ids by priority and caps unassigned stories", () => {
     const unassignedStories = Array.from({ length: 16 }, (_, index) =>
       createPlanningRow({
