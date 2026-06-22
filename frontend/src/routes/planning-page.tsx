@@ -216,6 +216,56 @@ export function createOptimisticPlanningTimeRow(
   };
 }
 
+function getRolledSubtaskEstimateHours(row: SprintPlanningRow): number {
+  return Math.max(0, row.estimateHours - (row.parentEstimateHours ?? row.estimateHours));
+}
+
+function getRolledSubtaskTrackedHours(row: SprintPlanningRow): number {
+  return Math.max(0, row.trackedHours - (row.parentTrackedHours ?? row.trackedHours));
+}
+
+export function mergePlanningRollupRow(
+  currentRow: SprintPlanningRow | undefined,
+  rollupRow: SprintPlanningRow,
+  dayHours: number
+): SprintPlanningRow {
+  if (!currentRow) {
+    return rollupRow;
+  }
+
+  const parentEstimateHours = currentRow.parentEstimateHours ?? currentRow.estimateHours;
+  const parentTrackedHours = currentRow.parentTrackedHours ?? currentRow.trackedHours;
+  const estimateHours = parentEstimateHours + getRolledSubtaskEstimateHours(rollupRow);
+  const trackedHours = parentTrackedHours + getRolledSubtaskTrackedHours(rollupRow);
+  const remainingHours = estimateHours - trackedHours;
+
+  const mergedRow: SprintPlanningRow = {
+    ...rollupRow,
+    estimateHours,
+    parentEstimateHours,
+    parentTrackedHours,
+    trackedHours,
+    remainingHours,
+    remainingDays: remainingHours / dayHours,
+    missingEstimate: estimateHours === 0,
+    sprintLabel: currentRow.sprintLabel
+  };
+
+  if (currentRow.sprintColor) {
+    mergedRow.sprintColor = currentRow.sprintColor;
+  } else {
+    delete mergedRow.sprintColor;
+  }
+
+  if (currentRow.sprintWeekNumber !== undefined) {
+    mergedRow.sprintWeekNumber = currentRow.sprintWeekNumber;
+  } else {
+    delete mergedRow.sprintWeekNumber;
+  }
+
+  return mergedRow;
+}
+
 export function replacePlanningReportRow(
   report: SprintPlanningReport,
   nextRow: SprintPlanningRow
@@ -892,8 +942,6 @@ export function PlanningPage({
           return;
         }
 
-        setTaskSaving(taskId, true);
-
         try {
           const nextData = await fetchPlanningTaskRollups([taskId]);
           if (isCancelled || rollupRequestSequenceRef.current !== requestSequence) {
@@ -902,7 +950,14 @@ export function PlanningPage({
 
           for (const nextRow of nextData.rows) {
             applyEditableReportUpdate(data.report, (currentReport) =>
-              replacePlanningReportRow(currentReport, nextRow)
+              replacePlanningReportRow(
+                currentReport,
+                mergePlanningRollupRow(
+                  currentReport.rows.find((row) => row.taskId === nextRow.taskId),
+                  nextRow,
+                  currentReport.dayHours
+                )
+              )
             );
           }
         } catch (nextError) {
@@ -911,8 +966,6 @@ export function PlanningPage({
               nextError instanceof Error ? nextError : new Error("Task rollup refresh failed.")
             );
           }
-        } finally {
-          setTaskSaving(taskId, false);
         }
       }
     };

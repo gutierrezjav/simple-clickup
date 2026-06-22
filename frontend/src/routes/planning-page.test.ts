@@ -3,6 +3,7 @@ import type { SprintPlanningReport, SprintPlanningRow } from "@custom-clickup/sh
 import {
   createOptimisticPlanningTimeRow,
   getChangedPlanningSprintLabels,
+  mergePlanningRollupRow,
   replacePlanningReportRow,
   getPlanningRollupTaskIds
 } from "./planning-page";
@@ -89,6 +90,50 @@ describe("planning page helpers", () => {
       remainingHours: 80,
       remainingDays: 10
     });
+  });
+
+  it("merges rollup rows with latest in-memory parent values", () => {
+    const currentRow = createPlanningRow({
+      estimateHours: 17,
+      parentEstimateHours: 12,
+      parentTrackedHours: 6,
+      remainingHours: 7,
+      sprintColor: "#00ff00",
+      sprintLabel: "W25",
+      trackedHours: 10
+    });
+    const staleRollupRow = createPlanningRow({
+      estimateHours: 16,
+      parentEstimateHours: 10,
+      parentTrackedHours: 4,
+      remainingHours: 9,
+      rolledSubtaskCount: 2,
+      sprintColor: "#ff0000",
+      sprintLabel: "W24 - CURRENT",
+      trackedHours: 7
+    });
+
+    const row = mergePlanningRollupRow(currentRow, staleRollupRow, 8);
+
+    expect(row).toMatchObject({
+      estimateHours: 18,
+      parentEstimateHours: 12,
+      parentTrackedHours: 6,
+      remainingHours: 9,
+      remainingDays: 1.125,
+      rolledSubtaskCount: 2,
+      sprintColor: "#00ff00",
+      sprintLabel: "W25",
+      trackedHours: 9
+    });
+
+    expect(
+      mergePlanningRollupRow(
+        createPlanningRow({ sprintLabel: "Unassigned Sprint" }),
+        staleRollupRow,
+        8
+      )
+    ).not.toHaveProperty("sprintColor");
   });
 
   it("selects user story rollup ids by priority and caps unassigned stories", () => {
