@@ -189,6 +189,41 @@ export function getPlanningRollupTaskIds(report: SprintPlanningReport): string[]
   return taskIds;
 }
 
+export async function runPlanningRollupPass({
+  getIsCurrent,
+  onError,
+  onRollupRows,
+  requestRollup,
+  taskIds
+}: {
+  getIsCurrent: () => boolean;
+  onError: (error: Error) => void;
+  onRollupRows: (rows: SprintPlanningRow[]) => void;
+  requestRollup: (taskId: string) => Promise<{ rows: SprintPlanningRow[] }>;
+  taskIds: string[];
+}): Promise<void> {
+  for (const taskId of taskIds) {
+    if (!getIsCurrent()) {
+      return;
+    }
+
+    try {
+      const nextData = await requestRollup(taskId);
+      if (!getIsCurrent()) {
+        return;
+      }
+
+      onRollupRows(nextData.rows);
+    } catch (nextError) {
+      if (getIsCurrent()) {
+        onError(nextError instanceof Error ? nextError : new Error("Task rollup refresh failed."));
+      }
+
+      return;
+    }
+  }
+}
+
 export function createOptimisticPlanningTimeRow(
   row: SprintPlanningRow,
   dayHours: number,
@@ -936,41 +971,28 @@ export function PlanningPage({
     rollupRequestSequenceRef.current = requestSequence;
     let isCancelled = false;
 
-    const runRollupPass = async () => {
-      for (const taskId of getPlanningRollupTaskIds(data.report)) {
-        if (isCancelled || rollupRequestSequenceRef.current !== requestSequence) {
-          return;
-        }
-
-        try {
-          const nextData = await fetchPlanningTaskRollups([taskId]);
-          if (isCancelled || rollupRequestSequenceRef.current !== requestSequence) {
-            return;
-          }
-
-          for (const nextRow of nextData.rows) {
-            applyEditableReportUpdate(data.report, (currentReport) =>
-              replacePlanningReportRow(
-                currentReport,
-                mergePlanningRollupRow(
-                  currentReport.rows.find((row) => row.taskId === nextRow.taskId),
-                  nextRow,
-                  currentReport.dayHours
-                )
+    void runPlanningRollupPass({
+      getIsCurrent: () => !isCancelled && rollupRequestSequenceRef.current === requestSequence,
+      onError: (nextError) => {
+        setSaveError(nextError);
+      },
+      onRollupRows: (rows) => {
+        for (const nextRow of rows) {
+          applyEditableReportUpdate(data.report, (currentReport) =>
+            replacePlanningReportRow(
+              currentReport,
+              mergePlanningRollupRow(
+                currentReport.rows.find((row) => row.taskId === nextRow.taskId),
+                nextRow,
+                currentReport.dayHours
               )
-            );
-          }
-        } catch (nextError) {
-          if (!isCancelled && rollupRequestSequenceRef.current === requestSequence) {
-            setSaveError(
-              nextError instanceof Error ? nextError : new Error("Task rollup refresh failed.")
-            );
-          }
+            )
+          );
         }
-      }
-    };
-
-    void runRollupPass();
+      },
+      requestRollup: (taskId) => fetchPlanningTaskRollups([taskId]),
+      taskIds: getPlanningRollupTaskIds(data.report)
+    });
 
     return () => {
       isCancelled = true;

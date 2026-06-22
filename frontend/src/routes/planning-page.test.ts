@@ -1,9 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { SprintPlanningReport, SprintPlanningRow } from "@custom-clickup/shared";
 import {
   createOptimisticPlanningTimeRow,
   getChangedPlanningSprintLabels,
   mergePlanningRollupRow,
+  runPlanningRollupPass,
   replacePlanningReportRow,
   getPlanningRollupTaskIds
 } from "./planning-page";
@@ -183,6 +184,30 @@ describe("planning page helpers", () => {
     expect(taskIds).not.toContain("not-story");
     expect(taskIds).not.toContain("unassigned-16");
     expect(taskIds.filter((taskId) => taskId.startsWith("unassigned-"))).toHaveLength(15);
+  });
+
+  it("stops the serial rollup pass after the first failed request", async () => {
+    const requestRollup = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [] })
+      .mockRejectedValueOnce(new Error("Rate limited"))
+      .mockResolvedValueOnce({ rows: [] });
+    const onRollupRows = vi.fn();
+    const onError = vi.fn();
+
+    await runPlanningRollupPass({
+      getIsCurrent: () => true,
+      onError,
+      onRollupRows,
+      requestRollup,
+      taskIds: ["task-1", "task-2", "task-3"]
+    });
+
+    expect(requestRollup).toHaveBeenCalledTimes(2);
+    expect(requestRollup).toHaveBeenNthCalledWith(1, "task-1");
+    expect(requestRollup).toHaveBeenNthCalledWith(2, "task-2");
+    expect(onRollupRows).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: "Rate limited" }));
   });
 
   it("rebuilds sprint totals when replacing a refreshed or edited row", () => {
