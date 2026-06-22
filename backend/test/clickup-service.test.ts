@@ -1150,6 +1150,72 @@ describe("createClickUpReadService", () => {
     expect(getViewTasks).not.toHaveBeenCalled();
   });
 
+  it("loads sprint planning task rollups without fetching the planning view", async () => {
+    vi.spyOn(ClickUpClient.prototype, "getCustomTaskTypes").mockResolvedValue([
+      {
+        id: storyTaskTypeId,
+        name: "User Story"
+      }
+    ]);
+    vi.spyOn(
+      ClickUpClient.prototype as unknown as {
+        getListCustomFields: (listId: string) => Promise<unknown>;
+      },
+      "getListCustomFields"
+    ).mockResolvedValue(createPlanningMetadata().listCustomFields);
+    const getViewTasks = vi.spyOn(
+      ClickUpClient.prototype as unknown as {
+        getViewTasks: (viewId: string) => Promise<ClickUpTaskPayload[]>;
+      },
+      "getViewTasks"
+    ).mockResolvedValue([]);
+    const getTask = vi.spyOn(
+      ClickUpClient.prototype as unknown as {
+        getTask: (taskId: string, options?: { subtasks?: boolean }) => Promise<ClickUpTaskPayload>;
+      },
+      "getTask"
+    ).mockResolvedValue(
+      createTask({
+        id: "cl-7540",
+        name: "CL-7540 story",
+        status: "SPRINT BACKLOG",
+        customItemId: storyTaskTypeId,
+        sprintValue: 23,
+        timeEstimate: 80 * hourMs,
+        subtasks: [
+          createTask({
+            id: "cl-7540-subtask",
+            name: "CL-7540 subtask",
+            parent: "cl-7540",
+            status: "IN PROGRESS",
+            timeEstimate: 24 * hourMs
+          })
+        ]
+      })
+    );
+
+    const service = createClickUpReadService({
+      accessToken: "test-token",
+      baseUrl: "https://example.invalid/api/v2",
+      cacheTtlMs: 1_000,
+      listId: "list-1",
+      planningViewId: "planning-view-override",
+      teamId: "team-1",
+      timeoutMs: 1_000,
+      tokenSource: "session"
+    });
+
+    await expect(service.getSprintPlanningTasks(["cl-7540"])).resolves.toMatchObject([
+      {
+        taskId: "cl-7540",
+        estimateHours: 104,
+        rolledSubtaskCount: 1
+      }
+    ]);
+    expect(getTask).toHaveBeenCalledWith("cl-7540", { subtasks: true });
+    expect(getViewTasks).not.toHaveBeenCalled();
+  });
+
   it("includes unassigned sprint planning tasks with and without prio scores", async () => {
     vi.spyOn(ClickUpClient.prototype, "getCustomTaskTypes").mockResolvedValue([
       {
@@ -1387,7 +1453,7 @@ describe("createClickUpReadService", () => {
     expect(createTimeEntry).toHaveBeenCalledWith("task-1", hourMs);
   });
 
-  it("writes only the parent-local estimate when a planning row includes rolled subtasks", async () => {
+  it("writes only the parent delta needed to reach a rolled estimate edit", async () => {
     vi.spyOn(ClickUpClient.prototype, "getCustomTaskTypes").mockResolvedValue([
       {
         id: storyTaskTypeId,
@@ -1450,6 +1516,67 @@ describe("createClickUpReadService", () => {
 
     expect(getTask).toHaveBeenCalledWith("story-w24", { subtasks: true });
     expect(updateTask).toHaveBeenCalledWith("story-w24", { time_estimate: 4 * hourMs });
+  });
+
+  it("writes only the parent tracked-time delta needed to reach a rolled tracked edit", async () => {
+    vi.spyOn(ClickUpClient.prototype, "getCustomTaskTypes").mockResolvedValue([
+      {
+        id: storyTaskTypeId,
+        name: "User Story"
+      }
+    ]);
+    vi.spyOn(
+      ClickUpClient.prototype as unknown as {
+        getListCustomFields: (listId: string) => Promise<unknown>;
+      },
+      "getListCustomFields"
+    ).mockResolvedValue(createPlanningMetadata().listCustomFields);
+    const getTask = vi.spyOn(
+      ClickUpClient.prototype as unknown as {
+        getTask: (taskId: string, options?: { subtasks?: boolean }) => Promise<ClickUpTaskPayload>;
+      },
+      "getTask"
+    ).mockResolvedValue(createTask({
+      id: "story-w24",
+      name: "Story W24",
+      status: "SPRINT BACKLOG",
+      customItemId: storyTaskTypeId,
+      sprintValue: 23,
+      timeSpent: 10 * hourMs,
+      subtasks: [
+        createTask({
+          id: "task-child",
+          name: "Child",
+          parent: "story-w24",
+          status: "IN PROGRESS",
+          timeSpent: 8 * hourMs
+        })
+      ]
+    }));
+    const createTimeEntry = vi.spyOn(
+      ClickUpClient.prototype as unknown as {
+        createTimeEntry: (taskId: string, durationMs: number) => Promise<void>;
+      },
+      "createTimeEntry"
+    ).mockResolvedValue(undefined);
+
+    const service = createClickUpReadService({
+      accessToken: "test-token",
+      baseUrl: "https://example.invalid/api/v2",
+      cacheTtlMs: 1_000,
+      listId: "list-1",
+      planningViewId: "planning-view-override",
+      teamId: "team-1",
+      timeoutMs: 1_000,
+      tokenSource: "session"
+    });
+
+    await service.updateSprintPlanningTaskTime("story-w24", {
+      trackedHours: 20
+    });
+
+    expect(getTask).toHaveBeenCalledWith("story-w24", { subtasks: true });
+    expect(createTimeEntry).toHaveBeenCalledWith("story-w24", 2 * hourMs);
   });
 
   it("rejects tracked-time decreases from sprint planning", async () => {

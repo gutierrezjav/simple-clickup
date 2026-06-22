@@ -63,7 +63,12 @@ export interface SprintPlanningTimeUpdate {
 }
 
 type TaskKind = "story" | "standalone-task" | "standalone-bug" | "subtask";
-type ReadTarget = "daily" | "story-status-discrepancies" | "planning" | "planning-task";
+type ReadTarget =
+  | "daily"
+  | "story-status-discrepancies"
+  | "planning"
+  | "planning-task"
+  | "planning-task-rollups";
 const defaultSprintPlanningDayHours = 8;
 const hourMs = 60 * 60 * 1000;
 const unassignedSprintLabel = "Unassigned Sprint";
@@ -1072,6 +1077,8 @@ function toSprintPlanningRow(
   const estimateHours = toHours(estimateMs);
   const trackedHours = toHours(trackedMs);
   const remainingHours = toHours(remainingMs);
+  const parentEstimateHours = toHours(parseMilliseconds(task.time_estimate));
+  const parentTrackedHours = toHours(parseMilliseconds(task.time_spent));
   const taskId = task.id ?? "unknown-task";
 
   const row: SprintPlanningRow = {
@@ -1092,6 +1099,8 @@ function toSprintPlanningRow(
     ...(prioScore !== undefined ? { prioScore } : {}),
     ...(task.url?.trim() ? { url: task.url.trim() } : {}),
     estimateHours,
+    parentEstimateHours,
+    parentTrackedHours,
     trackedHours,
     remainingHours,
     remainingDays: remainingHours / metadata.dayHours,
@@ -1256,6 +1265,7 @@ export interface ClickUpReadService {
   getDailyRows(): Promise<DailyRow[]>;
   getSprintPlanningReport(): Promise<SprintPlanningReport>;
   getSprintPlanningTask(taskId: string): Promise<SprintPlanningRow>;
+  getSprintPlanningTasks(taskIds: string[]): Promise<SprintPlanningRow[]>;
   getStoryStatusDiscrepancyReport(): Promise<StoryStatusDiscrepancyReport>;
   updateSprintPlanningTaskSprint(taskId: string, sprintLabel: string | null): Promise<void>;
   updateSprintPlanningTaskTime(taskId: string, update: SprintPlanningTimeUpdate): Promise<void>;
@@ -1384,17 +1394,22 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
     }
   };
 
-  const getSprintPlanningTask = async (taskId: string): Promise<SprintPlanningRow> => {
+  const getSprintPlanningTasks = async (taskIds: string[]): Promise<SprintPlanningRow[]> => {
     return runLogicalRead(
-      "planning-task",
+      "planning-task-rollups",
       async () => {
-        const [metadata, listCustomFields, task] = await Promise.all([
+        const [metadata, listCustomFields] = await Promise.all([
           loadTaskMetadata(),
-          loadListCustomFields(),
-          client.getTask(taskId, { subtasks: true })
+          loadListCustomFields()
         ]);
+        const tasks: ClickUpTaskPayload[] = [];
+
+        for (const taskId of taskIds) {
+          tasks.push(await client.getTask(taskId, { subtasks: true }));
+        }
+
         const report = buildSprintPlanningReport(
-          [task],
+          tasks,
           metadata.value.taskTypeMap,
           {
             dayHours: defaultSprintPlanningDayHours,
@@ -1402,19 +1417,29 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
             viewId: config.planningViewId
           }
         );
-        const row = report.rows[0];
 
-        if (!row) {
+        if (taskIds.length > 0 && report.rows.length === 0) {
           throw new ClickUpServiceError("Planning task could not be converted to a row.", 502);
         }
 
         return {
           cacheHit: false,
-          value: row
+          value: report.rows
         };
       },
-      () => 1
+      (rows) => rows.length
     );
+  };
+
+  const getSprintPlanningTask = async (taskId: string): Promise<SprintPlanningRow> => {
+    const rows = await getSprintPlanningTasks([taskId]);
+    const row = rows[0];
+
+    if (!row) {
+      throw new ClickUpServiceError("Planning task could not be converted to a row.", 502);
+    }
+
+    return row;
   };
 
   const updateSprintPlanningTaskTime = async (
@@ -1465,7 +1490,6 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
       }
 
       const { row, task } = await loadCurrentPlanningTask();
-
       const parentEstimateHours = toHours(parseMilliseconds(task.time_estimate));
       const rolledChildEstimateHours = Math.max(0, row.estimateHours - parentEstimateHours);
       const nextParentEstimateHours = estimateHours - rolledChildEstimateHours;
@@ -1546,6 +1570,7 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
       );
     },
     getSprintPlanningTask,
+    getSprintPlanningTasks,
     async getStoryStatusDiscrepancyReport() {
       return runLogicalRead(
         "story-status-discrepancies",

@@ -3,6 +3,8 @@ import type {
   DailyRow,
   SprintPlanningReport,
   SprintPlanningRow,
+  SprintPlanningTaskRollupsRequest,
+  SprintPlanningTaskRollupsResponse,
   StoryStatusDiscrepancyReport,
   VerificationSummary
 } from "@custom-clickup/shared";
@@ -23,6 +25,8 @@ export interface PlanningPageData {
 export interface PlanningTaskData {
   row: SprintPlanningRow;
 }
+
+export type PlanningTaskRollupsData = SprintPlanningTaskRollupsResponse;
 
 export interface StoryStatusDiscrepancyReportData {
   report: StoryStatusDiscrepancyReport;
@@ -124,6 +128,20 @@ export function fetchPlanningPageData(): Promise<PlanningPageData> {
 export function fetchPlanningTask(taskId: string): Promise<PlanningTaskData> {
   return fetchClickUpResource<PlanningTaskData>(
     `/api/clickup/planning/tasks/${encodeURIComponent(taskId)}`
+  );
+}
+
+export function fetchPlanningTaskRollups(
+  taskIds: string[]
+): Promise<PlanningTaskRollupsData> {
+  const body: SprintPlanningTaskRollupsRequest = { taskIds };
+
+  return requestClickUpResource<PlanningTaskRollupsData>(
+    "/api/clickup/planning/task-rollups",
+    {
+      body: JSON.stringify(body),
+      method: "POST"
+    }
   );
 }
 

@@ -21,6 +21,7 @@ import {
   ClickUpApiError,
   fetchPlanningPageData,
   fetchPlanningTask,
+  fetchPlanningTaskRollups,
   formatClickUpRateLimitUsage,
   startClickUpOAuth,
   updatePlanningTaskSprint,
@@ -40,6 +41,7 @@ export interface PlanningPageProps {
 }
 
 const unassignedSprintLabel = "Unassigned Sprint";
+const unassignedRollupLimit = 15;
 
 function parseSprintWeekNumber(label: string): number | undefined {
   const match = /\bW(?:eek\s*)?(\d{1,2})\b/i.exec(label);
@@ -149,18 +151,99 @@ function updatePlanningReportRow(
   );
 }
 
+function isPlanningUserStory(row: SprintPlanningRow): boolean {
+  return row.taskType.trim().toLowerCase().includes("story");
+}
+
+function compareRollupCandidateRows(
+  left: { index: number; row: SprintPlanningRow },
+  right: { index: number; row: SprintPlanningRow }
+): number {
+  const leftPrio = left.row.prioScore ?? Number.POSITIVE_INFINITY;
+  const rightPrio = right.row.prioScore ?? Number.POSITIVE_INFINITY;
+  const prioDelta = leftPrio - rightPrio;
+
+  return prioDelta === 0 ? left.index - right.index : prioDelta;
+}
+
+export function getPlanningRollupTaskIds(report: SprintPlanningReport): string[] {
+  const candidates = report.rows
+    .map((row, index) => ({ index, row }))
+    .filter((entry) => isPlanningUserStory(entry.row))
+    .sort(compareRollupCandidateRows);
+  const taskIds: string[] = [];
+  let unassignedCount = 0;
+
+  for (const { row } of candidates) {
+    if (row.sprintLabel !== unassignedSprintLabel) {
+      taskIds.push(row.taskId);
+      continue;
+    }
+
+    if (unassignedCount < unassignedRollupLimit) {
+      taskIds.push(row.taskId);
+      unassignedCount += 1;
+    }
+  }
+
+  return taskIds;
+}
+
+export async function runPlanningRollupPass({
+  getIsCurrent,
+  onError,
+  onRollupRows,
+  requestRollup,
+  taskIds
+}: {
+  getIsCurrent: () => boolean;
+  onError: (error: Error) => void;
+  onRollupRows: (rows: SprintPlanningRow[]) => void;
+  requestRollup: (taskId: string) => Promise<{ rows: SprintPlanningRow[] }>;
+  taskIds: string[];
+}): Promise<void> {
+  for (const taskId of taskIds) {
+    if (!getIsCurrent()) {
+      return;
+    }
+
+    try {
+      const nextData = await requestRollup(taskId);
+      if (!getIsCurrent()) {
+        return;
+      }
+
+      onRollupRows(nextData.rows);
+    } catch (nextError) {
+      if (getIsCurrent()) {
+        onError(nextError instanceof Error ? nextError : new Error("Task rollup refresh failed."));
+      }
+
+      return;
+    }
+  }
+}
+
 export function createOptimisticPlanningTimeRow(
   row: SprintPlanningRow,
   dayHours: number,
   update: { estimateHours?: number; trackedHours?: number }
 ): SprintPlanningRow {
+  const currentParentEstimateHours = row.parentEstimateHours ?? row.estimateHours;
+  const currentParentTrackedHours = row.parentTrackedHours ?? row.trackedHours;
+  const cachedSubtaskEstimateHours = Math.max(0, row.estimateHours - currentParentEstimateHours);
+  const cachedSubtaskTrackedHours = Math.max(0, row.trackedHours - currentParentTrackedHours);
   const estimateHours = update.estimateHours ?? row.estimateHours;
   const trackedHours = update.trackedHours ?? row.trackedHours;
+  const parentEstimateHours = Math.max(0, estimateHours - cachedSubtaskEstimateHours);
+  const parentTrackedHours = Math.max(0, trackedHours - cachedSubtaskTrackedHours);
   const remainingHours = estimateHours - trackedHours;
 
   return {
     ...row,
     estimateHours,
+    parentEstimateHours,
+    parentTrackedHours,
     trackedHours,
     remainingHours,
     remainingDays: remainingHours / dayHours,
@@ -168,7 +251,57 @@ export function createOptimisticPlanningTimeRow(
   };
 }
 
-function replacePlanningReportRow(
+function getRolledSubtaskEstimateHours(row: SprintPlanningRow): number {
+  return Math.max(0, row.estimateHours - (row.parentEstimateHours ?? row.estimateHours));
+}
+
+function getRolledSubtaskTrackedHours(row: SprintPlanningRow): number {
+  return Math.max(0, row.trackedHours - (row.parentTrackedHours ?? row.trackedHours));
+}
+
+export function mergePlanningRollupRow(
+  currentRow: SprintPlanningRow | undefined,
+  rollupRow: SprintPlanningRow,
+  dayHours: number
+): SprintPlanningRow {
+  if (!currentRow) {
+    return rollupRow;
+  }
+
+  const parentEstimateHours = currentRow.parentEstimateHours ?? currentRow.estimateHours;
+  const parentTrackedHours = currentRow.parentTrackedHours ?? currentRow.trackedHours;
+  const estimateHours = parentEstimateHours + getRolledSubtaskEstimateHours(rollupRow);
+  const trackedHours = parentTrackedHours + getRolledSubtaskTrackedHours(rollupRow);
+  const remainingHours = estimateHours - trackedHours;
+
+  const mergedRow: SprintPlanningRow = {
+    ...rollupRow,
+    estimateHours,
+    parentEstimateHours,
+    parentTrackedHours,
+    trackedHours,
+    remainingHours,
+    remainingDays: remainingHours / dayHours,
+    missingEstimate: estimateHours === 0,
+    sprintLabel: currentRow.sprintLabel
+  };
+
+  if (currentRow.sprintColor) {
+    mergedRow.sprintColor = currentRow.sprintColor;
+  } else {
+    delete mergedRow.sprintColor;
+  }
+
+  if (currentRow.sprintWeekNumber !== undefined) {
+    mergedRow.sprintWeekNumber = currentRow.sprintWeekNumber;
+  } else {
+    delete mergedRow.sprintWeekNumber;
+  }
+
+  return mergedRow;
+}
+
+export function replacePlanningReportRow(
   report: SprintPlanningReport,
   nextRow: SprintPlanningRow
 ): SprintPlanningReport {
@@ -183,6 +316,46 @@ function replacePlanningReportRow(
   });
 
   return rebuildPlanningReport(report, replacedRow ? rows : [...rows, nextRow]);
+}
+
+function getPlanningSprintTotalsSignature(
+  sprint: SprintPlanningSprintSummary | undefined
+): string {
+  if (!sprint) {
+    return "missing";
+  }
+
+  return [
+    sprint.estimateHours,
+    sprint.trackedHours,
+    sprint.remainingHours,
+    sprint.remainingDays,
+    sprint.missingEstimateCount,
+    sprint.rowCount
+  ].join("|");
+}
+
+export function getChangedPlanningSprintLabels(
+  previousReport: SprintPlanningReport,
+  nextReport: SprintPlanningReport
+): string[] {
+  const previousSprintsByLabel = new Map(
+    previousReport.sprints.map((sprint) => [sprint.label, sprint])
+  );
+  const nextSprintsByLabel = new Map(
+    nextReport.sprints.map((sprint) => [sprint.label, sprint])
+  );
+  const labels = new Set([
+    ...previousSprintsByLabel.keys(),
+    ...nextSprintsByLabel.keys()
+  ]);
+
+  return [...labels].filter((label) => {
+    return (
+      getPlanningSprintTotalsSignature(previousSprintsByLabel.get(label)) !==
+      getPlanningSprintTotalsSignature(nextSprintsByLabel.get(label))
+    );
+  });
 }
 
 function parseEditableHours(value: string): number | undefined {
@@ -385,21 +558,23 @@ function PlanningColoredPill({
 
 function PlanningTimeInput({
   disabled,
+  editValue,
   onSave,
   value
 }: {
   disabled: boolean;
+  editValue: number;
   onSave: (nextValue: number) => Promise<void>;
   value: number;
 }) {
-  const [draftValue, setDraftValue] = useState(String(value));
+  const [draftValue, setDraftValue] = useState(String(editValue));
   const [isEditing, setIsEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const skipNextBlurSaveRef = useRef(false);
 
   useEffect(() => {
-    setDraftValue(String(value));
-  }, [value]);
+    setDraftValue(String(editValue));
+  }, [editValue]);
 
   useEffect(() => {
     if (isEditing) {
@@ -411,14 +586,14 @@ function PlanningTimeInput({
   const saveDraftValue = async () => {
     if (skipNextBlurSaveRef.current) {
       skipNextBlurSaveRef.current = false;
-      setDraftValue(String(value));
+      setDraftValue(String(editValue));
       setIsEditing(false);
       return;
     }
 
     const nextValue = parseEditableHours(draftValue);
-    if (nextValue === undefined || nextValue === value) {
-      setDraftValue(String(value));
+    if (nextValue === undefined || nextValue === editValue) {
+      setDraftValue(String(editValue));
       setIsEditing(false);
       return;
     }
@@ -459,7 +634,7 @@ function PlanningTimeInput({
 
         if (event.key === "Escape") {
           skipNextBlurSaveRef.current = true;
-          setDraftValue(String(value));
+          setDraftValue(String(editValue));
           event.currentTarget.blur();
         }
       }}
@@ -562,6 +737,7 @@ function PlanningRow({
       <td className="planning-table__number planning-table__time-cell">
         <PlanningTimeInput
           disabled={isSaving}
+          editValue={row.estimateHours}
           onSave={(estimateHours) => onTimeChange(row, { estimateHours })}
           value={row.estimateHours}
         />
@@ -569,6 +745,7 @@ function PlanningRow({
       <td className="planning-table__number planning-table__time-cell">
         <PlanningTimeInput
           disabled={isSaving}
+          editValue={row.trackedHours}
           onSave={(trackedHours) => onTimeChange(row, { trackedHours })}
           value={row.trackedHours}
         />
@@ -608,11 +785,21 @@ function PlanningRow({
   );
 }
 
-function PlanningSprintTotalsRow({ sprint }: { sprint: SprintPlanningSprintSummary }) {
+function PlanningSprintTotalsRow({
+  pulseKey,
+  sprint
+}: {
+  pulseKey: number;
+  sprint: SprintPlanningSprintSummary;
+}) {
   const totals = getPlanningSprintFooterTotals(sprint);
 
   return (
-    <tfoot>
+    <tfoot
+      className="planning-table__totals"
+      data-highlighted={pulseKey > 0 ? "true" : undefined}
+      key={pulseKey}
+    >
       <tr className="planning-table__totals-row">
         <th className="planning-table__totals-label" colSpan={8} scope="row">
           Total
@@ -635,7 +822,8 @@ function PlanningSprintSection({
   onSprintChange,
   onTimeChange,
   report,
-  sprint
+  sprint,
+  totalsPulseKey
 }: {
   isSavingTask: (taskId: string) => boolean;
   onRefreshRow: (row: SprintPlanningRow) => Promise<void>;
@@ -646,6 +834,7 @@ function PlanningSprintSection({
   ) => Promise<void>;
   report: SprintPlanningReport;
   sprint: SprintPlanningSprintSummary;
+  totalsPulseKey: number;
 }) {
   const rows = report.rows.filter((row) => row.sprintLabel === sprint.label);
 
@@ -700,19 +889,21 @@ function PlanningSprintSection({
             />
           ))}
         </tbody>
-        <PlanningSprintTotalsRow sprint={sprint} />
+        <PlanningSprintTotalsRow pulseKey={totalsPulseKey} sprint={sprint} />
       </table>
     </section>
   );
 }
 
 function PlanningReportView({
+  getSprintTotalsPulseKey,
   isSavingTask,
   onRefreshRow,
   onSprintChange,
   onTimeChange,
   report
 }: {
+  getSprintTotalsPulseKey: (sprintLabel: string) => number;
   isSavingTask: (taskId: string) => boolean;
   onRefreshRow: (row: SprintPlanningRow) => Promise<void>;
   onSprintChange: (row: SprintPlanningRow, sprintLabel: string) => Promise<void>;
@@ -743,6 +934,7 @@ function PlanningReportView({
             onTimeChange={onTimeChange}
             report={report}
             sprint={sprint}
+            totalsPulseKey={getSprintTotalsPulseKey(sprint.label)}
           />
         ))}
       </div>
@@ -757,12 +949,54 @@ export function PlanningPage({
   const [editableReport, setEditableReport] = useState<SprintPlanningReport | null>(null);
   const [saveError, setSaveError] = useState<Error | null>(null);
   const [savingTaskIds, setSavingTaskIds] = useState<Set<string>>(() => new Set());
+  const [totalsPulseBySprintLabel, setTotalsPulseBySprintLabel] = useState<Record<string, number>>({});
+  const editableReportRef = useRef<SprintPlanningReport | null>(null);
+  const rollupRequestSequenceRef = useRef(0);
   const handleConnect = () => startClickUpOAuth("/planning");
 
   useEffect(() => {
     if (data?.report) {
+      editableReportRef.current = data.report;
       setEditableReport(data.report);
+      setTotalsPulseBySprintLabel({});
     }
+  }, [data]);
+
+  useEffect(() => {
+    if (!data?.report) {
+      return;
+    }
+
+    const requestSequence = rollupRequestSequenceRef.current + 1;
+    rollupRequestSequenceRef.current = requestSequence;
+    let isCancelled = false;
+
+    void runPlanningRollupPass({
+      getIsCurrent: () => !isCancelled && rollupRequestSequenceRef.current === requestSequence,
+      onError: (nextError) => {
+        setSaveError(nextError);
+      },
+      onRollupRows: (rows) => {
+        for (const nextRow of rows) {
+          applyEditableReportUpdate(data.report, (currentReport) =>
+            replacePlanningReportRow(
+              currentReport,
+              mergePlanningRollupRow(
+                currentReport.rows.find((row) => row.taskId === nextRow.taskId),
+                nextRow,
+                currentReport.dayHours
+              )
+            )
+          );
+        }
+      },
+      requestRollup: (taskId) => fetchPlanningTaskRollups([taskId]),
+      taskIds: getPlanningRollupTaskIds(data.report)
+    });
+
+    return () => {
+      isCancelled = true;
+    };
   }, [data]);
 
   const setTaskSaving = (taskId: string, isSaving: boolean) => {
@@ -778,6 +1012,38 @@ export function PlanningPage({
     });
   };
 
+  const pulseChangedSprintTotals = (
+    previousReport: SprintPlanningReport,
+    nextReport: SprintPlanningReport
+  ) => {
+    const changedLabels = getChangedPlanningSprintLabels(previousReport, nextReport);
+    if (changedLabels.length === 0) {
+      return;
+    }
+
+    setTotalsPulseBySprintLabel((currentPulseKeys) => {
+      const nextPulseKeys = { ...currentPulseKeys };
+
+      for (const label of changedLabels) {
+        nextPulseKeys[label] = (nextPulseKeys[label] ?? 0) + 1;
+      }
+
+      return nextPulseKeys;
+    });
+  };
+
+  const applyEditableReportUpdate = (
+    fallbackReport: SprintPlanningReport,
+    updateReport: (currentReport: SprintPlanningReport) => SprintPlanningReport
+  ) => {
+    const previousReport = editableReportRef.current ?? fallbackReport;
+    const nextReport = updateReport(previousReport);
+
+    editableReportRef.current = nextReport;
+    setEditableReport(nextReport);
+    pulseChangedSprintTotals(previousReport, nextReport);
+  };
+
   const handleTimeChange = async (
     row: SprintPlanningRow,
     update: { estimateHours?: number; trackedHours?: number }
@@ -789,8 +1055,8 @@ export function PlanningPage({
 
     setSaveError(null);
     setTaskSaving(row.taskId, true);
-    setEditableReport(
-      updatePlanningReportRow(previousReport, row.taskId, (currentRow) =>
+    applyEditableReportUpdate(previousReport, (currentReport) =>
+      updatePlanningReportRow(currentReport, row.taskId, (currentRow) =>
         createOptimisticPlanningTimeRow(currentRow, previousReport.dayHours, update)
       )
     );
@@ -801,8 +1067,8 @@ export function PlanningPage({
         ...update
       });
     } catch (nextError) {
-      setEditableReport((currentReport) =>
-        updatePlanningReportRow(currentReport ?? previousReport, row.taskId, () => row)
+      applyEditableReportUpdate(previousReport, (currentReport) =>
+        updatePlanningReportRow(currentReport, row.taskId, () => row)
       );
       setSaveError(
         nextError instanceof Error ? nextError : new Error("Planning time update failed.")
@@ -821,8 +1087,8 @@ export function PlanningPage({
     const sprintOption = previousReport.sprintOptions.find((option) => option.label === sprintLabel);
     setSaveError(null);
     setTaskSaving(row.taskId, true);
-    setEditableReport(
-      updatePlanningReportRow(previousReport, row.taskId, (currentRow) => {
+    applyEditableReportUpdate(previousReport, (currentReport) =>
+      updatePlanningReportRow(currentReport, row.taskId, (currentRow) => {
         const nextRow: SprintPlanningRow = {
           ...currentRow,
           sprintLabel
@@ -844,8 +1110,8 @@ export function PlanningPage({
         sprintLabel === unassignedSprintLabel ? null : sprintLabel
       );
     } catch (nextError) {
-      setEditableReport((currentReport) =>
-        updatePlanningReportRow(currentReport ?? previousReport, row.taskId, () => row)
+      applyEditableReportUpdate(previousReport, (currentReport) =>
+        updatePlanningReportRow(currentReport, row.taskId, () => row)
       );
       setSaveError(
         nextError instanceof Error ? nextError : new Error("Sprint update failed.")
@@ -866,8 +1132,8 @@ export function PlanningPage({
 
     try {
       const nextData = await fetchPlanningTask(row.taskId);
-      setEditableReport((currentReport) =>
-        replacePlanningReportRow(currentReport ?? previousReport, nextData.row)
+      applyEditableReportUpdate(previousReport, (currentReport) =>
+        replacePlanningReportRow(currentReport, nextData.row)
       );
     } catch (nextError) {
       setSaveError(
@@ -933,6 +1199,7 @@ export function PlanningPage({
         />
       ) : null}
       <PlanningReportView
+        getSprintTotalsPulseKey={(sprintLabel) => totalsPulseBySprintLabel[sprintLabel] ?? 0}
         isSavingTask={(taskId) => savingTaskIds.has(taskId)}
         onRefreshRow={handleRowRefresh}
         onSprintChange={handleSprintChange}
