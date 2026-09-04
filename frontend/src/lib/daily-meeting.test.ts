@@ -178,6 +178,39 @@ describe("getDailyMeetingProgressCount", () => {
     expect(getDailyMeetingProgressCount(null)).toBe(0);
   });
 
+  it.each([3, 12])("tracks every speaker in a round of %i people", (speakerCount) => {
+    const assigneeOptions = Array.from({ length: speakerCount }, (_, index) => `Speaker ${index}`);
+    let round = null;
+
+    for (let selectedCount = 1; selectedCount <= speakerCount; selectedCount += 1) {
+      const result = advanceDailyMeetingRound({
+        assigneeOptions,
+        config: { excludedAssignees: [] },
+        round
+      });
+      round = result.round;
+
+      expect(round?.order).toHaveLength(speakerCount);
+      expect(getDailyMeetingProgressCount(round)).toBe(selectedCount);
+    }
+
+    const finished = advanceDailyMeetingRound({
+      assigneeOptions,
+      config: { excludedAssignees: [] },
+      round
+    });
+    expect(getDailyMeetingProgressCount(finished.round)).toBe(0);
+  });
+
+  it("caps progress at the actual roster size", () => {
+    expect(
+      getDailyMeetingProgressCount({
+        currentIndex: 8,
+        order: ["Alice Smith", "Bob Jones", "Final Speaker"]
+      })
+    ).toBe(3);
+  });
+
   it("keeps the indicator visible through the final speaker", () => {
     expect(
       getDailyMeetingProgressCount({

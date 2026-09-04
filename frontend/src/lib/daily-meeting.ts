@@ -1,7 +1,6 @@
 import type { DailyMeetingConfig } from "@custom-clickup/shared";
 
 const alwaysExcludedDailyMeetingNames = new Set(["Unassigned"]);
-const defaultDailyMeetingProgressSegmentCount = 9;
 
 export interface DailyMeetingRound {
   currentIndex: number;
@@ -91,10 +90,9 @@ export function getDailyMeetingFilterOptions(
 }
 
 export function getDailyMeetingProgressCount(
-  round: DailyMeetingRound | null,
-  segmentCount = defaultDailyMeetingProgressSegmentCount
+  round: DailyMeetingRound | null
 ): number {
-  if (!round || round.order.length === 0 || segmentCount <= 0) {
+  if (!round || round.order.length === 0) {
     return 0;
   }
 
@@ -103,7 +101,7 @@ export function getDailyMeetingProgressCount(
     return 0;
   }
 
-  return Math.min(segmentCount, selectedSpeakerCount);
+  return Math.min(round.order.length, selectedSpeakerCount);
 }
 
 export function getNextDailyMeetingSpeaker(round: DailyMeetingRound | null): string | null {

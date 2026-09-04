@@ -484,17 +484,17 @@ function renderStoryStatusWarning(
 function renderDailyMeetingProgressIndicator(round: DailyMeetingRound | null) {
   const progressCount = getDailyMeetingProgressCount(round);
 
-  if (progressCount === 0) {
+  if (!round || progressCount === 0) {
     return null;
   }
 
   return (
     <span aria-hidden="true" className="daily-meeting-progress">
-      {Array.from({ length: 9 }, (_, index) => (
+      {round.order.map((speaker, index) => (
         <span
           className="daily-meeting-progress__segment"
           data-active={index < progressCount ? "true" : "false"}
-          key={index}
+          key={speaker}
         />
       ))}
     </span>
