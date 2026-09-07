@@ -23,6 +23,12 @@ export const storyStatusProgression = [
 
 export type StoryProgressStatus = (typeof storyStatusProgression)[number];
 
+export interface ClickUpListInfo {
+  name: string;
+  spaceName?: string;
+  folderName?: string;
+}
+
 export interface DailyCard {
   id: string;
   customId: string;

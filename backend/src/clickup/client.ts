@@ -1,4 +1,5 @@
 import type { Logger } from "pino";
+import type { ClickUpListInfo } from "@custom-clickup/shared";
 import { clickupLogger } from "../logging.js";
 import { ClickUpServiceError } from "./errors.js";
 import { resolveClickUpAuthorizationHeader } from "./token.js";
@@ -323,6 +324,23 @@ export class ClickUpClient {
       team_id: options.teamId,
       token_source: options.tokenSource
     });
+  }
+
+  async getListInfo(listId: string): Promise<ClickUpListInfo> {
+    const payload = await this.#getJson(`/list/${encodeURIComponent(listId)}`);
+    if (!isRecord(payload) || typeof payload.name !== "string" || !payload.name.trim()) {
+      throw new ClickUpServiceError("ClickUp returned a list without a name.", 502);
+    }
+
+    return {
+      name: payload.name,
+      ...(isRecord(payload.space) && typeof payload.space.name === "string"
+        ? { spaceName: payload.space.name }
+        : {}),
+      ...(isRecord(payload.folder) && !payload.folder.hidden && typeof payload.folder.name === "string"
+        ? { folderName: payload.folder.name }
+        : {})
+    };
   }
 
   async getListTasks(

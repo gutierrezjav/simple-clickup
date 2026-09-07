@@ -247,6 +247,12 @@ async function sendWriteServiceResponse(
   }
 }
 
+clickupRouter.get("/list", async (req, res) => {
+  await sendReadServiceResponse(req, res, async (readService) => ({
+    list: await readService.getListInfo()
+  }));
+});
+
 clickupRouter.get("/daily", async (req, res) => {
   await sendReadServiceResponse(req, res, async (readService) => ({
     dailyMeeting: getDailyMeetingConfig(),

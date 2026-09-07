@@ -44,6 +44,49 @@ afterEach(() => {
 });
 
 describe("ClickUpClient", () => {
+  it("loads the list name and its space and folder from ClickUp", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(createJsonResponse({ plan: "Business" }))
+      .mockResolvedValueOnce(createJsonResponse({
+        name: "Renamed software tasks",
+        space: { name: "R&D Software" },
+        folder: { name: "All Tasks", hidden: false }
+      }));
+    globalThis.fetch = fetchMock;
+
+    await expect(createClient(30_000).getListInfo("list-1")).resolves.toEqual({
+      name: "Renamed software tasks",
+      spaceName: "R&D Software",
+      folderName: "All Tasks"
+    });
+    expect(String(fetchMock.mock.calls[1]?.[0])).toBe("https://example.invalid/api/v2/list/list-1");
+  });
+
+  it("omits ClickUp's hidden folder for a folderless list", async () => {
+    globalThis.fetch = vi.fn()
+      .mockResolvedValueOnce(createJsonResponse({ plan: "Business" }))
+      .mockResolvedValueOnce(createJsonResponse({
+        name: "Software tasks",
+        space: { name: "Software" },
+        folder: { name: "hidden", hidden: true }
+      }));
+
+    await expect(createClient(30_000).getListInfo("list-1")).resolves.toEqual({
+      name: "Software tasks",
+      spaceName: "Software"
+    });
+  });
+
+  it("rejects list metadata with no usable name", async () => {
+    globalThis.fetch = vi.fn()
+      .mockResolvedValueOnce(createJsonResponse({ plan: "Business" }))
+      .mockResolvedValueOnce(createJsonResponse({ name: " " }));
+
+    await expect(createClient(30_000).getListInfo("list-1")).rejects.toMatchObject({
+      statusCode: 502
+    });
+  });
+
   it("serializes custom field filters for list task requests", async () => {
     globalThis.fetch = vi.fn()
       .mockResolvedValueOnce(createJsonResponse({ plan: "Business" }))

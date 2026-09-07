@@ -1,11 +1,11 @@
 # Simple ClickUp
 
-Read-only ClickUp client for the `Wingtra Cloud Dev` list.
+ClickUp client for the configured list. The header and browser title use the list name from ClickUp; the subtitle uses its space and folder names.
 
 The active app surface is small and deliberate:
 
 - `/daily`: primary board view
-- `/planning`: sprint planning report from the configured ClickUp view
+- `/planning`: hidden sprint planning report from the configured ClickUp view
 - `/verify`: hidden verification route for live spot-checks
 - backend-owned ClickUp reads through an OAuth-backed session
 - single-container deployment path for Amazon Lightsail Container Service

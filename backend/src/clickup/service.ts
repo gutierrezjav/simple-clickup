@@ -64,6 +64,7 @@ export interface SprintPlanningTimeUpdate {
 
 type TaskKind = "story" | "standalone-task" | "standalone-bug" | "subtask";
 type ReadTarget =
+  | "list"
   | "daily"
   | "story-status-discrepancies"
   | "planning"
@@ -1262,6 +1263,7 @@ function createCachedLoader<T>(
 }
 
 export interface ClickUpReadService {
+  getListInfo(): ReturnType<ClickUpClient["getListInfo"]>;
   getDailyRows(): Promise<DailyRow[]>;
   getSprintPlanningReport(): Promise<SprintPlanningReport>;
   getSprintPlanningTask(taskId: string): Promise<SprintPlanningRow>;
@@ -1308,6 +1310,8 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
     listCustomFieldsCacheTtlMs,
     () => client.getListCustomFields(config.listId)
   );
+
+  const loadListInfo = createCachedLoader(config.cacheTtlMs, () => client.getListInfo(config.listId));
 
   const loadDaily = createCachedLoader(config.cacheTtlMs, async (): Promise<DailyRow[]> => {
     const [metadata, tasks] = await Promise.all([
@@ -1559,6 +1563,9 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
   };
 
   return {
+    async getListInfo() {
+      return runLogicalRead("list", loadListInfo, () => 1);
+    },
     async getDailyRows() {
       return runLogicalRead("daily", loadDaily, (rows) => rows.length);
     },

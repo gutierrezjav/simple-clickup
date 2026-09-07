@@ -1,4 +1,5 @@
 import type {
+  ClickUpListInfo,
   DailyMeetingConfig,
   DailyRow,
   SprintPlanningReport,
@@ -115,6 +116,10 @@ async function requestClickUpResource<T>(
 
 async function fetchClickUpResource<T>(path: string): Promise<T> {
   return requestClickUpResource<T>(path);
+}
+
+export function fetchListInfo(): Promise<{ list: ClickUpListInfo }> {
+  return fetchClickUpResource<{ list: ClickUpListInfo }>("/api/clickup/list");
 }
 
 export function fetchDailyPageData(): Promise<DailyPageData> {

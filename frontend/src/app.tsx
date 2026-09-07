@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { BrowserRouter, Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { ResourceState } from "./components/resource-state";
+import { fetchListInfo } from "./lib/clickup-api";
+import { useResourceLoader } from "./lib/use-resource-loader";
 import { TopBarActionContext, type TopBarAction } from "./lib/top-bar-action";
 import { DailyPage } from "./routes/daily-page";
 import { PlanningPage } from "./routes/planning-page";
@@ -12,23 +14,30 @@ function getViewTabClassName({ isActive }: { isActive: boolean }): string {
 
 function AppShell({ children }: { children: ReactNode }) {
   const [topBarAction, setTopBarAction] = useState<TopBarAction | null>(null);
+  const { data, refresh } = useResourceLoader(fetchListInfo);
+  const listName = data?.list.name ?? "ClickUp";
+  const subtitle = [data?.list.spaceName, data?.list.folderName].filter(Boolean).join(" / ");
 
   return (
     <TopBarActionContext.Provider value={setTopBarAction}>
+      <DocumentTitleManager listName={listName} />
       <div className="app-shell">
         <div className="workspace-main">
           <header className="workspace-header">
             <div className="workspace-header__main">
               <div className="workspace-header__copy">
-                <div className="workspace-header__eyebrow">R&amp;D WingtraCloud / All Tasks</div>
-                <h2>Wingtra Cloud Dev</h2>
+                {subtitle ? <div className="workspace-header__eyebrow">{subtitle}</div> : null}
+                <h2>{listName}</h2>
               </div>
               {topBarAction ? (
                 <div className="workspace-header__actions">
                   <button
                     className="toolbar-button"
                     disabled={topBarAction.disabled}
-                    onClick={topBarAction.onAction}
+                    onClick={() => {
+                      refresh();
+                      topBarAction.onAction();
+                    }}
                     type="button"
                   >
                     {topBarAction.label}
@@ -40,9 +49,6 @@ function AppShell({ children }: { children: ReactNode }) {
               <NavLink className={getViewTabClassName} to="/daily">
                 Daily
               </NavLink>
-              <NavLink className={getViewTabClassName} to="/planning">
-                Sprint Planning
-              </NavLink>
             </nav>
           </header>
           <main className="content">{children}</main>
@@ -52,28 +58,28 @@ function AppShell({ children }: { children: ReactNode }) {
   );
 }
 
-function getDocumentTitle(pathname: string): string {
+function getDocumentTitle(pathname: string, listName: string): string {
   if (pathname.startsWith("/daily")) {
-    return "Simple Clickup | Daily";
+    return `${listName} | Daily`;
   }
 
   if (pathname.startsWith("/planning")) {
-    return "Simple Clickup | Sprint Planning";
+    return `${listName} | Sprint Planning`;
   }
 
   if (pathname.startsWith("/verify")) {
-    return "Simple Clickup | Verification";
+    return `${listName} | Verification`;
   }
 
-  return "Simple Clickup";
+  return listName;
 }
 
-function DocumentTitleManager() {
+function DocumentTitleManager({ listName }: { listName: string }) {
   const location = useLocation();
 
   useEffect(() => {
-    document.title = getDocumentTitle(location.pathname);
-  }, [location.pathname]);
+    document.title = getDocumentTitle(location.pathname, listName);
+  }, [location.pathname, listName]);
 
   return null;
 }
@@ -92,7 +98,6 @@ function NotFoundPage() {
 export function App() {
   return (
     <BrowserRouter>
-      <DocumentTitleManager />
       <AppShell>
         <Routes>
           <Route path="/" element={<Navigate replace to="/daily" />} />
