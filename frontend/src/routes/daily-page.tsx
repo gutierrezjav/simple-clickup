@@ -527,7 +527,8 @@ export function DailyPage({
   );
   const eligibleMeetingRoster = getEligibleDailyMeetingRoster(
     filteredBoard.assigneeOptions,
-    dailyMeetingConfig
+    dailyMeetingConfig,
+    sortedRows
   );
   const nextMeetingSpeaker = getNextDailyMeetingSpeaker(meetingRound);
   const nextSpeakerTooltip = useVisibleTooltip<HTMLButtonElement>(

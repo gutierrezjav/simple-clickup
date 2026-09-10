@@ -1,4 +1,4 @@
-import type { DailyMeetingConfig, DailyRow } from "@custom-clickup/shared";
+import { dailyStatuses, type DailyMeetingConfig, type DailyRow } from "@custom-clickup/shared";
 import { describe, expect, it } from "vitest";
 import {
   advanceDailyMeetingRound,
@@ -14,6 +14,26 @@ function createSequenceRandom(values: number[]): () => number {
   return () => values[index++] ?? 0;
 }
 
+function story(id: string, assignees: string[], owner?: string): DailyRow {
+  return {
+    id,
+    title: id,
+    type: "story",
+    ...(owner ? { assignee: owner } : {}),
+    cards: assignees.map((assignee, index) => ({
+      id: `${id}-${index}`,
+      customId: `${id}-${index}`,
+      title: "Task",
+      status: "IN PROGRESS",
+      assignee
+    }))
+  };
+}
+
+function taskRows(assignees: string[]): DailyRow[] {
+  return [{ ...story("tasks", assignees), type: "tasks" }];
+}
+
 const configuredDailyMeeting: DailyMeetingConfig = {
   excludedAssignees: ["Excluded Person One", "Excluded Person Two"],
   finalSpeaker: "Tail Speaker"
@@ -25,6 +45,31 @@ const finalSpeakerDailyMeeting: DailyMeetingConfig = {
 };
 
 describe("getEligibleDailyMeetingRoster", () => {
+  it("only includes card assignees in the four main statuses, plus Jessica", () => {
+    const rows = taskRows([...dailyStatuses]);
+    rows[0]!.cards.forEach((card, index) => {
+      card.status = dailyStatuses[index]!;
+    });
+    rows.push(story("owner-only", [], "Story Owner"));
+
+    expect(getEligibleDailyMeetingRoster(
+      [...dailyStatuses, "Story Owner", "Jessica Nilsson"],
+      { excludedAssignees: [], finalSpeaker: "Jessica Nilsson" },
+      rows
+    )).toEqual([
+      "SPRINT BACKLOG", "IN PROGRESS", "IN CODE REVIEW", "DEPLOYED TO DEV", "Jessica Nilsson"
+    ]);
+  });
+
+  it("includes Javier with qualifying work and keeps Jessica even on an empty board", () => {
+    const config = { excludedAssignees: ["Basil Weibel"], finalSpeaker: "Jessica Nilsson" };
+    expect(getEligibleDailyMeetingRoster(
+      ["Javier Gutierrez", "Basil Weibel"], config,
+      taskRows(["Javier Gutierrez", "Basil Weibel"])
+    )).toEqual(["Javier Gutierrez", "Jessica Nilsson"]);
+    expect(getEligibleDailyMeetingRoster(["Javier Gutierrez"], config, [])).toEqual(["Jessica Nilsson"]);
+  });
+
   it("excludes Unassigned and configured assignees, then keeps the configured final speaker last", () => {
     expect(
       getEligibleDailyMeetingRoster([
@@ -34,12 +79,12 @@ describe("getEligibleDailyMeetingRoster", () => {
         "Excluded Person One",
         "Excluded Person Two",
         "Bob Jones"
-      ], configuredDailyMeeting)
+      ], configuredDailyMeeting, taskRows(["Alice Smith", "Bob Jones"]))
     ).toEqual(["Alice Smith", "Bob Jones", "Tail Speaker"]);
   });
 
   it("appends the configured final speaker even when they are not in the filter list", () => {
-    expect(getEligibleDailyMeetingRoster(["Alice Smith", "Bob Jones"], configuredDailyMeeting)).toEqual([
+    expect(getEligibleDailyMeetingRoster(["Alice Smith", "Bob Jones"], configuredDailyMeeting, taskRows(["Alice Smith", "Bob Jones"]))).toEqual([
       "Alice Smith",
       "Bob Jones",
       "Tail Speaker"
@@ -62,29 +107,26 @@ describe("getDailyMeetingFilterOptions", () => {
 });
 
 describe("advanceDailyMeetingRound", () => {
-  function story(id: string, assignees: string[], owner?: string): DailyRow {
-    return {
-      id,
-      title: id,
-      type: "story",
-      ...(owner ? { assignee: owner } : {}),
-      cards: assignees.map((assignee, index) => ({
-        id: `${id}-${index}`,
-        customId: `${id}-${index}`,
-        title: "Task",
-        status: "IN PROGRESS",
-        assignee
-      }))
-    };
-  }
+  it("filters the Next rotation using card status while keeping Jessica last", () => {
+    const rows = taskRows(["Javier Gutierrez", "Staging Only"]);
+    rows[0]!.cards[1]!.status = "DEPLOYED TO STAGING";
+    const result = advanceDailyMeetingRound({
+      assigneeOptions: ["Staging Only", "Javier Gutierrez"],
+      config: { excludedAssignees: [], finalSpeaker: "Jessica Nilsson" },
+      rows,
+      round: null
+    });
+    expect(result.round?.order).toEqual(["Javier Gutierrez", "Jessica Nilsson"]);
+  });
 
   it.each([0, 0.5, 0.99])("keeps story teammates together with random seed %s", (seed) => {
     const result = advanceDailyMeetingRound({
       assigneeOptions: ["Alice", "Bob", "Carol", "Dave", "Solo", "Unassigned", "Excluded"],
       config: { excludedAssignees: ["Excluded"], finalSpeaker: "Final" },
       rows: [
-        story("one", ["Carol", "Excluded", "Final"], "Alice"),
-        story("two", ["Bob", "Dave"])
+        story("one", ["Alice", "Carol", "Excluded", "Final"], "Alice"),
+        story("two", ["Bob", "Dave"]),
+        ...taskRows(["Alice", "Solo"])
       ],
       random: () => seed,
       round: null
@@ -104,7 +146,8 @@ describe("advanceDailyMeetingRound", () => {
         story("netcorr", ["Alex", "Alex"], "Markus"),
         story("offline-bugs", ["Volodymyr", "Volodymyr", "Andrii", "Andrii"], "Volodymyr"),
         story("powersync", ["Andrii", "Andrii", "Andrii", "Andrii", "Volodymyr", "Volodymyr", "Alex", "Alex"], "Javier"),
-        story("point-cloud", ["Javier", "Javier", "Javier"])
+        story("point-cloud", ["Javier", "Javier", "Javier"]),
+        ...taskRows(["Markus", "Solo"])
       ],
       random: () => seed,
       round: null
@@ -114,6 +157,36 @@ describe("advanceDailyMeetingRound", () => {
     expect(Math.max(...positions) - Math.min(...positions)).toBe(2);
     expect([...order].sort()).toEqual(["Alex", "Andrii", "Javier", "Markus", "Solo", "Volodymyr"]);
     expect(order.at(-1)).toBe("Javier");
+  });
+
+  it.each([false, true])("does not group Javier with a story he only owns or has staging cards in (%s)", (hasStagingCard) => {
+    const powersync = story("powersync", ["Alex", "Andrii", "Volodymyr"], "Javier Gutierrez");
+    if (hasStagingCard) {
+      powersync.cards.push({
+        ...story("staging", ["Javier Gutierrez"]).cards[0]!,
+        status: "DEPLOYED TO STAGING"
+      });
+    }
+    const result = advanceDailyMeetingRound({
+      assigneeOptions: ["Alex", "Andrii", "Volodymyr", "Javier Gutierrez", "Jessica Nilsson"],
+      config: { excludedAssignees: [], finalSpeaker: "Jessica Nilsson" },
+      rows: [powersync, story("point-cloud", ["Javier Gutierrez"])],
+      random: () => 0.99,
+      round: null
+    });
+    expect(result.round?.order).toEqual([
+      "Alex", "Andrii", "Volodymyr", "Javier Gutierrez", "Jessica Nilsson"
+    ]);
+  });
+
+  it("leaves Javier out when he only owns a user story", () => {
+    const result = advanceDailyMeetingRound({
+      assigneeOptions: ["Andrii", "Javier Gutierrez", "Jessica Nilsson"],
+      config: { excludedAssignees: [], finalSpeaker: "Jessica Nilsson" },
+      rows: [story("powersync", ["Andrii"], "Javier Gutierrez")],
+      round: null
+    });
+    expect(result.round?.order).toEqual(["Andrii", "Jessica Nilsson"]);
   });
 
   it("counts unique eligible teammates and uses board order for equal-sized teams", () => {
@@ -147,6 +220,7 @@ describe("advanceDailyMeetingRound", () => {
   it("starts a randomized round on the first Next click", () => {
     const result = advanceDailyMeetingRound({
       assigneeOptions: ["Alice Smith", "Bob Jones", "Final Speaker"],
+      rows: taskRows(["Alice Smith", "Bob Jones", "Final Speaker"]),
       config: finalSpeakerDailyMeeting,
       random: createSequenceRandom([0]),
       round: null
@@ -160,6 +234,7 @@ describe("advanceDailyMeetingRound", () => {
   it("advances through the stored order without reshuffling mid-round", () => {
     const started = advanceDailyMeetingRound({
       assigneeOptions: ["Alice Smith", "Bob Jones", "Final Speaker"],
+      rows: taskRows(["Alice Smith", "Bob Jones", "Final Speaker"]),
       config: finalSpeakerDailyMeeting,
       random: createSequenceRandom([0]),
       round: null
@@ -167,11 +242,13 @@ describe("advanceDailyMeetingRound", () => {
 
     const second = advanceDailyMeetingRound({
       assigneeOptions: ["Alice Smith", "Bob Jones", "Final Speaker"],
+      rows: taskRows(["Alice Smith", "Bob Jones", "Final Speaker"]),
       config: finalSpeakerDailyMeeting,
       round: started.round ?? null
     });
     const third = advanceDailyMeetingRound({
       assigneeOptions: ["Alice Smith", "Bob Jones", "Final Speaker"],
+      rows: taskRows(["Alice Smith", "Bob Jones", "Final Speaker"]),
       config: finalSpeakerDailyMeeting,
       round: second.round ?? null
     });
@@ -185,6 +262,7 @@ describe("advanceDailyMeetingRound", () => {
   it("resumes the stored order after a manual assignee interruption", () => {
     const started = advanceDailyMeetingRound({
       assigneeOptions: ["Alice Smith", "Bob Jones", "Final Speaker"],
+      rows: taskRows(["Alice Smith", "Bob Jones", "Final Speaker"]),
       config: finalSpeakerDailyMeeting,
       random: createSequenceRandom([0]),
       round: null
@@ -192,6 +270,7 @@ describe("advanceDailyMeetingRound", () => {
 
     const resumed = advanceDailyMeetingRound({
       assigneeOptions: ["Alice Smith", "Bob Jones", "Final Speaker"],
+      rows: taskRows(["Alice Smith", "Bob Jones", "Final Speaker"]),
       config: finalSpeakerDailyMeeting,
       round: started.round ?? null
     });
@@ -203,17 +282,20 @@ describe("advanceDailyMeetingRound", () => {
   it("clears the selection after the final speaker", () => {
     const started = advanceDailyMeetingRound({
       assigneeOptions: ["Alice Smith", "Final Speaker"],
+      rows: taskRows(["Alice Smith", "Final Speaker"]),
       config: finalSpeakerDailyMeeting,
       random: createSequenceRandom([0]),
       round: null
     });
     const finalSpeaker = advanceDailyMeetingRound({
       assigneeOptions: ["Alice Smith", "Final Speaker"],
+      rows: taskRows(["Alice Smith", "Final Speaker"]),
       config: finalSpeakerDailyMeeting,
       round: started.round ?? null
     });
     const cleared = advanceDailyMeetingRound({
       assigneeOptions: ["Alice Smith", "Final Speaker"],
+      rows: taskRows(["Alice Smith", "Final Speaker"]),
       config: finalSpeakerDailyMeeting,
       round: finalSpeaker.round ?? null
     });
@@ -226,6 +308,7 @@ describe("advanceDailyMeetingRound", () => {
   it("returns no selection when every assignee is excluded", () => {
     const result = advanceDailyMeetingRound({
       assigneeOptions: ["Unassigned", "Excluded Person One", "Excluded Person Two"],
+      rows: taskRows(["Unassigned", "Excluded Person One", "Excluded Person Two"]),
       config: {
         excludedAssignees: ["Excluded Person One", "Excluded Person Two"]
       },
@@ -239,6 +322,7 @@ describe("advanceDailyMeetingRound", () => {
   it("keeps advancing the stored order even if the assignee list changes", () => {
     const started = advanceDailyMeetingRound({
       assigneeOptions: ["Alice Smith", "Bob Jones", "Final Speaker"],
+      rows: taskRows(["Alice Smith", "Bob Jones", "Final Speaker"]),
       config: finalSpeakerDailyMeeting,
       random: createSequenceRandom([0]),
       round: null
@@ -246,6 +330,7 @@ describe("advanceDailyMeetingRound", () => {
 
     const changedRoster = advanceDailyMeetingRound({
       assigneeOptions: ["Alice Smith", "Final Speaker", "New Person"],
+      rows: taskRows(["Alice Smith", "Final Speaker", "New Person"]),
       config: finalSpeakerDailyMeeting,
       round: started.round ?? null
     });
@@ -267,6 +352,7 @@ describe("getDailyMeetingProgressCount", () => {
     for (let selectedCount = 1; selectedCount <= speakerCount; selectedCount += 1) {
       const result = advanceDailyMeetingRound({
         assigneeOptions,
+        rows: taskRows(assigneeOptions),
         config: { excludedAssignees: [] },
         round
       });
@@ -278,6 +364,7 @@ describe("getDailyMeetingProgressCount", () => {
 
     const finished = advanceDailyMeetingRound({
       assigneeOptions,
+        rows: taskRows(assigneeOptions),
       config: { excludedAssignees: [] },
       round
     });

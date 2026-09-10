@@ -1,6 +1,12 @@
-import type { DailyMeetingConfig, DailyRow } from "@custom-clickup/shared";
+import type { DailyMeetingConfig, DailyRow, DailyStatus } from "@custom-clickup/shared";
 
 const alwaysExcludedDailyMeetingNames = new Set(["Unassigned"]);
+const dailyMeetingStatuses = new Set<DailyStatus>([
+  "SPRINT BACKLOG",
+  "IN PROGRESS",
+  "IN CODE REVIEW",
+  "DEPLOYED TO DEV"
+]);
 
 export interface DailyMeetingRound {
   currentIndex: number;
@@ -12,7 +18,7 @@ export interface AdvanceDailyMeetingRoundOptions {
   config: DailyMeetingConfig;
   random?: () => number;
   round: DailyMeetingRound | null;
-  rows?: DailyRow[];
+  rows: DailyRow[];
 }
 
 export interface AdvanceDailyMeetingRoundResult {
@@ -60,7 +66,9 @@ function groupSpeakersByStory(names: string[], rows: DailyRow[], random: () => n
   const storyTeams = rows
     .filter((row) => row.type === "story")
     .map((row) => [...new Set(
-      [row.assignee, ...row.cards.map((card) => card.assignee)]
+      row.cards
+        .filter((card) => dailyMeetingStatuses.has(card.status))
+        .map((card) => card.assignee)
         .map((name) => normalizeName(name ?? ""))
         .filter((name) => remaining.has(name))
     )])
@@ -89,12 +97,17 @@ function groupSpeakersByStory(names: string[], rows: DailyRow[], random: () => n
 
 export function getEligibleDailyMeetingRoster(
   assigneeOptions: string[],
-  config: DailyMeetingConfig
+  config: DailyMeetingConfig,
+  rows: DailyRow[]
 ): string[] {
   const excludedDailyMeetingNames = getExcludedDailyMeetingNames(config);
   const finalDailyMeetingSpeaker = getFinalDailyMeetingSpeaker(config);
+  const activeAssignees = new Set(rows.flatMap((row) => row.cards
+    .filter((card) => dailyMeetingStatuses.has(card.status))
+    .map((card) => normalizeName(card.assignee ?? ""))
+  ));
   const uniqueNames = [...new Set(assigneeOptions.map(normalizeName).filter(Boolean))].filter(
-    (name) => !excludedDailyMeetingNames.has(name)
+    (name) => !excludedDailyMeetingNames.has(name) && activeAssignees.has(name)
   );
   const canUseFinalSpeaker = finalDailyMeetingSpeaker
     ? !excludedDailyMeetingNames.has(finalDailyMeetingSpeaker)
@@ -150,7 +163,7 @@ export function advanceDailyMeetingRound({
   config,
   random = Math.random,
   round,
-  rows = []
+  rows
 }: AdvanceDailyMeetingRoundOptions): AdvanceDailyMeetingRoundResult {
   if (round && round.order.length > 0) {
     if (round.currentIndex >= round.order.length - 1) {
@@ -171,7 +184,7 @@ export function advanceDailyMeetingRound({
     };
   }
 
-  const roster = getEligibleDailyMeetingRoster(assigneeOptions, config);
+  const roster = getEligibleDailyMeetingRoster(assigneeOptions, config, rows);
   if (roster.length === 0) {
     return {
       assignee: "",

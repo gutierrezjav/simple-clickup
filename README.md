@@ -73,6 +73,14 @@ Daily meeting helper env vars:
 - `DAILY_MEETING_EXCLUDED_ASSIGNEES`: optional comma-separated assignee names to exclude from the `Next` rotation
 - `DAILY_MEETING_FINAL_SPEAKER`: optional assignee name that should always be placed last in the `Next` rotation
 
+`Next` includes people with assigned cards in `SPRINT BACKLOG`, `IN PROGRESS`,
+`IN CODE REVIEW`, or `DEPLOYED TO DEV`. Story ownership alone does not qualify.
+Story groups also use only card assignments in those four statuses.
+The configured final speaker is included even without qualifying cards (unless
+explicitly excluded). Use `Jessica Nilsson` as the final speaker to keep her in
+every round, and remove `Javier Gutierrez` from the excluded-assignees setting in
+each environment to include him when he has qualifying work.
+
 ## Container And Deployment
 
 Production runs as one container that serves both the frontend bundle and the backend API.
