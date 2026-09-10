@@ -609,6 +609,7 @@ export function DailyPage({
     const nextMeetingStep = advanceDailyMeetingRound({
       assigneeOptions: filteredBoard.assigneeOptions,
       config: dailyMeetingConfig,
+      rows: sortedRows,
       round: meetingRound
     });
 

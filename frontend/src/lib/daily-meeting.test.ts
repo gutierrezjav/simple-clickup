@@ -1,4 +1,4 @@
-import type { DailyMeetingConfig } from "@custom-clickup/shared";
+import type { DailyMeetingConfig, DailyRow } from "@custom-clickup/shared";
 import { describe, expect, it } from "vitest";
 import {
   advanceDailyMeetingRound,
@@ -62,6 +62,88 @@ describe("getDailyMeetingFilterOptions", () => {
 });
 
 describe("advanceDailyMeetingRound", () => {
+  function story(id: string, assignees: string[], owner?: string): DailyRow {
+    return {
+      id,
+      title: id,
+      type: "story",
+      ...(owner ? { assignee: owner } : {}),
+      cards: assignees.map((assignee, index) => ({
+        id: `${id}-${index}`,
+        customId: `${id}-${index}`,
+        title: "Task",
+        status: "IN PROGRESS",
+        assignee
+      }))
+    };
+  }
+
+  it.each([0, 0.5, 0.99])("keeps story teammates together with random seed %s", (seed) => {
+    const result = advanceDailyMeetingRound({
+      assigneeOptions: ["Alice", "Bob", "Carol", "Dave", "Solo", "Unassigned", "Excluded"],
+      config: { excludedAssignees: ["Excluded"], finalSpeaker: "Final" },
+      rows: [
+        story("one", ["Carol", "Excluded", "Final"], "Alice"),
+        story("two", ["Bob", "Dave"])
+      ],
+      random: () => seed,
+      round: null
+    });
+    const order = result.round!.order;
+    expect(Math.abs(order.indexOf("Alice") - order.indexOf("Carol"))).toBe(1);
+    expect(Math.abs(order.indexOf("Bob") - order.indexOf("Dave"))).toBe(1);
+    expect([...order].sort()).toEqual(["Alice", "Bob", "Carol", "Dave", "Final", "Solo"]);
+    expect(order.at(-1)).toBe("Final");
+  });
+
+  it.each([0, 0.5, 0.99])("keeps the offline team together across multiple stories (%s)", (seed) => {
+    const result = advanceDailyMeetingRound({
+      assigneeOptions: ["Alex", "Andrii", "Volodymyr", "Markus", "Javier", "Solo"],
+      config: { excludedAssignees: [], finalSpeaker: "Javier" },
+      rows: [
+        story("netcorr", ["Alex", "Alex"], "Markus"),
+        story("offline-bugs", ["Volodymyr", "Volodymyr", "Andrii", "Andrii"], "Volodymyr"),
+        story("powersync", ["Andrii", "Andrii", "Andrii", "Andrii", "Volodymyr", "Volodymyr", "Alex", "Alex"], "Javier"),
+        story("point-cloud", ["Javier", "Javier", "Javier"])
+      ],
+      random: () => seed,
+      round: null
+    });
+    const order = result.round!.order;
+    const positions = ["Alex", "Andrii", "Volodymyr"].map((name) => order.indexOf(name));
+    expect(Math.max(...positions) - Math.min(...positions)).toBe(2);
+    expect([...order].sort()).toEqual(["Alex", "Andrii", "Javier", "Markus", "Solo", "Volodymyr"]);
+    expect(order.at(-1)).toBe("Javier");
+  });
+
+  it("counts unique eligible teammates and uses board order for equal-sized teams", () => {
+    const result = advanceDailyMeetingRound({
+      assigneeOptions: ["Alice", "Bob", "Carol", "Excluded", "Final"],
+      config: { excludedAssignees: ["Excluded"], finalSpeaker: "Final" },
+      rows: [
+        story("one", ["Alice", "Bob"]),
+        story("two", ["Alice", "Alice", "Alice", "Carol", "Excluded", "Final"])
+      ],
+      random: () => 0.99,
+      round: null
+    });
+    expect(result.round?.order).toEqual(["Alice", "Bob", "Carol", "Final"]);
+  });
+
+  it("does not group unrelated standalone tasks or bugs", () => {
+    const result = advanceDailyMeetingRound({
+      assigneeOptions: ["Alice", "Bob", "Carol", "Dave"],
+      config: { excludedAssignees: [] },
+      rows: [
+        { ...story("tasks", ["Alice", "Carol"]), type: "tasks" },
+        { ...story("bugs", ["Bob", "Dave"]), type: "bugs" }
+      ],
+      random: () => 0.99,
+      round: null
+    });
+    expect(result.round?.order).toEqual(["Alice", "Bob", "Carol", "Dave"]);
+  });
+
   it("starts a randomized round on the first Next click", () => {
     const result = advanceDailyMeetingRound({
       assigneeOptions: ["Alice Smith", "Bob Jones", "Final Speaker"],

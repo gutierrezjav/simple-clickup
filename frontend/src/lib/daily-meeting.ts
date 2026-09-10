@@ -1,4 +1,4 @@
-import type { DailyMeetingConfig } from "@custom-clickup/shared";
+import type { DailyMeetingConfig, DailyRow } from "@custom-clickup/shared";
 
 const alwaysExcludedDailyMeetingNames = new Set(["Unassigned"]);
 
@@ -12,6 +12,7 @@ export interface AdvanceDailyMeetingRoundOptions {
   config: DailyMeetingConfig;
   random?: () => number;
   round: DailyMeetingRound | null;
+  rows?: DailyRow[];
 }
 
 export interface AdvanceDailyMeetingRoundResult {
@@ -52,6 +53,38 @@ function shuffleNames(names: string[], random: () => number): string[] {
   }
 
   return nextNames;
+}
+
+function groupSpeakersByStory(names: string[], rows: DailyRow[], random: () => number): string[] {
+  const remaining = new Set(names);
+  const storyTeams = rows
+    .filter((row) => row.type === "story")
+    .map((row) => [...new Set(
+      [row.assignee, ...row.cards.map((card) => card.assignee)]
+        .map((name) => normalizeName(name ?? ""))
+        .filter((name) => remaining.has(name))
+    )])
+    // Form the largest shared-story teams first; board order breaks ties.
+    .sort((left, right) => right.length - left.length);
+
+  const groups = new Map<string, string[]>();
+  for (const team of storyTeams) {
+    const group = team.filter((name) => remaining.has(name));
+    if (group.length === 0) {
+      continue;
+    }
+    groups.set(String(groups.size), group);
+    for (const name of group) {
+      remaining.delete(name);
+    }
+  }
+  for (const name of remaining) {
+    groups.set(String(groups.size), [name]);
+  }
+
+  return shuffleNames([...groups.keys()], random).flatMap((key) =>
+    shuffleNames(groups.get(key) ?? [], random)
+  );
 }
 
 export function getEligibleDailyMeetingRoster(
@@ -116,7 +149,8 @@ export function advanceDailyMeetingRound({
   assigneeOptions,
   config,
   random = Math.random,
-  round
+  round,
+  rows = []
 }: AdvanceDailyMeetingRoundOptions): AdvanceDailyMeetingRoundResult {
   if (round && round.order.length > 0) {
     if (round.currentIndex >= round.order.length - 1) {
@@ -151,7 +185,7 @@ export function advanceDailyMeetingRound({
       ? roster.includes(finalDailyMeetingSpeaker)
       : false;
     const randomizableNames = roster.filter((name) => name !== finalDailyMeetingSpeaker);
-    const shuffledNames = shuffleNames(randomizableNames, random);
+    const shuffledNames = groupSpeakersByStory(randomizableNames, rows, random);
     const order =
       hasFinalSpeaker && finalDailyMeetingSpeaker
         ? [...shuffledNames, finalDailyMeetingSpeaker]
