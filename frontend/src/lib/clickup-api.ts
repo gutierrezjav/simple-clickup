@@ -195,3 +195,7 @@ export function startClickUpOAuth(returnTo: string): void {
   url.searchParams.set("returnTo", returnTo);
   window.location.assign(url.toString());
 }
+
+export function fetchSquadsPageData(): Promise<DailyPageData> {
+  return fetchClickUpResource<DailyPageData>("/api/clickup/squads");
+}

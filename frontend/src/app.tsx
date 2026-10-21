@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { BrowserRouter, Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { ResourceState } from "./components/resource-state";
-import { fetchListInfo } from "./lib/clickup-api";
+import { fetchSquadsPageData, fetchListInfo } from "./lib/clickup-api";
 import { useResourceLoader } from "./lib/use-resource-loader";
 import { TopBarActionContext, type TopBarAction } from "./lib/top-bar-action";
 import { DailyPage } from "./routes/daily-page";
@@ -49,6 +49,9 @@ function AppShell({ children }: { children: ReactNode }) {
               <NavLink className={getViewTabClassName} to="/daily">
                 Daily
               </NavLink>
+              <NavLink className={getViewTabClassName} to="/squads">
+                Squads
+              </NavLink>
             </nav>
           </header>
           <main className="content">{children}</main>
@@ -59,6 +62,8 @@ function AppShell({ children }: { children: ReactNode }) {
 }
 
 function getDocumentTitle(pathname: string, listName: string): string {
+  if (pathname.startsWith("/squads")) return `${listName} | Squads`;
+
   if (pathname.startsWith("/daily")) {
     return `${listName} | Daily`;
   }
@@ -102,6 +107,7 @@ export function App() {
         <Routes>
           <Route path="/" element={<Navigate replace to="/daily" />} />
           <Route path="/daily" element={<DailyPage />} />
+          <Route path="/squads" element={<DailyPage key="squads" variant="squads" loader={fetchSquadsPageData} />} />
           <Route path="/planning" element={<PlanningPage />} />
           <Route path="/verify" element={<VerificationPage />} />
           <Route path="*" element={<NotFoundPage />} />
