@@ -129,7 +129,7 @@ export function filterDailyBoard(
 
   const filteredRows = rows.flatMap((row) => {
     const storyTitleMatches =
-      row.type === "story" && searchTerm !== ""
+      (row.type === "story" || row.type === "epic" || row.type === "mix") && searchTerm !== ""
         ? row.title.toLowerCase().includes(searchTerm)
         : false;
     const storyAssigneeMatches = row.type === "story" && matchesAssigneeName(row.assignee, assignee);

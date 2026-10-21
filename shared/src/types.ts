@@ -42,7 +42,7 @@ export interface DailyCard {
 export interface DailyRow {
   id: string;
   title: string;
-  type: "story" | "tasks" | "bugs";
+  type: "story" | "tasks" | "bugs" | "epic" | "mix";
   prioScore?: number;
   assignee?: string;
   assigneeAvatarUrl?: string;

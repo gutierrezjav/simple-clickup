@@ -40,10 +40,12 @@ import {
   type DailyBoardFilters
 } from "../lib/daily-board";
 import { getClickUpTaskUrl } from "../lib/clickup-task-url";
+import { getExpandedSquadsRows, sortSquadsRows } from "../lib/squads-board";
 import { useTopBarAction } from "../lib/top-bar-action";
 import { useResourceLoader } from "../lib/use-resource-loader";
 
 export interface DailyPageProps {
+  variant?: "daily" | "squads";
   loader?: () => Promise<DailyPageData>;
   storyStatusLoader?: () => Promise<StoryStatusDiscrepancyReportData>;
 }
@@ -63,7 +65,7 @@ function sortCards(cards: DailyCardModel[]): DailyCardModel[] {
 
 function sortDailyRows(rows: DailyRow[]): DailyRow[] {
   const storyRows = rows
-    .filter((row) => row.type === "story")
+    .filter((row) => row.type === "story" || row.type === "epic" || row.type === "mix")
     .map((row) => ({
       ...row,
       cards: sortCards(row.cards)
@@ -154,6 +156,10 @@ function getFirstName(name: string): string {
 
 function getSwimlaneMeta(rowType: DailyRow["type"]) {
   switch (rowType) {
+    case "epic":
+      return { label: "Epic", pillModifier: "story" };
+    case "mix":
+      return { label: "Squad", pillModifier: "story" };
     case "story":
       return {
         label: "Story",
@@ -210,7 +216,7 @@ function DailyStatusColumnHeader({
 }
 
 function renderSwimlaneHeaderLead(row: ReturnType<typeof filterDailyBoard>["rows"][number]) {
-  if (row.type === "story") {
+  if (row.type === "story" || row.type === "epic") {
     return (
       <TaskAssigneeInline
         assignee={row.assignee}
@@ -230,7 +236,7 @@ function renderSwimlaneHeaderLead(row: ReturnType<typeof filterDailyBoard>["rows
 }
 
 function renderSwimlaneTitle(row: ReturnType<typeof filterDailyBoard>["rows"][number]) {
-  if (row.type !== "story") {
+  if (row.type !== "story" && row.type !== "epic") {
     return row.title;
   }
 
@@ -293,7 +299,8 @@ function renderDailyGrid({
   onClearFilters,
   onToggleStatus,
   rows,
-  statusCollapseOverrides
+  statusCollapseOverrides,
+  variant
 }: {
   counts: DailyBoardCounts;
   filtersActive: boolean;
@@ -301,6 +308,7 @@ function renderDailyGrid({
   onToggleStatus: (status: DailyStatus, collapsed: boolean) => void;
   rows: ReturnType<typeof filterDailyBoard>["rows"];
   statusCollapseOverrides: StatusCollapseOverrides;
+  variant: "daily" | "squads";
 }) {
   const visibleStatuses = new Set(getVisibleDailyStatuses(rows));
   const swimlaneWidth = 228;
@@ -308,6 +316,7 @@ function renderDailyGrid({
   const collapsedStatusWidth = 72;
   const isStatusCollapsed = (status: DailyStatus) =>
     statusCollapseOverrides[status] ?? isDailyStatusCollapsedByDefault(status, visibleStatuses);
+  const expandedRows = variant === "squads" ? getExpandedSquadsRows(rows, isStatusCollapsed) : rows;
   const totalBoardWidth = dailyStatuses.reduce(
     (width, status) => width + (isStatusCollapsed(status) ? collapsedStatusWidth : statusWidth),
     swimlaneWidth
@@ -366,7 +375,7 @@ function renderDailyGrid({
           })}
         </div>
         <div className="daily-board__body">
-          {rows.map((row) => {
+          {expandedRows.map((row) => {
             return (
               <section className={`daily-swimlane daily-swimlane--${row.type}`} key={row.id}>
                 <div className="daily-swimlane__header">
@@ -506,6 +515,7 @@ const defaultDailyMeetingConfig: DailyMeetingConfig = {
 };
 
 export function DailyPage({
+  variant = "daily",
   loader = fetchDailyPageData,
   storyStatusLoader = fetchStoryStatusDiscrepancyReportData
 }: DailyPageProps) {
@@ -518,7 +528,7 @@ export function DailyPage({
     assignee: ""
   });
   const [statusCollapseOverrides, setStatusCollapseOverrides] = useState<StatusCollapseOverrides>({});
-  const sortedRows = data ? sortDailyRows(data.rows) : [];
+  const sortedRows = data ? (variant === "squads" ? sortSquadsRows(data.rows) : sortDailyRows(data.rows)) : [];
   const filteredBoard = filterDailyBoard(sortedRows, filters);
   const dailyMeetingConfig = data?.dailyMeeting ?? defaultDailyMeetingConfig;
   const dailyMeetingAssigneeOptions = getDailyMeetingFilterOptions(
@@ -545,7 +555,7 @@ export function DailyPage({
   });
 
   useEffect(() => {
-    if (!data) {
+    if (!data || variant === "squads") {
       setStoryStatusReport(null);
       return;
     }
@@ -573,9 +583,9 @@ export function DailyPage({
     return () => {
       cancelled = true;
     };
-  }, [data, storyStatusLoader]);
+  }, [data, storyStatusLoader, variant]);
 
-  const handleConnect = () => startClickUpOAuth("/daily");
+  const handleConnect = () => startClickUpOAuth(`/${variant}`);
   const errorAction = getDailyErrorAction(error, handleConnect, refresh);
 
   function handleSearchChange(search: string) {
@@ -627,8 +637,8 @@ export function DailyPage({
         <RouteLoadingIndicator isVisible />
         <ResourceState
           isLoading
-          message="Loading daily board data from the backend."
-          title="Loading Daily Board"
+          message={`Loading ${variant} board data from the backend.`}
+          title={variant === "squads" ? "Loading Squads Board" : "Loading Daily Board"}
         />
       </div>
     );
@@ -641,7 +651,7 @@ export function DailyPage({
           actionLabel={errorAction.actionLabel}
           message={getDailyErrorMessage(error ?? new Error("Daily data could not be loaded."))}
           onAction={errorAction.onAction}
-          title={getDailyUnavailableTitle(error)}
+          title={variant === "squads" ? getDailyUnavailableTitle(error).replace("Daily", "Squads") : getDailyUnavailableTitle(error)}
           tone={getDailyErrorTone(error)}
         />
       </div>
@@ -654,13 +664,13 @@ export function DailyPage({
       {storyStatusReport && !isStoryStatusWarningDismissed
         ? renderStoryStatusWarning(storyStatusReport, () => setIsStoryStatusWarningDismissed(true))
         : null}
-      <div className="filter-toolbar" role="group" aria-label="Daily filters">
+      <div className="filter-toolbar" role="group" aria-label={variant === "squads" ? "Squads filters" : "Daily filters"}>
         <label className="filter-field">
           <span className="filter-field__label">Search</span>
           <input
             className="filter-input"
             onChange={(event) => handleSearchChange(event.target.value)}
-            placeholder="Story, card title, or custom ID"
+            placeholder={variant === "squads" ? "Epic, story, task, or custom ID" : "Story, card title, or custom ID"}
             type="search"
             value={filters.search}
           />
@@ -730,7 +740,8 @@ export function DailyPage({
         onClearFilters: handleClearFilters,
         onToggleStatus: handleToggleStatus,
         rows: filteredBoard.rows,
-        statusCollapseOverrides
+        statusCollapseOverrides,
+        variant
       })}
     </div>
   );

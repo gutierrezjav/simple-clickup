@@ -5,6 +5,7 @@ ClickUp client for the configured list. The header and browser title use the lis
 The active app surface is small and deliberate:
 
 - `/daily`: primary board view
+- `/squads`: stories as cards grouped by linked roadmap epics; unlinked stories in No Epic
 - `/planning`: hidden sprint planning report from the configured ClickUp view
 - `/verify`: hidden verification route for live spot-checks
 - backend-owned ClickUp reads through an OAuth-backed session

@@ -253,6 +253,13 @@ clickupRouter.get("/list", async (req, res) => {
   }));
 });
 
+clickupRouter.get("/squads", async (req, res) => {
+  await sendReadServiceResponse(req, res, async (readService) => ({
+    dailyMeeting: getDailyMeetingConfig(),
+    rows: await readService.getSquadsRows()
+  }));
+});
+
 clickupRouter.get("/daily", async (req, res) => {
   await sendReadServiceResponse(req, res, async (readService) => ({
     dailyMeeting: getDailyMeetingConfig(),

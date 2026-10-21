@@ -401,6 +401,120 @@ export function buildDailyRows(
   return [...storyRows, tasksRow, bugsRow];
 }
 
+function isSquadsBugStory(task: ClickUpTaskPayload): boolean {
+  return task.custom_id === "CL-9050" || task.id === "86ca35wbt";
+}
+
+function isSquadsEpicCandidate(task: ClickUpTaskPayload, taskTypeMap: Map<number, string>): boolean {
+  if (!task.id || isSquadsBugStory(task) || !dailyStatuses.includes(normalizeStatus(task.status) as DailyCard["status"])) {
+    return false;
+  }
+  const kind = classifyTask(task, taskTypeMap);
+  const typeName = normalizeName(taskTypeMap.get(task.custom_item_id ?? NaN) ?? "");
+  return !typeName.includes("epic") && (kind === "story" || !task.parent);
+}
+
+function getLinkedTaskIds(task: ClickUpTaskPayload): string[] {
+  return [...new Set((task.linked_tasks ?? []).flatMap((link) =>
+    [link.task_id, link.link_id].filter((id): id is string => Boolean(id) && id !== task.id)
+  ))];
+}
+
+/** Fetch missing relationship details and each distinct linked task only once per snapshot. */
+export async function loadSquadsRows(
+  tasks: ClickUpTaskPayload[],
+  taskTypeMap: Map<number, string>,
+  getTask: (id: string) => Promise<ClickUpTaskPayload>
+): Promise<DailyRow[]> {
+  const hydratedTasks: ClickUpTaskPayload[] = [];
+  for (const task of flattenTasks(tasks)) {
+    const isActiveItem = isSquadsEpicCandidate(task, taskTypeMap);
+    // List responses may omit ordinary links, while Get Task returns them.
+    hydratedTasks.push(isActiveItem && task.linked_tasks === undefined
+      ? { ...task, ...await getTask(task.id!) }
+      : task);
+  }
+  const linkedTasks = new Map<string, ClickUpTaskPayload>();
+  const ids = new Set(buildSquadsRows(hydratedTasks, taskTypeMap)
+    .filter(row => row.type === "epic").map(row => row.id));
+  for (const task of hydratedTasks) {
+    if (!isSquadsEpicCandidate(task, taskTypeMap)) continue;
+    for (const id of getLinkedTaskIds(task)) ids.add(id);
+  }
+  for (const id of ids) {
+    linkedTasks.set(id, await getTask(id));
+  }
+  return buildSquadsRows(hydratedTasks, taskTypeMap, linkedTasks);
+}
+
+/** Group stories and standalone work by epic, keeping story children collapsed. */
+export function buildSquadsRows(
+  tasks: ClickUpTaskPayload[],
+  taskTypeMap: Map<number, string>,
+  linkedTasks: ReadonlyMap<string, ClickUpTaskPayload> = new Map()
+): DailyRow[] {
+  const rows = new Map<string, DailyRow>();
+  const groupedCardIds = new Set<string>();
+  const allowedStatuses = new Set<string>(dailyStatuses);
+  for (const task of flattenTasks(tasks)) {
+    if (!isSquadsEpicCandidate(task, taskTypeMap)) continue;
+    const epics = new Map<string, string>();
+    for (const field of task.custom_fields ?? []) {
+      if (field.type !== "list_relationship" && field.type !== "tasks") continue;
+      if (!Array.isArray(field.value)) continue;
+      for (const link of field.value) {
+        if (!isRecord(link) || typeof link.id !== "string" || link.deleted === true) continue;
+        const typeName = taskTypeMap.get(Number(link.custom_type)) ?? "";
+        if (!normalizeName(typeName).includes("epic")) continue;
+        epics.set(link.id, typeof link.name === "string" ? link.name : link.id);
+      }
+    }
+    for (const id of getLinkedTaskIds(task)) {
+      const linked = linkedTasks.get(id);
+      if (linked && normalizeName(taskTypeMap.get(linked.custom_item_id ?? NaN) ?? "").includes("epic")) {
+        epics.set(id, linked.name?.trim() || id);
+      }
+    }
+    if (epics.size === 0 && classifyTask(task, taskTypeMap) !== "story") continue;
+    const groups = epics.size ? [...epics] : [["no-epic", "No Epic"]];
+    for (const [id, title] of groups) {
+      if (!id || !title) continue;
+      const row = rows.get(id) ?? { id, title, type: epics.size ? "epic" : "mix", cards: [] };
+      const epic = epics.size ? linkedTasks.get(id) : undefined;
+      if (epic) {
+        row.title = epic.name?.trim() || title;
+        const primaryAssignee = firstAssignee(epic.assignees);
+        const assignee = assigneeName(primaryAssignee);
+        const avatarUrl = assignee ? assigneeAvatarUrl(primaryAssignee) : undefined;
+        if (assignee) row.assignee = assignee;
+        if (avatarUrl) row.assigneeAvatarUrl = avatarUrl;
+        const prioScore = parseNumberField(getCustomField(epic, "Prio score"));
+        if (prioScore !== undefined) row.prioScore = prioScore;
+      }
+      const card = toDailyCard(task);
+      row.cards.push(card);
+      groupedCardIds.add(card.id);
+      rows.set(id, row);
+    }
+  }
+  const standalone = buildDailyRows(tasks, taskTypeMap)
+    .filter((row) => row.type === "tasks" || row.type === "bugs")
+    .map(row => ({ ...row, cards: row.cards.filter(card => !groupedCardIds.has(card.id)) }));
+  const bugsRow = standalone.find(row => row.type === "bugs")!;
+  for (const task of flattenTasks(tasks)) {
+    if (isSquadsBugStory(task) && classifyTask(task, taskTypeMap) === "story" && allowedStatuses.has(normalizeStatus(task.status))) {
+      bugsRow.cards.push(toDailyCard(task));
+    }
+  }
+  const visibleEpicRows = [...rows.values()].filter(row => {
+    if (row.type !== "epic") return true;
+    const status = linkedTasks.get(row.id)?.status;
+    const statusType = typeof status === "object" && status !== null ? status.type : undefined;
+    return normalizeStatus(status) !== "CLOSED" && statusType?.toLowerCase() !== "closed";
+  });
+  return [...visibleEpicRows, ...standalone];
+}
+
 function getExpectedStoryStatus(statuses: StoryProgressStatus[]): StoryProgressStatus | undefined {
   const statusIndexes = statuses
     .map((status) => storyStatusProgression.indexOf(status))
@@ -1265,6 +1379,7 @@ function createCachedLoader<T>(
 export interface ClickUpReadService {
   getListInfo(): ReturnType<ClickUpClient["getListInfo"]>;
   getDailyRows(): Promise<DailyRow[]>;
+  getSquadsRows(): Promise<DailyRow[]>;
   getSprintPlanningReport(): Promise<SprintPlanningReport>;
   getSprintPlanningTask(taskId: string): Promise<SprintPlanningRow>;
   getSprintPlanningTasks(taskIds: string[]): Promise<SprintPlanningRow[]>;
@@ -1320,6 +1435,14 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
     ]);
 
     return buildDailyRows(tasks, metadata.value.taskTypeMap);
+  });
+
+  const loadSquads = createCachedLoader(config.cacheTtlMs, async (): Promise<DailyRow[]> => {
+    const [metadata, tasks] = await Promise.all([
+      loadTaskMetadata(),
+      client.getListTasks(config.listId, dailyTaskQuery)
+    ]);
+    return loadSquadsRows(tasks, metadata.value.taskTypeMap, (id) => client.getTask(id));
   });
 
   const loadSprintPlanning = createCachedLoader(
@@ -1565,6 +1688,9 @@ export function createClickUpReadService(config: ClickUpReadServiceConfig): Clic
   return {
     async getListInfo() {
       return runLogicalRead("list", loadListInfo, () => 1);
+    },
+    async getSquadsRows() {
+      return runLogicalRead("daily", loadSquads, (rows) => rows.length);
     },
     async getDailyRows() {
       return runLogicalRead("daily", loadDaily, (rows) => rows.length);

@@ -1,6 +1,7 @@
 export type ClickUpTokenSource = "session" | "none";
 
 export interface ClickUpStatusPayload {
+  type?: string | null;
   color?: string | null;
   status?: string | null;
 }
@@ -47,6 +48,7 @@ export interface ClickUpTaskPayload {
   custom_fields?: ClickUpCustomFieldPayload[];
   time_estimate?: number | string | null;
   time_spent?: number | string | null;
+  linked_tasks?: Array<{ task_id?: string | null; link_id?: string | null }>;
   subtasks?: ClickUpTaskPayload[];
   url?: string | null;
 }
