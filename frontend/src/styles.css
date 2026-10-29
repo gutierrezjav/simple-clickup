@@ -1424,16 +1424,22 @@ input {
 }
 
 .daily-board {
-  display: grid;
-  gap: 10px;
-  min-width: var(--daily-board-min-width, 1600px);
+  min-width: 0;
 }
 
-.daily-board__header {
+.daily-board__header-viewport {
   position: sticky;
   top: 0;
   z-index: 3;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: rgba(245, 247, 251, 0.88);
+  backdrop-filter: blur(10px);
+}
+
+.daily-board__header {
   display: grid;
+  width: var(--daily-board-min-width, 1600px);
   grid-template-columns: var(
     --daily-grid-columns,
     228px repeat(var(--daily-status-count, 6), minmax(206px, 1fr))
@@ -1560,6 +1566,7 @@ input {
 .daily-board__body {
   display: grid;
   gap: 10px;
+  min-width: var(--daily-board-min-width, 1600px);
 }
 
 .daily-swimlane {

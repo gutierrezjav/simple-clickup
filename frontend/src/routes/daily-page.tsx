@@ -6,7 +6,7 @@ import {
   type DailyRow,
   type StoryStatusDiscrepancyReport
 } from "@custom-clickup/shared";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { DailyCard } from "../components/daily/daily-card";
 import { ResourceState } from "../components/resource-state";
 import { RouteLoadingIndicator } from "../components/route-loading-indicator";
@@ -300,7 +300,8 @@ function renderDailyGrid({
   onToggleStatus,
   rows,
   statusCollapseOverrides,
-  variant
+  variant,
+  headerContentRef
 }: {
   counts: DailyBoardCounts;
   filtersActive: boolean;
@@ -309,6 +310,7 @@ function renderDailyGrid({
   rows: ReturnType<typeof filterDailyBoard>["rows"];
   statusCollapseOverrides: StatusCollapseOverrides;
   variant: "daily" | "squads";
+  headerContentRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const visibleStatuses = new Set(getVisibleDailyStatuses(rows));
   const swimlaneWidth = 228;
@@ -350,9 +352,9 @@ function renderDailyGrid({
   }
 
   return (
-    <div className="table-scroll table-scroll--board">
-      <div className="daily-board" style={dailyBoardStyle}>
-        <div className="daily-board__header">
+    <div className="daily-board" style={dailyBoardStyle}>
+        <div className="daily-board__header-viewport">
+          <div className="daily-board__header" ref={headerContentRef}>
           <div className="daily-board__header-label">Swimlane</div>
           {dailyStatuses.map((status) => {
             const collapsed = isStatusCollapsed(status);
@@ -373,7 +375,16 @@ function renderDailyGrid({
               />
             );
           })}
+          </div>
         </div>
+        <div
+          className="table-scroll table-scroll--board"
+          onScroll={(event) => {
+            if (headerContentRef.current) {
+              headerContentRef.current.style.transform = `translateX(-${event.currentTarget.scrollLeft}px)`;
+            }
+          }}
+        >
         <div className="daily-board__body">
           {expandedRows.map((row) => {
             return (
@@ -411,7 +422,7 @@ function renderDailyGrid({
             );
           })}
         </div>
-      </div>
+        </div>
     </div>
   );
 }
@@ -519,6 +530,7 @@ export function DailyPage({
   loader = fetchDailyPageData,
   storyStatusLoader = fetchStoryStatusDiscrepancyReportData
 }: DailyPageProps) {
+  const headerContentRef = useRef<HTMLDivElement>(null);
   const { data, error, isLoading, isRefreshing, refresh } = useResourceLoader(loader);
   const [isStoryStatusWarningDismissed, setIsStoryStatusWarningDismissed] = useState(false);
   const [meetingRound, setMeetingRound] = useState<DailyMeetingRound | null>(null);
@@ -741,7 +753,8 @@ export function DailyPage({
         onToggleStatus: handleToggleStatus,
         rows: filteredBoard.rows,
         statusCollapseOverrides,
-        variant
+        variant,
+        headerContentRef
       })}
     </div>
   );
