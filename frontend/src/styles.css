@@ -1439,7 +1439,8 @@ input {
 
 .daily-board__header {
   display: grid;
-  width: var(--daily-board-min-width, 1600px);
+  width: 100%;
+  min-width: var(--daily-board-min-width, 1600px);
   grid-template-columns: var(
     --daily-grid-columns,
     228px repeat(var(--daily-status-count, 6), minmax(206px, 1fr))
