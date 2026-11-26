@@ -1619,6 +1619,11 @@ input {
   --squad-header-text: #18794e;
 }
 
+.squads-group-toggle--outside {
+  --squad-header-background: #4b5563;
+  --squad-header-text: #fff;
+}
+
 .squads-group-toggle:hover {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 24%, transparent);
 }
@@ -1626,6 +1631,10 @@ input {
 .squads-group-toggle:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
+}
+
+.squads-group-toggle--outside:focus-visible {
+  outline-color: currentColor;
 }
 
 .squads-group-toggle span {

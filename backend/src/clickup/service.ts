@@ -435,7 +435,7 @@ export async function loadSquadsRows(
       : task);
   }
   const linkedTasks = new Map<string, ClickUpTaskPayload>();
-  const ids = new Set(buildSquadsRows(hydratedTasks, taskTypeMap)
+  const ids = new Set(buildSquadsRows(hydratedTasks, taskTypeMap, new Map(), false)
     .filter(row => row.type === "epic").map(row => row.id));
   for (const task of hydratedTasks) {
     if (!isSquadsEpicCandidate(task, taskTypeMap)) continue;
@@ -451,7 +451,8 @@ export async function loadSquadsRows(
 export function buildSquadsRows(
   tasks: ClickUpTaskPayload[],
   taskTypeMap: Map<number, string>,
-  linkedTasks: ReadonlyMap<string, ClickUpTaskPayload> = new Map()
+  linkedTasks: ReadonlyMap<string, ClickUpTaskPayload> = new Map(),
+  filterEpics = true
 ): DailyRow[] {
   const rows = new Map<string, DailyRow>();
   const groupedCardIds = new Set<string>();
@@ -512,9 +513,12 @@ export function buildSquadsRows(
   }
   const visibleEpicRows = [...rows.values()].filter(row => {
     if (row.type !== "epic") return true;
-    const status = linkedTasks.get(row.id)?.status;
+    if (!filterEpics) return true;
+    const epic = linkedTasks.get(row.id);
+    const status = epic?.status;
     const statusType = typeof status === "object" && status !== null ? status.type : undefined;
-    return normalizeStatus(status) !== "CLOSED" && statusType?.toLowerCase() !== "closed";
+    return Boolean(row.squad && epic?.due_date) &&
+      normalizeStatus(status) !== "CLOSED" && statusType?.toLowerCase() !== "closed";
   });
   return [...visibleEpicRows, ...standalone];
 }
