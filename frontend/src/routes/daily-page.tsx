@@ -401,7 +401,7 @@ function renderDailyGrid({
                   <h3 className="squads-group-heading">
                     <button
                       aria-expanded={!squadCollapsed}
-                      className="squads-group-toggle"
+                      className={`squads-group-toggle${row.squad ? "" : " squads-group-toggle--outside"}`}
                       data-squad-color={row.squadColor?.toLowerCase()}
                       onClick={() => onToggleSquad(row.squad)}
                       style={row.squadColor ? { "--squad-option-color": row.squadColor } as CSSProperties : undefined}

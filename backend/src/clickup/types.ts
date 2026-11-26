@@ -41,6 +41,7 @@ export interface ClickUpTaskPayload {
   custom_item_id?: number | null;
   name?: string | null;
   orderindex?: string | null;
+  due_date?: string | number | null;
   parent?: string | null;
   status?: ClickUpStatusPayload | string | null;
   assignees?: ClickUpUserPayload[];

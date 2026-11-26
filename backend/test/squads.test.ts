@@ -3,6 +3,11 @@ import { buildSquadsRows, loadSquadsRows } from "../src/clickup/service.js";
 import type { ClickUpTaskPayload } from "../src/clickup/types.js";
 
 const types = new Map([[1004, "User Story"], [1005, "Epic"], [1, "Task"], [2, "Bug"]]);
+const eligibleEpic: ClickUpTaskPayload = {
+  id: "epic", custom_item_id: 1005, due_date: "1900000000000",
+  custom_fields: [{ name: "Squads", value: { name: "Saentis" } }]
+};
+const eligibleEpics = new Map([["epic", eligibleEpic]]);
 const story = (id: string, status = "in progress", linked = true): ClickUpTaskPayload => ({
   id, name: id, custom_item_id: 1004, status,
   custom_fields: linked ? [{ type: "list_relationship", name: "Roadmap", value: [
@@ -18,7 +23,7 @@ describe("Squads board", () => {
       { id: "child", parent: "active", status: "in progress" },
       { id: "task", custom_item_id: 1, status: "in code review" },
       { id: "bug", custom_item_id: 2, status: "blocked" }
-    ], types);
+    ], types, eligibleEpics);
     expect(rows.map(row => [row.title, row.cards.map(card => card.id)])).toEqual([
       ["Quad Support", ["active"]], ["No Epic", ["unlinked"]],
       ["Tasks", ["task"]], ["Bugs", ["bug"]]
@@ -33,8 +38,8 @@ describe("Squads board", () => {
       { id: "deleted", custom_type: 1005, deleted: true },
       { id: "other-story", custom_type: 1004 }
     ];
-    expect(buildSquadsRows([task], types).filter(row => row.cards.length)).toHaveLength(1);
-    expect(buildSquadsRows([task], types)[0]!.cards).toHaveLength(1);
+    expect(buildSquadsRows([task], types, eligibleEpics).filter(row => row.cards.length)).toHaveLength(1);
+    expect(buildSquadsRows([task], types, eligibleEpics)[0]!.cards).toHaveLength(1);
   });
 });
 
@@ -43,7 +48,7 @@ describe("Squads relationships and epic metadata", () => {
   it("uses either direction of ordinary task links, deduplicates roadmap links, and reads epic priority and squad", async () => {
     const first = story("first");
     const second = story("second", "in progress", false);
-    const epic: ClickUpTaskPayload = { id: "epic", name: "Epic title", custom_item_id: 1005,
+    const epic: ClickUpTaskPayload = { ...eligibleEpic, name: "Epic title",
       assignees: [{ username: "Epic Owner", profilePicture: "https://example.com/avatar.png" }],
       custom_fields: [
         { name: "Prio score", value: "2" },
@@ -85,7 +90,7 @@ describe("Standalone work with epics", () => {
       task, bug, { ...story("unlinked-task", "in progress", false), custom_item_id: 1 },
       { ...story("unlinked-bug", "in progress", false), custom_item_id: 2 },
       story("parent"), { ...task, id: "story-child", parent: "parent" }
-    ], types);
+    ], types, eligibleEpics);
     expect(rows.map(row => [row.type, row.cards.map(card => card.id)])).toEqual([
       ["epic", ["battery", "bug", "parent"]], ["tasks", ["unlinked-task"]], ["bugs", ["unlinked-bug"]]
     ]);
@@ -95,7 +100,7 @@ describe("Standalone work with epics", () => {
     const task: ClickUpTaskPayload = { id: "battery", name: "Improve battery estimates", status: "in progress" };
     const getTask = vi.fn(async (id: string): Promise<ClickUpTaskPayload> => id === "battery"
       ? { ...task, linked_tasks: [{ task_id: "epic", link_id: "battery" }] }
-      : { id: "epic", name: "Battery epic", custom_item_id: 1005 });
+      : { ...eligibleEpic, name: "Battery epic" });
     const rows = await loadSquadsRows([task], types, getTask);
     expect(rows.filter(row => row.cards.length).map(row => [row.type, row.title, row.cards.map(card => card.id)]))
       .toEqual([["epic", "Battery epic", ["battery"]]]);
@@ -110,7 +115,7 @@ describe("Closed epics", () => {
       const linkedTask: ClickUpTaskPayload = { id: "linked-task", status: "in progress",
         linked_tasks: [{ task_id: "epic", link_id: "linked-task" }] };
       const getTask = vi.fn(async (): Promise<ClickUpTaskPayload> => ({
-        id: "epic", name: "Closed epic", custom_item_id: 1005, status
+        ...eligibleEpic, name: "Closed epic", status
       }));
       const rows = await loadSquadsRows([roadmapStory, linkedTask], types, getTask);
       expect(rows.filter(row => row.cards.length)).toEqual([]);
@@ -122,10 +127,24 @@ describe("Closed epics", () => {
     const task = story("active");
     task.linked_tasks = [{ task_id: "active", link_id: "open-epic" }];
     const epics = new Map<string, ClickUpTaskPayload>([
-      ["epic", { id: "epic", custom_item_id: 1005, status: "Closed" }],
-      ["open-epic", { id: "open-epic", name: "Open epic", custom_item_id: 1005, status: "in progress" }]
+      ["epic", { ...eligibleEpic, status: "Closed" }],
+      ["open-epic", { ...eligibleEpic, id: "open-epic", name: "Open epic", status: "in progress" }]
     ]);
     const rows = buildSquadsRows([task], types, epics);
     expect(rows.filter(row => row.cards.length).map(row => row.id)).toEqual(["open-epic"]);
+  });
+});
+
+describe("Epic squad and due date", () => {
+  it.each([
+    ["both fields", eligibleEpic, true],
+    ["no squad", { ...eligibleEpic, custom_fields: [] }, false],
+    ["no due date", { ...eligibleEpic, due_date: null }, false],
+    ["neither field", { id: "epic", custom_item_id: 1005 }, false]
+  ])("handles %s", (_description, epic, visible) => {
+    const rows = buildSquadsRows([story("linked"), story("unlinked", "in progress", false)], types,
+      new Map([["epic", epic]]));
+    expect(rows.some(row => row.id === "epic")).toBe(visible);
+    expect(rows.find(row => row.id === "no-epic")?.cards.map(card => card.id)).toEqual(["unlinked"]);
   });
 });
