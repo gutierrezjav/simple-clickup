@@ -14,6 +14,19 @@ describe("Squads row layout", () => {
     expect(sortSquadsRows(rows).map(row => row.id)).toEqual(["high", "low", "unset", "mix", "tasks", "bugs"]);
   });
 
+  it("keeps epics together by squad, with unassigned epics after named squads", () => {
+    const rows = [
+      { ...row("fw-high", "epic", 1), squad: "FW" },
+      { ...row("data-low", "epic", 5), squad: "Data & AI" },
+      row("unassigned", "epic", 0),
+      row("mix", "mix"),
+      { ...row("data-high", "epic", 2), squad: "Data & AI" },
+      { ...row("fw-low", "epic", 4), squad: "FW" }
+    ];
+    expect(sortSquadsRows(rows).map(row => row.id))
+      .toEqual(["data-high", "data-low", "fw-high", "fw-low", "unassigned", "mix"]);
+  });
+
   it("hides epic rows with no expanded cards and restores them when a column opens", () => {
     const rows = [row("staging", "epic"), row("active", "epic"), row("mix", "mix"), row("tasks", "tasks"), row("bugs", "bugs")];
     rows[1]!.cards.push({ id: "active", customId: "active", title: "Active", status: "IN PROGRESS" });

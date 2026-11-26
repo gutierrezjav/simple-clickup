@@ -490,6 +490,10 @@ export function buildSquadsRows(
         if (avatarUrl) row.assigneeAvatarUrl = avatarUrl;
         const prioScore = parseNumberField(getCustomField(epic, "Prio score"));
         if (prioScore !== undefined) row.prioScore = prioScore;
+        const squadField = getCustomField(epic, "Squads") ?? getCustomField(epic, "Squad");
+        const squad = resolveDropdownOption(squadField?.value, [squadField]);
+        if (squad) row.squad = squad.value;
+        if (squad?.color) row.squadColor = squad.color;
       }
       const card = toDailyCard(task);
       row.cards.push(card);

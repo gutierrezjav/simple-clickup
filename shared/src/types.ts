@@ -43,6 +43,8 @@ export interface DailyRow {
   id: string;
   title: string;
   type: "story" | "tasks" | "bugs" | "epic" | "mix";
+  squad?: string;
+  squadColor?: string;
   prioScore?: number;
   assignee?: string;
   assigneeAvatarUrl?: string;
