@@ -6,7 +6,7 @@ import {
   type DailyRow,
   type StoryStatusDiscrepancyReport
 } from "@custom-clickup/shared";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { Fragment, useEffect, useRef, useState, type CSSProperties } from "react";
 import { DailyCard } from "../components/daily/daily-card";
 import { ResourceState } from "../components/resource-state";
 import { RouteLoadingIndicator } from "../components/route-loading-indicator";
@@ -294,18 +294,22 @@ function getDailyErrorTone(error: Error | null | undefined): "warning" | "error"
 }
 
 function renderDailyGrid({
+  collapsedSquads,
   counts,
   filtersActive,
   onClearFilters,
+  onToggleSquad,
   onToggleStatus,
   rows,
   statusCollapseOverrides,
   variant,
   headerContentRef
 }: {
+  collapsedSquads: ReadonlySet<string | undefined>;
   counts: DailyBoardCounts;
   filtersActive: boolean;
   onClearFilters: () => void;
+  onToggleSquad: (squad: string | undefined) => void;
   onToggleStatus: (status: DailyStatus, collapsed: boolean) => void;
   rows: ReturnType<typeof filterDailyBoard>["rows"];
   statusCollapseOverrides: StatusCollapseOverrides;
@@ -386,39 +390,59 @@ function renderDailyGrid({
           }}
         >
         <div className="daily-board__body">
-          {expandedRows.map((row) => {
-            return (
-              <section className={`daily-swimlane daily-swimlane--${row.type}`} key={row.id}>
-                <div className="daily-swimlane__header">
-                  <div className="daily-swimlane__header-top">
-                    {renderSwimlaneHeaderLead(row)}
-                    {typeof row.prioScore === "number" ? (
-                      <span className="daily-swimlane__prio">Prio {row.prioScore}</span>
-                    ) : null}
-                  </div>
-                  <strong className="daily-swimlane__title">{renderSwimlaneTitle(row)}</strong>
-                </div>
-                {dailyStatuses.map((status) => {
-                  const collapsed = isStatusCollapsed(status);
+          {expandedRows.map((row, index) => {
+            const previousRow = expandedRows[index - 1];
+            const startsSquad = variant === "squads" && (!previousRow || previousRow.squad !== row.squad);
+            const squadCollapsed = variant === "squads" && collapsedSquads.has(row.squad);
 
-                  return (
-                    <div
-                      className="daily-column"
-                      data-collapsed={collapsed ? "true" : "false"}
-                      data-status={status}
-                      key={`${row.id}-${status}`}
+            return (
+              <Fragment key={row.id}>
+                {startsSquad && (
+                  <h3 className="squads-group-heading">
+                    <button
+                      aria-expanded={!squadCollapsed}
+                      className="squads-group-toggle"
+                      data-squad-color={row.squadColor?.toLowerCase()}
+                      onClick={() => onToggleSquad(row.squad)}
+                      style={row.squadColor ? { "--squad-option-color": row.squadColor } as CSSProperties : undefined}
+                      type="button"
                     >
-                      {collapsed
-                        ? null
-                        : row.cards
-                            .filter((card) => card.status === status)
-                            .map((card) => (
-                              <DailyCard card={card} key={card.id} />
-                            ))}
+                      <span>{row.squad ?? "Outside of squads"}</span>
+                    </button>
+                  </h3>
+                )}
+                <section className={`daily-swimlane daily-swimlane--${row.type}`} hidden={squadCollapsed}>
+                  <div className="daily-swimlane__header">
+                    <div className="daily-swimlane__header-top">
+                      {renderSwimlaneHeaderLead(row)}
+                      {typeof row.prioScore === "number" ? (
+                        <span className="daily-swimlane__prio">Prio {row.prioScore}</span>
+                      ) : null}
                     </div>
-                  );
-                })}
-              </section>
+                    <strong className="daily-swimlane__title">{renderSwimlaneTitle(row)}</strong>
+                  </div>
+                  {dailyStatuses.map((status) => {
+                    const collapsed = isStatusCollapsed(status);
+
+                    return (
+                      <div
+                        className="daily-column"
+                        data-collapsed={collapsed ? "true" : "false"}
+                        data-status={status}
+                        key={`${row.id}-${status}`}
+                      >
+                        {collapsed
+                          ? null
+                          : row.cards
+                              .filter((card) => card.status === status)
+                              .map((card) => (
+                                <DailyCard card={card} key={card.id} />
+                              ))}
+                      </div>
+                    );
+                  })}
+                </section>
+              </Fragment>
             );
           })}
         </div>
@@ -540,6 +564,7 @@ export function DailyPage({
     assignee: ""
   });
   const [statusCollapseOverrides, setStatusCollapseOverrides] = useState<StatusCollapseOverrides>({});
+  const [collapsedSquads, setCollapsedSquads] = useState<ReadonlySet<string | undefined>>(() => new Set());
   const sortedRows = data ? (variant === "squads" ? sortSquadsRows(data.rows) : sortDailyRows(data.rows)) : [];
   const filteredBoard = filterDailyBoard(sortedRows, filters);
   const dailyMeetingConfig = data?.dailyMeeting ?? defaultDailyMeetingConfig;
@@ -618,6 +643,14 @@ export function DailyPage({
     setFilters({
       search: "",
       assignee: ""
+    });
+  }
+
+  function handleToggleSquad(squad: string | undefined) {
+    setCollapsedSquads((previous) => {
+      const next = new Set(previous);
+      if (!next.delete(squad)) next.add(squad);
+      return next;
     });
   }
 
@@ -747,9 +780,11 @@ export function DailyPage({
         />
       ) : null}
       {renderDailyGrid({
+        collapsedSquads,
         counts: filteredBoard.counts,
         filtersActive: filteredBoard.filtersActive,
         onClearFilters: handleClearFilters,
+        onToggleSquad: handleToggleSquad,
         onToggleStatus: handleToggleStatus,
         rows: filteredBoard.rows,
         statusCollapseOverrides,

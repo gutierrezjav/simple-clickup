@@ -40,20 +40,24 @@ describe("Squads board", () => {
 
 
 describe("Squads relationships and epic metadata", () => {
-  it("uses either direction of ordinary task links, deduplicates roadmap links, and uses epic priority", async () => {
+  it("uses either direction of ordinary task links, deduplicates roadmap links, and reads epic priority and squad", async () => {
     const first = story("first");
     const second = story("second", "in progress", false);
     const epic: ClickUpTaskPayload = { id: "epic", name: "Epic title", custom_item_id: 1005,
       assignees: [{ username: "Epic Owner", profilePicture: "https://example.com/avatar.png" }],
-      custom_fields: [{ name: "Prio score", value: "2" }] };
+      custom_fields: [
+        { name: "Prio score", value: "2" },
+        { name: "Squads", type: "drop_down", value: 0,
+          type_config: { options: [{ id: "saentis", name: "Saentis", orderindex: 0, color: "#b6b6ff" }] } }
+      ] };
     const getTask = vi.fn(async (id: string): Promise<ClickUpTaskPayload> => {
       if (id === "epic") return epic;
       if (id === "first") return { ...first, linked_tasks: [{ task_id: "first", link_id: "epic" }] };
       return { ...second, linked_tasks: [{ task_id: "epic", link_id: "second" }] };
     });
     const rows = await loadSquadsRows([first, second], types, getTask);
-    expect(rows[0]).toMatchObject({ id: "epic", title: "Epic title", prioScore: 2,
-      assignee: "Epic Owner", assigneeAvatarUrl: "https://example.com/avatar.png" });
+    expect(rows[0]).toMatchObject({ id: "epic", title: "Epic title", prioScore: 2, squad: "Saentis",
+      squadColor: "#b6b6ff", assignee: "Epic Owner", assigneeAvatarUrl: "https://example.com/avatar.png" });
     expect(rows[0]!.cards.map(card => card.id)).toEqual(["first", "second"]);
     expect(getTask.mock.calls.filter(([id]) => id === "epic")).toHaveLength(1);
   });
